@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>测试</title></head>
+<body>
+<div id="app">
+    <h1>Vue测试: {{ message }}</h1>
+</div>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref } = Vue
+createApp({
+    setup() {
+        return { message: ref('成功加载!') }
+    }
+}).mount('#app')
+</script>
+</body>
+</html>

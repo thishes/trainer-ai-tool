@@ -1,0 +1,62 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import Login from '../views/Login.vue'
+import Dashboard from '../views/Dashboard.vue'
+import PaperQuestions from '../views/PaperQuestions.vue'
+import Exam from '../views/Exam.vue'
+import ExamResult from '../views/ExamResult.vue'
+
+const routes = [
+  {
+    path: '/',
+    redirect: '/login'
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard
+  },
+  {
+    path: '/paper/:id/questions',
+    name: 'PaperQuestions',
+    component: PaperQuestions
+  },
+  {
+    path: '/exam/:id',
+    name: 'Exam',
+    component: Exam
+  },
+  {
+    path: '/exam/result/:id',
+    name: 'ExamResult',
+    component: ExamResult
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  if (to.path === '/login') {
+    if (token) {
+      next('/dashboard')
+    } else {
+      next()
+    }
+  } else {
+    if (!token) {
+      next('/login')
+    } else {
+      next()
+    }
+  }
+})
+
+export default router

@@ -1,0 +1,1158 @@
+<template>
+  <div class="dashboard toutiao-layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="brand-text">AI考试</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item" :class="{ active: activeTab === 'questions' }" @click="switchTab('questions')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+          <span>题库管理</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === 'papers' }" @click="switchTab('papers')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>试卷管理</span>
+        </div>
+        <div class="nav-item" :class="{ active: activeTab === 'screen' }" @click="switchTab('screen')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>考试数据</span>
+        </div>
+        <div v-if="user?.role === 'admin'" class="nav-item" :class="{ active: activeTab === 'users' }" @click="switchTab('users')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>用户管理</span>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar">{{ user?.username?.charAt(0).toUpperCase() }}</div>
+          <div class="user-info">
+            <div class="user-name">{{ user?.username }}</div>
+            <div class="user-role">{{ user?.role === 'admin' ? '管理员' : '培训师' }}</div>
+          </div>
+        </div>
+        <a-button type="text" size="small" @click="handleLogout" class="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </a-button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div v-show="activeTab === 'questions'" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">题库管理</h1>
+          <p class="page-desc">管理考试题目，支持单选、多选、判断等题型</p>
+        </div>
+        <div class="toolbar">
+          <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
+          <a-button @click="showImportDialog = true">批量导入</a-button>
+          <a-input v-model="questionSearch" placeholder="搜索题目..." style="width: 180px" />
+        </div>
+        <a-card class="content-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">ID</th>
+                <th>题目内容</th>
+                <th width="80">类型</th>
+                <th width="80">难度</th>
+                <th width="60">分值</th>
+                <th width="120">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="q in questions" :key="q.id">
+                <td>{{ q.id }}</td>
+                <td class="title-cell">{{ q.title }}</td>
+                <td>
+                  <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
+                  <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
+                  <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
+                  <span v-else class="tag tag-green">问答</span>
+                </td>
+                <td>
+                  <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
+                  <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
+                  <span v-else class="tag tag-red">困难</span>
+                </td>
+                <td>{{ q.score }}</td>
+                <td>
+                  <a-link @click="editQuestion(q)">编辑</a-link>
+                  <a-divider direction="vertical" />
+                  <a-link status="danger" @click="deleteQuestionAction(q.id)">删除</a-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </a-card>
+      </div>
+
+      <div v-show="activeTab === 'papers'" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">试卷管理</h1>
+          <p class="page-desc">创建和管理考试试卷，支持手动选题和随机组卷</p>
+        </div>
+        <div class="toolbar">
+          <a-button type="primary" @click="showPaperDialog = true">+ 新建试卷</a-button>
+          <a-button @click="showRandomDialog = true">随机组卷</a-button>
+        </div>
+        <a-card class="content-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">ID</th>
+                <th>试卷标题</th>
+                <th width="80">总分</th>
+                <th width="80">时限</th>
+                <th width="80">状态</th>
+                <th width="100">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in papers" :key="p.id">
+                <td>{{ p.id }}</td>
+                <td class="title-cell">{{ p.title }}</td>
+                <td>{{ p.total_score || 0 }}分</td>
+                <td>{{ p.time_limit }}分钟</td>
+                <td>
+                  <span v-if="p.status === 'published'" class="tag tag-green">已发布</span>
+                  <span v-else class="tag tag-gray">草稿</span>
+                </td>
+                <td>
+                  <div class="action-group">
+                    <a-dropdown trigger="click" @click="togglePaperMenu(p)" :popup-visible="p._showMenu">
+                      <a-button size="mini" type="text">
+                        更多 <icon-down />
+                      </a-button>
+                      <template #content>
+                        <a-doption @click="handlePaperCommand('questions', p); p._showMenu = false">题目管理</a-doption>
+                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('url', p); p._showMenu = false">考试地址</a-doption>
+                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('records', p); p._showMenu = false">查看记录</a-doption>
+                        <a-doption v-if="p.status !== 'published'" @click="handlePaperCommand('publish', p); p._showMenu = false">发布试卷</a-doption>
+                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('unpublish', p); p._showMenu = false">取消发布</a-doption>
+                        <a-doption @click="handlePaperCommand('edit', p); p._showMenu = false">编辑试卷</a-doption>
+                        <a-doption danger @click="handlePaperCommand('delete', p); p._showMenu = false">删除试卷</a-doption>
+                      </template>
+                    </a-dropdown>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </a-card>
+      </div>
+
+      <div v-show="activeTab === 'screen'" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">考试数据</h1>
+          <p class="page-desc">实时查看考试统计数据和学员排名</p>
+        </div>
+        <div class="toolbar">
+          <a-select v-model="selectedPaper" placeholder="选择试卷查看数据" style="width: 240px" @change="loadStats" :disabled="publishedPapers.length === 0">
+            <a-option v-for="p in publishedPapers" :key="p.id" :label="p.title" :value="p.id" />
+          </a-select>
+        </div>
+        <div v-if="!selectedPaper" class="empty-state">
+          <a-empty description="请选择试卷查看考试数据" />
+        </div>
+        <template v-else-if="stats">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon total"><icon-user /></div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.total_submitted || 0 }}</div>
+                <div class="stat-label">提交人数</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon avg"><icon-dashboard /></div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.avg_score || 0 }}</div>
+                <div class="stat-label">平均分</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon pass"><icon-check-circle /></div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.pass_rate || 0 }}%</div>
+                <div class="stat-label">及格率</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon top"><icon-trophy /></div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.ranking?.[0]?.score || '-' }}</div>
+                <div class="stat-label">最高分</div>
+              </div>
+            </div>
+          </div>
+          <div class="data-grid">
+            <a-card class="chart-card" v-if="stats.distribution?.length">
+              <template #header>
+                <span class="card-title"><icon-bar-chart /> 分数分布</span>
+              </template>
+              <div class="distribution-bars">
+                <div v-for="d in stats.distribution" :key="d.range" class="dist-item">
+                  <div class="dist-label">{{ d.range }}</div>
+                  <div class="dist-bar-wrapper">
+                    <div class="dist-bar" :style="{ width: stats.total_submitted ? (d.count / stats.total_submitted * 100) + '%' : '0%', backgroundColor: getDistBgColor(d.range) }"></div>
+                  </div>
+                  <div class="dist-count">{{ d.count }}人</div>
+                </div>
+              </div>
+            </a-card>
+            <a-card class="rank-card" v-if="stats.ranking?.length">
+              <template #header>
+                <span class="card-title"><icon-robot /> 实时排名</span>
+                <a-tag type="success" size="small">Top {{ stats.ranking.length }}</a-tag>
+              </template>
+              <table class="data-table ranking-table">
+                <thead>
+                  <tr>
+                    <th width="60">排名</th>
+                    <th>学员</th>
+                    <th width="60">分数</th>
+                    <th width="140">交卷时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="r in stats.ranking" :key="r.rank">
+                    <td align="center">
+                      <span class="rank-badge" :class="{ gold: r.rank === 1, silver: r.rank === 2, bronze: r.rank === 3 }">{{ r.rank }}</span>
+                    </td>
+                    <td>{{ r.student_name }}</td>
+                    <td align="center">
+                      <span class="score-tag" :class="{ high: r.score >= 90, mid: r.score >= 70, low: r.score < 60 }">{{ r.score }}</span>
+                    </td>
+                    <td>{{ formatTime(r.end_time) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </a-card>
+          </div>
+        </template>
+      </div>
+
+      <div v-show="activeTab === 'users'" v-if="user?.role === 'admin'" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">用户管理</h1>
+          <p class="page-desc">管理系统用户和权限</p>
+        </div>
+        <div class="toolbar">
+          <a-button type="primary" @click="showUserDialog = true; editingUser = null; userForm = { username: '', password: '', phone: '', role: 'trainer' }">+ 新建用户</a-button>
+          <a-input v-model="userSearch" placeholder="搜索用户..." style="width: 180px" @input="loadUsers" />
+        </div>
+        <a-card class="content-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">ID</th>
+                <th>用户名</th>
+                <th width="120">手机号</th>
+                <th width="100">角色</th>
+                <th width="80">状态</th>
+                <th width="160">创建时间</th>
+                <th width="150">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="u in userList" :key="u.id">
+                <td>{{ u.id }}</td>
+                <td>{{ u.username }}</td>
+                <td>{{ u.phone || '-' }}</td>
+                <td>
+                  <span :class="u.role === 'admin' ? 'tag tag-red' : 'tag tag-blue'">{{ u.role === 'admin' ? '管理员' : '培训师' }}</span>
+                </td>
+                <td>
+                  <span :class="u.status === 'locked' ? 'tag tag-red' : 'tag tag-green'">{{ u.status === 'locked' ? '已锁定' : '正常' }}</span>
+                </td>
+                <td>{{ u.created_at ? new Date(u.created_at).toLocaleString() : '-' }}</td>
+                <td>
+                  <a-link @click="editUser(u)">编辑</a-link>
+                  <a-divider direction="vertical" />
+                  <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
+                  <a-divider direction="vertical" />
+                  <a-link status="danger" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </a-card>
+      </div>
+    </main>
+
+    <a-modal v-model:visible="showQuestionDialog" :title="editingQuestion ? '编辑题目' : '新建题目'" :width="600" @before-ok="saveQuestion" @cancel="showQuestionDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
+      <a-form :model="questionForm" layout="vertical" :label-col-props="{ span: 6 }" :wrapper-col-props="{ span: 18 }">
+        <a-form-item label="题目内容">
+          <a-textarea v-model="questionForm.title" :rows="3" />
+        </a-form-item>
+        <a-form-item label="题目类型">
+          <a-select v-model="questionForm.type">
+            <a-option value="single">单选题</a-option>
+            <a-option value="multiple">多选题</a-option>
+            <a-option value="judge">判断题</a-option>
+            <a-option value="essay">问答题</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="难度">
+          <a-select v-model="questionForm.difficulty">
+            <a-option value="easy">简单</a-option>
+            <a-option value="medium">中等</a-option>
+            <a-option value="hard">困难</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="分值">
+          <a-input-number v-model="questionForm.score" :min="1" :max="100" />
+        </a-form-item>
+        <template v-if="questionForm.type !== 'essay'">
+          <a-form-item label="选项">
+            <div v-for="(opt, idx) in questionForm.options" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
+              <a-input v-model="opt.key" style="width: 60px" />
+              <a-input v-model="opt.value" placeholder="选项内容" />
+            </div>
+            <a-button type="text" @click="questionForm.options.push({ key: String.fromCharCode(65 + questionForm.options.length), value: '' })">+ 添加选项</a-button>
+          </a-form-item>
+          <a-form-item label="正确答案">
+            <a-input v-if="questionForm.type === 'single' || questionForm.type === 'judge'" v-model="questionForm.answer" placeholder="输入选项key如 A" />
+            <a-input v-else v-model="questionForm.answer" placeholder="多选请用逗号分隔如 A,B" />
+          </a-form-item>
+        </template>
+        <a-form-item label="答案解析">
+          <a-textarea v-model="questionForm.explanation" :rows="2" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:visible="showPaperDialog" :title="editingPaper ? '编辑试卷' : '新建试卷'" :width="700" @before-ok="createNewPaper" @cancel="showPaperDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
+      <a-form :model="paperForm" layout="vertical">
+        <a-form-item label="试卷标题" required>
+          <a-input v-model="paperForm.title" placeholder="请输入试卷标题" />
+        </a-form-item>
+        <a-form-item label="试卷描述">
+          <a-textarea v-model="paperForm.description" :rows="2" />
+        </a-form-item>
+        <a-form-item label="时间限制">
+          <a-input-number v-model="paperForm.time_limit" :min="1" :max="300" />
+          <span style="margin-left: 8px">分钟</span>
+        </a-form-item>
+        <a-form-item label="选项">
+          <a-checkbox v-model="paperForm.shuffle">打乱题目顺序</a-checkbox>
+          <a-checkbox v-model="paperForm.show_score">显示分数</a-checkbox>
+          <a-checkbox v-model="paperForm.show_answer">显示答案</a-checkbox>
+        </a-form-item>
+        <a-form-item label="访问码">
+          <a-input v-model="paperForm.access_code" placeholder="可选，设置访问码" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:visible="showRandomDialog" title="随机组卷" :width="500" @before-ok="createRandomPaper" @cancel="showRandomDialog = false" :ok-text="'创建'" :cancel-text="'取消'">
+      <a-form :model="randomForm" layout="vertical">
+        <a-form-item label="试卷标题" required>
+          <a-input v-model="randomForm.title" placeholder="请输入试卷标题" />
+        </a-form-item>
+        <a-form-item label="题目数量">
+          <a-input-number v-model="randomForm.count" :min="1" :max="100" />
+        </a-form-item>
+        <a-form-item label="时间限制">
+          <a-input-number v-model="randomForm.time_limit" :min="1" :max="300" />
+          <span style="margin-left: 8px">分钟</span>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:visible="showUserDialog" :title="editingUser ? '编辑用户' : '新建用户'" :width="500" @before-ok="saveUser" @cancel="showUserDialog = false" :ok-text="'确定'" :cancel-text="'取消'">
+      <a-form :model="userForm" layout="vertical">
+        <a-form-item label="用户名">
+          <a-input v-model="userForm.username" :disabled="!!editingUser" />
+        </a-form-item>
+        <a-form-item label="密码" v-if="!editingUser">
+          <a-input-password v-model="userForm.password" />
+        </a-form-item>
+        <a-form-item label="手机号">
+          <a-input v-model="userForm.phone" />
+        </a-form-item>
+        <a-form-item label="角色">
+          <a-select v-model="userForm.role">
+            <a-option label="培训师" value="trainer" />
+            <a-option label="管理员" value="admin" />
+          </a-select>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:visible="showExamUrlDialog" title="考试地址" :width="360" @cancel="showExamUrlDialog = false" :footer="null">
+      <div v-if="examUrlData.access_url" class="exam-url-content">
+        <p class="url-tip">考生扫描二维码或复制链接参加考试</p>
+        <div class="qr-wrapper">
+          <img :src="'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(examUrlData.access_url)" alt="QR Code" />
+        </div>
+        <a-input :model-value="examUrlData.access_url" readonly style="width: 100%">
+          <template #append>
+            <a-button @click="copyUrl">复制</a-button>
+          </template>
+        </a-input>
+      </div>
+      <a-empty v-else description="暂无考试地址" />
+    </a-modal>
+
+    <a-modal v-model:visible="showRecordsDialog" title="考试记录" :width="800" @cancel="showRecordsDialog = false">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>学员</th>
+            <th width="80">分数</th>
+            <th width="100">状态</th>
+            <th width="160">交卷时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in examRecords" :key="r.id">
+            <td>{{ r.student_name }}</td>
+            <td>{{ r.score ?? '-' }}</td>
+            <td>
+              <span v-if="r.status === 'submitted'" class="tag tag-green">已提交</span>
+              <span v-else class="tag tag-gray">进行中</span>
+            </td>
+            <td>{{ r.end_time ? new Date(r.end_time).toLocaleString() : '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </a-modal>
+
+    <a-modal v-model:visible="showImportDialog" title="批量导入" :width="500" @cancel="showImportDialog = false" :footer="null">
+      <div style="text-align: center; padding: 20px 0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="color: var(--text-secondary); margin-bottom: 16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        <p>暂不支持批量导入功能</p>
+        <p style="color: var(--text-secondary); font-size: 13px">请使用单条新建题目</p>
+      </div>
+    </a-modal>
+  </div>
+</template>
+
+<script>
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { Message, Modal } from '@arco-design/web-vue'
+import {
+  IconUser, IconDashboard, IconCheckCircle, IconTrophy,
+  IconBarChart, IconRobot, IconDown
+} from '@arco-design/web-vue/es/icon'
+import {
+  getQuestions, createQuestion, updateQuestion, deleteQuestion,
+  getPapers, createPaper, updatePaper, deletePaper, publishPaper, unpublishPaper, createRandomPaper,
+  getExamStats, getPaperExamUrl, getExamRecords,
+  getUsers, createUser, updateUser, lockUser, deleteUser
+} from '@/api'
+
+export default {
+  name: 'Dashboard',
+  setup() {
+    const router = useRouter()
+    const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
+    const activeTab = ref('questions')
+
+    const switchTab = (tab) => {
+      closeAllPaperMenus()
+      activeTab.value = tab
+    }
+
+    const questions = ref([])
+    const questionSearch = ref('')
+    const showQuestionDialog = ref(false)
+    const showImportDialog = ref(false)
+    const editingQuestion = ref(null)
+    const questionForm = ref({
+      title: '', type: 'single', difficulty: 'medium', score: 10,
+      options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: ''
+    })
+
+    const papers = ref([])
+    const showPaperDialog = ref(false)
+    const showRandomDialog = ref(false)
+    const editingPaper = ref(null)
+    const randomForm = ref({ title: '', count: 10, time_limit: 60 })
+    const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '' })
+    const selectedQuestionIds = ref([])
+    const selectedQuestions = ref([])
+
+    const selectedPaper = ref(null)
+    const stats = ref({
+      ranking: [],
+      total_submitted: 0,
+      pass_rate: 0,
+      avg_score: 0,
+      distribution: [],
+      highest_score: 0
+    })
+
+    const showExamUrlDialog = ref(false)
+    const examUrlData = ref({})
+
+    const showRecordsDialog = ref(false)
+    const examRecords = ref([])
+
+    const publishedPapers = computed(() => papers.value.filter(p => p.status === 'published'))
+
+    const loadQuestions = async () => {
+      try {
+        const res = await getQuestions({ limit: 100 });
+        if (res.data && res.data.list) {
+          questions.value = res.data.list
+        }
+      } catch (e) {
+        Message.error('加载题目失败')
+      }
+    }
+
+    const userList = ref([])
+    const userLoading = ref(false)
+    const userSearch = ref('')
+    const showUserDialog = ref(false)
+    const editingUser = ref(null)
+    const userForm = ref({ username: '', password: '', phone: '', role: 'trainer' })
+
+    const loadUsers = async () => {
+      userLoading.value = true
+      try {
+        const res = await getUsers({ keyword: userSearch.value })
+        userList.value = res.data.list || []
+      } catch (e) {
+        console.error(e)
+      } finally {
+        userLoading.value = false
+      }
+    }
+
+    const editUser = (row) => {
+      editingUser.value = row
+      userForm.value = { username: row.username, phone: row.phone, role: row.role }
+      showUserDialog.value = true
+    }
+
+    const saveUser = (done) => {
+      (async () => {
+        try {
+          if (editingUser.value) {
+            await updateUser(editingUser.value.id, userForm.value)
+          } else {
+            await createUser(userForm.value)
+          }
+          showUserDialog.value = false
+          editingUser.value = null
+          userForm.value = { username: '', password: '', phone: '', role: 'trainer' }
+          loadUsers()
+          Message.success('保存成功')
+          done(true)
+        } catch (e) {
+          Message.error(e.message || '保存失败')
+          done(false)
+        }
+      })()
+    }
+
+    const toggleUserStatus = async (row) => {
+      try {
+        const newStatus = row.status === 'locked' ? 'active' : 'locked'
+        await lockUser(row.id, newStatus)
+        row.status = newStatus
+        Message.success(newStatus === 'locked' ? '已锁定' : '已解锁')
+      } catch (e) {
+        Message.error(e.message || '操作失败')
+      }
+    }
+
+    const deleteUserApi = async (id) => {
+      try {
+        await Modal.confirm({ title: '提示', content: '确定要删除该用户吗？', okText: '确定', cancelText: '取消' })
+        await deleteUser(id)
+        loadUsers()
+        Message.success('删除成功')
+      } catch (e) {
+        if (e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
+      }
+    }
+
+    const loadPapers = async () => {
+      try {
+        const res = await getPapers({ limit: 100 });
+        if (res.data && res.data.list) {
+          papers.value = res.data.list.map(p => ({ ...p, _showMenu: false }))
+        }
+      } catch (e) {
+        Message.error('加载试卷失败')
+      }
+    }
+
+    const togglePaperMenu = (p) => {
+      papers.value.forEach(item => {
+        item._showMenu = item.id === p.id ? !item._showMenu : false
+      })
+    }
+
+    const closeAllPaperMenus = () => {
+      papers.value.forEach(item => {
+        item._showMenu = false
+      })
+    }
+
+    const loadStats = async () => {
+      if (!selectedPaper.value) return
+      try {
+        const res = await getExamStats(selectedPaper.value)
+        if (res.data) {
+          stats.value = {
+            ...res.data,
+            ranking: Array.isArray(res.data.ranking) ? res.data.ranking : []
+          }
+        }
+      } catch (e) { console.error(e) }
+    }
+
+    const saveQuestion = (done) => {
+      (async () => {
+        try {
+          const data = { ...questionForm.value }
+          if (data.type === 'multiple') {
+            data.answer = data.answer.split(',').map(a => a.trim())
+          }
+          if (editingQuestion.value) {
+            await updateQuestion(editingQuestion.value.id, data)
+            Message.success('更新成功')
+          } else {
+            await createQuestion(data)
+            Message.success('创建成功')
+          }
+          showQuestionDialog.value = false
+          loadQuestions()
+          done(true)
+        } catch (e) {
+          Message.error('操作失败')
+          done(false)
+        }
+      })()
+    }
+
+    const editQuestion = (row) => {
+      editingQuestion.value = row
+      questionForm.value = {
+        ...row,
+        options: row.options || [{ key: 'A', value: '' }, { key: 'B', value: '' }]
+      }
+      showQuestionDialog.value = true
+    }
+
+    const deleteQuestionAction = async (id) => {
+      try {
+        await Modal.confirm({ title: '提示', content: '确定删除这道题吗?', okText: '确定', cancelText: '取消' })
+        await deleteQuestion(id)
+        Message.success('删除成功')
+        loadQuestions()
+      } catch (e) {
+        if (e !== 'cancel' && e !== false) Message.error('删除失败')
+      }
+    }
+
+    const publishPaperAction = async (id) => {
+      try {
+        const res = await publishPaper(id)
+        Message.success('发布成功')
+        if (res.data?.access_url) {
+          Modal.info({ title: '发布成功', content: `试卷已发布！访问链接: ${res.data.access_url}` })
+        }
+        loadPapers()
+      } catch (e) { Message.error('发布失败') }
+    }
+
+    const unpublishPaperAction = async (id) => {
+      try {
+        await Modal.confirm({
+          title: '取消发布确认',
+          content: '确定要取消发布这份试卷吗？取消发布后考生将无法访问。',
+          okText: '确定取消',
+          cancelText: '暂不取消'
+        })
+        await unpublishPaper(id)
+        Message.success('取消发布成功')
+        loadPapers()
+      } catch (e) {
+        if (e !== 'cancel' && e !== false) Message.error('取消发布失败')
+      }
+    }
+
+    const deletePaperAction = async (id) => {
+      try {
+        await Modal.confirm({ title: '提示', content: '确定删除这份试卷吗?', okText: '确定', cancelText: '取消' })
+        await deletePaper(id)
+        Message.success('删除成功')
+        loadPapers()
+      } catch (e) {
+        if (e !== 'cancel' && e !== false) Message.error('删除失败')
+      }
+    }
+
+    const createRandomPaper = (done) => {
+      (async () => {
+        try {
+          await createRandomPaper(randomForm.value)
+          Message.success('创建成功')
+          showRandomDialog.value = false
+          loadPapers()
+          done(true)
+        } catch (e) {
+          Message.error('创建失败: ' + (e.response?.data?.message || e.message))
+          done(false)
+        }
+      })()
+    }
+
+    const createNewPaper = (done) => {
+      (async () => {
+        if (!paperForm.value.title) {
+          Message.warning('请输入试卷标题')
+          done(false)
+          return
+        }
+        try {
+          const data = { ...paperForm.value, question_ids: selectedQuestionIds.value }
+          if (editingPaper.value) {
+            await updatePaper(editingPaper.value.id, data)
+            Message.success('更新成功')
+          } else {
+            await createPaper(data)
+            Message.success('创建成功')
+          }
+          showPaperDialog.value = false
+          editingPaper.value = null
+          paperForm.value = { title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '' }
+          selectedQuestionIds.value = []
+          selectedQuestions.value = []
+          loadPapers()
+          done(true)
+        } catch (e) {
+          Message.error('操作失败: ' + (e.response?.data?.message || e.message))
+          done(false)
+        }
+      })()
+    }
+
+    const editPaperAction = (row) => {
+      editingPaper.value = row
+      paperForm.value = {
+        title: row.title,
+        description: row.description || '',
+        time_limit: row.time_limit,
+        shuffle: row.shuffle,
+        show_score: row.show_score,
+        show_answer: row.show_answer,
+        access_code: row.access_code || ''
+      }
+      selectedQuestionIds.value = []
+      selectedQuestions.value = []
+      showPaperDialog.value = true
+    }
+
+    const viewExamUrl = async (id) => {
+      try {
+        const res = await getPaperExamUrl(id)
+        examUrlData.value = res.data
+        showExamUrlDialog.value = true
+      } catch (e) { Message.error('获取考试地址失败') }
+    }
+
+    const manageQuestions = (id) => {
+      router.push(`/paper/${id}/questions`)
+    }
+
+    const handlePaperCommand = (cmd, row) => {
+      closeAllPaperMenus()
+      switch (cmd) {
+        case 'questions': manageQuestions(row.id); break
+        case 'publish': publishPaperAction(row.id); break
+        case 'unpublish': unpublishPaperAction(row.id); break
+        case 'edit': editPaperAction(row); break
+        case 'url': viewExamUrl(row.id); break
+        case 'records': viewExamRecords(row.id); break
+        case 'delete': deletePaperAction(row.id); break
+      }
+    }
+
+    const copyUrl = async () => {
+      try {
+        await navigator.clipboard.writeText(examUrlData.value.access_url)
+        Message.success('链接已复制到剪贴板')
+      } catch (e) {
+        const input = document.createElement('input')
+        input.value = examUrlData.value.access_url
+        document.body.appendChild(input)
+        input.select()
+        document.execCommand('copy')
+        document.body.removeChild(input)
+        Message.success('链接已复制到剪贴板')
+      }
+    }
+
+    const viewExamRecords = async (id) => {
+      try {
+        const res = await getExamRecords(id)
+        examRecords.value = res.data.list
+        showRecordsDialog.value = true
+      } catch (e) { Message.error('获取成绩失败') }
+    }
+
+    const handleLogout = async () => {
+      try {
+        await Modal.confirm({ title: '退出确认', content: '确定要退出登录吗?', okText: '确定退出', cancelText: '取消' })
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.replace('/login')
+      } catch (e) { }
+    }
+
+    const getDistBgColor = (range) => {
+      const colors = { '90-100': '#52c41a', '80-89': '#1890ff', '70-79': '#fa8c16', '60-69': '#f5222d' }
+      return colors[range] || '#8c8c8c'
+    }
+
+    const formatTime = (timeString) => {
+      if (!timeString) return '-'
+      return new Date(timeString).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    }
+
+    onMounted(() => {
+      loadQuestions()
+      loadPapers()
+      if (user.value.role === 'admin') loadUsers()
+    })
+
+    return {
+      userList, userSearch, showUserDialog, editingUser, userForm, userLoading,
+      loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
+      user, activeTab, switchTab, questions, questionSearch, showQuestionDialog, showImportDialog,
+      editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
+      randomForm, paperForm, selectedPaper, stats, publishedPapers,
+      showExamUrlDialog, examUrlData,
+      showRecordsDialog, examRecords,
+      loadQuestions, loadPapers, loadStats, saveQuestion, editQuestion, deleteQuestion: deleteQuestionAction,
+      publishPaper: publishPaperAction, deletePaper: deletePaperAction,
+      createRandomPaper, createNewPaper, logout: handleLogout, viewExamUrl, copyUrl, viewExamRecords, editPaperAction, handlePaperCommand,
+      togglePaperMenu, closeAllPaperMenus,
+      getDistBgColor, formatTime,
+      IconUser, IconDashboard, IconCheckCircle, IconTrophy,
+      IconBarChart, IconRobot, IconDown
+    }
+  }
+}
+</script>
+
+<style scoped>
+.toutiao-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-color);
+}
+
+.sidebar {
+  width: 220px;
+  background: var(--bg-color-white);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  height: 100vh;
+  z-index: 100;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary);
+  border-radius: var(--radius-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.logo-icon svg { width: 18px; height: 18px; }
+
+.brand-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition-base);
+  margin-bottom: 4px;
+}
+
+.nav-item:hover {
+  background: var(--bg-color-hover);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.nav-item svg { width: 18px; height: 18px; }
+
+.nav-item span { font-size: 14px; font-weight: 500; }
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-color-light);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.user-info { flex: 1; min-width: 0; }
+
+.user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role { font-size: 12px; color: var(--text-secondary); }
+
+.logout-btn { color: var(--text-secondary); }
+.logout-btn:hover { color: var(--color-danger); }
+
+.main-content {
+  flex: 1;
+  margin-left: 220px;
+  padding: 24px 32px;
+  min-height: 100vh;
+}
+
+.page-view { animation: fadeIn 0.2s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-header { margin-bottom: 24px; }
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.page-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.content-card { border-radius: var(--radius-lg); }
+
+:deep(.arco-card) {
+  border-radius: var(--radius-lg);
+  border: none;
+  box-shadow: var(--shadow-card);
+}
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th {
+  background: var(--bg-color);
+  font-weight: 500;
+  color: var(--text-regular);
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color-light);
+  color: var(--text-primary);
+}
+.data-table tbody tr:hover { background: var(--bg-color-hover); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table .title-cell { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.action-group { display: flex; gap: 8px; align-items: center; }
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-blue { background: #e6f0ff; color: #165dff; }
+.tag-orange { background: #fff7e6; color: #ff7d00; }
+.tag-green { background: #e6fff0; color: #00b42a; }
+.tag-gray { background: #f5f5f5; color: #909399; }
+.tag-red { background: #fff1f0; color: #f53f3f; }
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background: var(--bg-color-white);
+  border-radius: var(--radius-lg);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.stat-icon.total { background: var(--color-primary-bg); color: var(--color-primary); }
+.stat-icon.avg { background: var(--color-warning-bg); color: var(--color-warning); }
+.stat-icon.pass { background: var(--color-success-bg); color: var(--color-success); }
+.stat-icon.top { background: #fff1f0; color: #fe5313; }
+
+.stat-icon > * { font-size: 20px; }
+
+.stat-value { font-size: 26px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.stat-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+.data-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; }
+
+.chart-card, .rank-card { height: fit-content; }
+
+.card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.card-title .arco-icon { font-size: 16px; color: var(--color-primary); }
+
+.distribution-bars { display: flex; flex-direction: column; gap: 12px; }
+
+.dist-item { display: flex; align-items: center; gap: 12px; }
+
+.dist-label { width: 60px; font-size: 13px; color: var(--text-secondary); }
+
+.dist-bar-wrapper { flex: 1; height: 8px; background: var(--bg-color); border-radius: 4px; overflow: hidden; }
+
+.dist-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+.dist-count { width: 50px; font-size: 13px; color: var(--text-regular); text-align: right; }
+
+.ranking-table { font-size: 13px; }
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-color);
+  color: var(--text-secondary);
+}
+
+.rank-badge.gold { background: #fffbe6; color: #faad14; }
+.rank-badge.silver { background: #f5f5f5; color: #8c8c8c; }
+.rank-badge.bronze { background: #fff1f0; color: #fa8c16; }
+
+.score-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.score-tag.high { background: #fff1f0; color: #f53f3f; }
+.score-tag.mid { background: #fff7e6; color: #fa8c16; }
+.score-tag.low { background: #f5f5f5; color: #8c8c8c; }
+
+:deep(.arco-tabs-nav) { margin-bottom: 20px; }
+:deep(.arco-input-wrapper) { border-radius: var(--radius-base) !important; }
+:deep(.arco-btn) { border-radius: var(--radius-base) !important; }
+
+.exam-url-content { text-align: center; }
+.exam-url-content .url-tip { color: var(--text-secondary); margin-bottom: 16px; font-size: 13px; }
+.exam-url-content .qr-wrapper { margin-bottom: 16px; }
+.exam-url-content .qr-wrapper img { width: 160px; height: 160px; border-radius: 8px; border: 1px solid var(--border-color); }
+.exam-url-content .arco-input { color: var(--text-primary) !important; }
+.exam-url-content .arco-input input { color: var(--text-primary) !important; text-align: center; }
+</style>

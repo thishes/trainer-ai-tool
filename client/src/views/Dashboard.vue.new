@@ -1,0 +1,119 @@
+      <!-- 大屏展示 -->
+      <el-tab-pane label="大屏展示" name="screen">
+        <div class="screen-container">
+          <!-- 头部标题区 -->
+          <div class="screen-header">
+            <div class="screen-title-area">
+              <h3 class="screen-title">📊 考试数据大屏</h3>
+              <div v-if="stats" class="paper-name">{{ stats.title }}</div>
+            </div>
+            <div class="screen-toolbar">
+              <el-select v-model="selectedPaper" placeholder="选择试卷" @change="loadStats" style="width: 280px" size="large">
+                <el-option v-for="p in publishedPapers" :key="p.id" :label="p.title" :value="p.id" />
+              </el-select>
+            </div>
+          </div>
+          
+          <div v-if="stats" class="stats-content">
+            <!-- 核心指标区 -->
+            <div class="core-stats-row">
+              <div class="core-stat-card total-card">
+                <div class="core-stat-icon">👥</div>
+                <div class="core-stat-info">
+                  <div class="core-stat-value">{{ stats.total_submitted }}</div>
+                  <div class="core-stat-label">提交人数</div>
+                </div>
+                <div class="core-stat-bg">人</div>
+              </div>
+              
+              <div class="core-stat-card avg-card">
+                <div class="core-stat-icon">📊</div>
+                <div class="core-stat-info">
+                  <div class="core-stat-value">{{ stats.avg_score }}</div>
+                  <div class="core-stat-label">平均分</div>
+                </div>
+                <div class="core-stat-bg">分</div>
+              </div>
+              
+              <div class="core-stat-card high-card">
+                <div class="core-stat-icon">🏆</div>
+                <div class="core-stat-info">
+                  <div class="core-stat-value">{{ stats.ranking?.[0]?.score || '-' }}</div>
+                  <div class="core-stat-label">最高分</div>
+                </div>
+                <div class="core-stat-bg">分</div>
+              </div>
+              
+              <div class="core-stat-card pass-card">
+                <div class="core-stat-icon">✅</div>
+                <div class="core-stat-info">
+                  <div class="core-stat-value">{{ stats.pass_rate || 0 }}%</div>
+                  <div class="core-stat-label">及格率</div>
+                </div>
+                <div class="core-stat-bg">%</div>
+              </div>
+            </div>
+            
+            <!-- 下方两栏布局 -->
+            <div class="bottom-grid">
+              <!-- 分数分布 -->
+              <el-card class="distribution-section" shadow="never">
+                <template #header>
+                  <div class="section-header">
+                    <span class="section-title">📈 分数分布</span>
+                    <el-tag type="info" size="small">共 {{ stats.total_submitted }} 人</el-tag>
+                  </div>
+                </template>
+                <div class="distribution-flex">
+                  <div v-for="d in stats.distribution" :key="d.range" class="dist-block" :style="{ backgroundColor: getDistBgColor(d.range) }">
+                    <div class="dist-range">{{ d.range }}</div>
+                    <div class="dist-count">{{ d.count }}人</div>
+                    <div class="dist-percent">{{ stats.total_submitted ? Math.round((d.count / stats.total_submitted * 100)) : 0 }}%</div>
+                  </div>
+                </div>
+              </el-card>
+              
+              <!-- 实时排名 -->
+              <el-card class="ranking-section" shadow="never">
+                <template #header>
+                  <div class="section-header">
+                    <span class="section-title">🏅 实时排名</span>
+                    <el-tag type="success" size="small">Top {{ stats.ranking.length }}</el-tag>
+                  </div>
+                </template>
+                <el-table :data="stats.ranking" max-height="320" stripe class="ranking-table">
+                  <el-table-column prop="rank" label="排名" width="70" align="center">
+                    <template #default="{ row }">
+                      <div class="rank-badge" :class="{ 'gold': row.rank === 1, 'silver': row.rank === 2, 'bronze': row.rank === 3 }">
+                        {{ row.rank }}
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="student_name" label="学员姓名" min-width="120">
+                    <template #default="{ row }">
+                      <div class="student-name">{{ row.student_name }}</div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="score" label="分数" width="80" align="center">
+                    <template #default="{ row }">
+                      <div class="score-badge" :class="{ 'high': row.score >= 90, 'medium': row.score >= 70 && row.score < 90, 'low': row.score < 60 }">
+                        {{ row.score }}
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="end_time" label="交卷时间" width="150" align="center">
+                    <template #default="{ row }">
+                      <div class="time-text">{{ formatTime(row.end_time) }}</div>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </el-card>
+            </div>
+          </div>
+          
+          <!-- 空状态 -->
+          <div v-else class="empty-state">
+            <el-empty description="请选择试卷查看数据统计" />
+          </div>
+        </div>
+      </el-tab-pane>
