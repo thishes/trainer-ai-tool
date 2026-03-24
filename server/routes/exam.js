@@ -21,6 +21,22 @@ router.post('/start', async (req, res) => {
       }
     }
     
+    // IP限制检查
+    if (paper.ip_limit > 0) {
+      const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+      const existingRecords = db.examRecords.findAll({
+        paper_id: parseInt(paper_id),
+        status: 'submitted'
+      }).filter(r => r.ip_address === clientIp);
+      
+      if (existingRecords.length >= paper.ip_limit) {
+        return res.status(403).json({
+          success: false,
+          message: `此试卷限制每个IP只能考${paper.ip_limit}次，您已完成考试`
+        });
+      }
+    }
+    
     // 创建考试记录
     const examRecord = db.examRecords.create({
       paper_id: parseInt(paper_id),
@@ -186,10 +202,44 @@ router.post('/submit', async (req, res) => {
     db.examRecords.update(exam_id, {
       answers,
       score: totalScore,
+      percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
       end_time: new Date().toISOString(),
       status: 'submitted'
     });
-    
+
+    // 通过WebSocket推送实时排名更新
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        // 获取最新排名数据
+        const allRecords = db.examRecords.findAll({
+          paper_id: parseInt(examRecord.paper_id),
+          status: 'submitted'
+        });
+        const ranking = allRecords
+          .filter(r => r.percentage !== null && r.percentage !== undefined)
+          .sort((a, b) => b.percentage - a.percentage)
+          .slice(0, 20)
+          .map((r, i) => ({
+            rank: i + 1,
+            student_name: r.student_name,
+            score: r.percentage,
+            end_time: r.end_time,
+            isNew: r.id === parseInt(exam_id)
+          }));
+
+        const newEntry = ranking.find(r => r.isNew);
+        io.to(`paper-${examRecord.paper_id}`).emit('rank-update', {
+          paper_id: examRecord.paper_id,
+          ranking,
+          newEntry,
+          total_submitted: allRecords.length
+        });
+      }
+    } catch (wsError) {
+      console.error('WebSocket通知失败:', wsError);
+    }
+
     // 返回结果
     res.json({
       success: true,
@@ -199,6 +249,7 @@ router.post('/submit', async (req, res) => {
         title: paper.title,
         student_name: examRecord.student_name,
         score: totalScore,
+        percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
         correct_count: correctCount,
         total_count: paperQuestions.length,
         start_time: examRecord.start_time,
@@ -338,26 +389,26 @@ router.get('/stats/:paperId', authenticate, async (req, res) => {
       status: 'submitted' 
     });
     
-    // 排名数据
+    // 排名数据（使用百分制分数）
     const ranking = records
-      .filter(r => r.score !== null)
-      .sort((a, b) => b.score - a.score)
+      .filter(r => r.percentage !== null && r.percentage !== undefined)
+      .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 50)
       .map((r, i) => ({
         rank: i + 1,
         student_name: r.student_name,
-        score: r.score,
+        score: r.percentage,
         end_time: r.end_time
       }));
-    
-    // 统计
-    const scores = records.map(r => r.score).filter(s => s !== null);
-    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    
+
+    // 统计（使用百分制分数）
+    const scores = records.map(r => r.percentage || 0);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
     // 及格人数（60分及以上）
     const passCount = scores.filter(s => s >= 60).length;
     const passRate = scores.length > 0 ? Math.round((passCount / scores.length) * 100) : 0;
-    
+
     // 各分数段分布
     const distribution = [
       { range: '90-100', count: 0 },
@@ -366,7 +417,7 @@ router.get('/stats/:paperId', authenticate, async (req, res) => {
       { range: '60-69', count: 0 },
       { range: '0-59', count: 0 }
     ];
-    
+
     scores.forEach(s => {
       if (s >= 90) distribution[0].count++;
       else if (s >= 80) distribution[1].count++;

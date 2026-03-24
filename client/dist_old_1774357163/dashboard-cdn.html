@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        body { margin: 0; background: #f5f7fa; }
+        .header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .container { padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .btn { padding: 10px 20px; background: #409eff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h2>管理后台</h2>
+            <button class="btn" @click="logout">退出</button>
+        </div>
+        <div class="container">
+            <div class="card">
+                <h3>试卷管理</h3>
+                <p>加载中...</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        createApp({
+            setup() {
+                const logout = () => { localStorage.clear(); location.href = '/login-cdn.html'; };
+                return { logout };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

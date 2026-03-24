@@ -134,7 +134,7 @@ router.get('/:id/questions', async (req, res) => {
 // 创建试卷
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids } = req.body;
+    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids, ip_limit } = req.body;
     
     const paper = db.papers.create({
       title,
@@ -144,6 +144,7 @@ router.post('/', authenticate, async (req, res) => {
       show_score: show_score !== false,
       show_answer: show_answer !== false,
       access_code: access_code || null,
+      ip_limit: ip_limit || 0,
       user_id: (req.user.role === "admin" ? null : req.user.id),
       status: 'draft',
       total_score: 0
@@ -231,7 +232,7 @@ router.post('/:id/publish', authenticate, async (req, res) => {
     }
     
     // 生成访问链接
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = req.app.locals.BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
     const accessUrl = `${baseUrl}/exam/${paper.id}`;
     
     // 生成二维码
@@ -329,7 +330,7 @@ router.get('/:id/exam-url', async (req, res) => {
     }
     
     // 生成访问链接
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = req.app.locals.BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
     let accessUrl = `${baseUrl}/exam/${paper.id}`;
     
     // 如果有访问密码，添加到链接

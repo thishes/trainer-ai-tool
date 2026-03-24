@@ -35,7 +35,7 @@
             <div class="user-role">{{ user?.role === 'admin' ? '管理员' : '培训师' }}</div>
           </div>
         </div>
-        <a-button type="text" size="small" @click="handleLogout" class="logout-btn">
+        <a-button type="text" size="small" @click="logout" class="logout-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         </a-button>
       </div>
@@ -220,7 +220,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="r in stats.ranking" :key="r.rank">
+                  <tr v-for="r in stats.ranking" :key="r.rank + '-' + r.student_name" :class="{ 'new-entry': r.isNew }">
                     <td align="center">
                       <span class="rank-badge" :class="{ gold: r.rank === 1, silver: r.rank === 2, bronze: r.rank === 3 }">{{ r.rank }}</span>
                     </td>
@@ -285,46 +285,64 @@
       </div>
     </main>
 
-    <a-modal v-model:visible="showQuestionDialog" :title="editingQuestion ? '编辑题目' : '新建题目'" :width="600" @before-ok="saveQuestion" @cancel="showQuestionDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
-      <a-form :model="questionForm" layout="vertical" :label-col-props="{ span: 6 }" :wrapper-col-props="{ span: 18 }">
-        <a-form-item label="题目内容">
-          <a-textarea v-model="questionForm.title" :rows="3" />
-        </a-form-item>
-        <a-form-item label="题目类型">
-          <a-select v-model="questionForm.type">
-            <a-option value="single">单选题</a-option>
-            <a-option value="multiple">多选题</a-option>
-            <a-option value="judge">判断题</a-option>
-            <a-option value="essay">问答题</a-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="难度">
-          <a-select v-model="questionForm.difficulty">
-            <a-option value="easy">简单</a-option>
-            <a-option value="medium">中等</a-option>
-            <a-option value="hard">困难</a-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="分值">
-          <a-input-number v-model="questionForm.score" :min="1" :max="100" />
-        </a-form-item>
-        <template v-if="questionForm.type !== 'essay'">
-          <a-form-item label="选项">
-            <div v-for="(opt, idx) in questionForm.options" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
-              <a-input v-model="opt.key" style="width: 60px" />
-              <a-input v-model="opt.value" placeholder="选项内容" />
-            </div>
-            <a-button type="text" @click="questionForm.options.push({ key: String.fromCharCode(65 + questionForm.options.length), value: '' })">+ 添加选项</a-button>
+    <a-modal v-model:visible="showQuestionDialog" :title="editingQuestion ? '编辑题目' : '新建题目'" :width="640" @before-ok="saveQuestion" @cancel="showQuestionDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
+      <div class="question-form">
+        <a-form :model="questionForm" layout="vertical">
+          <a-form-item label="题目内容">
+            <a-textarea v-model="questionForm.title" :rows="3" placeholder="请输入题目内容" />
           </a-form-item>
-          <a-form-item label="正确答案">
-            <a-input v-if="questionForm.type === 'single' || questionForm.type === 'judge'" v-model="questionForm.answer" placeholder="输入选项key如 A" />
-            <a-input v-else v-model="questionForm.answer" placeholder="多选请用逗号分隔如 A,B" />
+          <div class="form-row">
+            <a-form-item label="题目类型">
+              <a-select v-model="questionForm.type">
+                <a-option value="single">单选题</a-option>
+                <a-option value="multiple">多选题</a-option>
+                <a-option value="judge">判断题</a-option>
+                <a-option value="essay">问答题</a-option>
+              </a-select>
+            </a-form-item>
+            <a-form-item label="难度">
+              <a-select v-model="questionForm.difficulty">
+                <a-option value="easy">简单</a-option>
+                <a-option value="medium">中等</a-option>
+                <a-option value="hard">困难</a-option>
+              </a-select>
+            </a-form-item>
+            <a-form-item label="分值">
+              <a-input-number v-model="questionForm.score" :min="1" :max="100" />
+            </a-form-item>
+          </div>
+          <template v-if="questionForm.type !== 'essay'">
+            <a-form-item label="选项" class="options-label">
+              <div class="options-wrapper">
+                <div class="options-list">
+                  <div v-for="(opt, idx) in questionForm.options" :key="idx" class="option-item">
+                    <a-tag class="option-key-tag">{{ opt.key }}</a-tag>
+                    <a-input v-model="opt.value" placeholder="请输入选项内容" class="option-input" allow-clear />
+                    <a-button type="text" status="danger" class="option-delete" @click="questionForm.options.splice(idx, 1)" v-if="questionForm.options.length > 2">
+                      <icon-delete />
+                    </a-button>
+                  </div>
+                </div>
+                <a-button type="dashed" class="add-option-btn" @click="questionForm.options.push({ key: String.fromCharCode(65 + questionForm.options.length), value: '' })" v-if="questionForm.type !== 'essay' && questionForm.options.length < 7">
+                  <icon-plus />
+                  添加选项
+                </a-button>
+              </div>
+            </a-form-item>
+            <a-form-item label="正确答案" class="answer-label">
+              <a-select v-if="questionForm.type === 'single' || questionForm.type === 'judge'" v-model="questionForm.answer" placeholder="选择正确答案">
+                <a-option v-for="opt in questionForm.options" :key="opt.key" :value="opt.key">{{ opt.key }} - {{ opt.value || '选项' + opt.key }}</a-option>
+              </a-select>
+              <a-select v-else v-model="questionForm.answer" multiple placeholder="多选请选择多个答案">
+                <a-option v-for="opt in questionForm.options" :key="opt.key" :value="opt.key">{{ opt.key }} - {{ opt.value || '选项' + opt.key }}</a-option>
+              </a-select>
+            </a-form-item>
+          </template>
+          <a-form-item label="答案解析">
+            <a-textarea v-model="questionForm.explanation" :rows="2" placeholder="可选，添加题目解析有助于学员理解" />
           </a-form-item>
-        </template>
-        <a-form-item label="答案解析">
-          <a-textarea v-model="questionForm.explanation" :rows="2" />
-        </a-form-item>
-      </a-form>
+        </a-form>
+      </div>
     </a-modal>
 
     <a-modal v-model:visible="showPaperDialog" :title="editingPaper ? '编辑试卷' : '新建试卷'" :width="700" @before-ok="createNewPaper" @cancel="showPaperDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
@@ -346,6 +364,12 @@
         </a-form-item>
         <a-form-item label="访问码">
           <a-input v-model="paperForm.access_code" placeholder="可选，设置访问码" />
+        </a-form-item>
+        <a-form-item label="IP限制">
+          <a-select v-model="paperForm.ip_limit" placeholder="每个IP考试次数限制" style="width: 100%">
+            <a-option :value="0">不限制</a-option>
+            <a-option :value="1">每个IP只能考1次</a-option>
+          </a-select>
         </a-form-item>
       </a-form>
     </a-modal>
@@ -435,12 +459,13 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
+import { io } from 'socket.io-client'
 import {
   IconUser, IconDashboard, IconCheckCircle, IconTrophy,
-  IconBarChart, IconRobot, IconDown
+  IconBarChart, IconRobot, IconDown, IconDelete, IconPlus
 } from '@arco-design/web-vue/es/icon'
 import {
   getQuestions, createQuestion, updateQuestion, deleteQuestion,
@@ -476,7 +501,7 @@ export default {
     const showRandomDialog = ref(false)
     const editingPaper = ref(null)
     const randomForm = ref({ title: '', count: 10, time_limit: 60 })
-    const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '' })
+    const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '', ip_limit: 0 })
     const selectedQuestionIds = ref([])
     const selectedQuestions = ref([])
 
@@ -495,6 +520,51 @@ export default {
 
     const showRecordsDialog = ref(false)
     const examRecords = ref([])
+
+    // Socket.io 实时更新
+    let socket = null
+    const newEntryAnimation = ref(null)
+    const newEntryKey = ref(0)
+
+    const initSocket = () => {
+      const wsUrl = window.location.protocol === 'https:' ? 'wss://' + window.location.hostname + ':' + (window.location.port || '3000') : 'ws://' + window.location.hostname + ':' + (window.location.port || '3000')
+      socket = io(wsUrl, { transports: ['websocket', 'polling'] })
+
+      socket.on('connect', () => {
+        console.log('[Socket.io] Connected to server')
+      })
+
+      socket.on('rank-update', (data) => {
+        if (data.paper_id === selectedPaper.value) {
+          const prevRanking = stats.value.ranking || []
+          stats.value = {
+            ...stats.value,
+            ranking: data.ranking,
+            total_submitted: data.total_submitted
+          }
+          if (data.newEntry) {
+            const prevRank = prevRanking.find(r => r.student_name === data.newEntry.student_name)?.rank
+            if (!prevRank || prevRank > data.newEntry.rank) {
+              newEntryAnimation.value = data.newEntry
+              newEntryKey.value++
+              setTimeout(() => { newEntryAnimation.value = null }, 3000)
+            }
+          }
+        }
+      })
+
+      socket.on('disconnect', () => {
+        console.log('[Socket.io] Disconnected from server')
+      })
+    }
+
+    const joinPaperRoom = (paperId) => {
+      if (socket) socket.emit('join-paper', paperId)
+    }
+
+    const leavePaperRoom = (paperId) => {
+      if (socket) socket.emit('leave-paper', paperId)
+    }
 
     const publishedPapers = computed(() => papers.value.filter(p => p.status === 'published'))
 
@@ -603,12 +673,19 @@ export default {
     const loadStats = async () => {
       if (!selectedPaper.value) return
       try {
+        // 离开之前的房间
+        if (stats.value.paper_id) {
+          leavePaperRoom(stats.value.paper_id)
+        }
         const res = await getExamStats(selectedPaper.value)
         if (res.data) {
           stats.value = {
             ...res.data,
+            paper_id: selectedPaper.value,
             ranking: Array.isArray(res.data.ranking) ? res.data.ranking : []
           }
+          // 加入新的房间
+          joinPaperRoom(selectedPaper.value)
         }
       } catch (e) { console.error(e) }
     }
@@ -804,13 +881,18 @@ export default {
       } catch (e) { Message.error('获取成绩失败') }
     }
 
-    const handleLogout = async () => {
-      try {
-        await Modal.confirm({ title: '退出确认', content: '确定要退出登录吗?', okText: '确定退出', cancelText: '取消' })
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.replace('/login')
-      } catch (e) { }
+    const handleLogout = () => {
+      Modal.confirm({
+        title: '退出确认',
+        content: '确定要退出登录吗?',
+        okText: '确定退出',
+        cancelText: '取消',
+        onOk: () => {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          window.location.replace('/login')
+        }
+      })
     }
 
     const getDistBgColor = (range) => {
@@ -827,6 +909,11 @@ export default {
       loadQuestions()
       loadPapers()
       if (user.value.role === 'admin') loadUsers()
+      initSocket()
+    })
+
+    onUnmounted(() => {
+      if (socket) socket.disconnect()
     })
 
     return {
@@ -843,7 +930,8 @@ export default {
       togglePaperMenu, closeAllPaperMenus,
       getDistBgColor, formatTime,
       IconUser, IconDashboard, IconCheckCircle, IconTrophy,
-      IconBarChart, IconRobot, IconDown
+      IconBarChart, IconRobot, IconDown, IconDelete, IconPlus,
+      newEntryAnimation, newEntryKey
     }
   }
 }
@@ -1144,6 +1232,72 @@ export default {
 .score-tag.high { background: #fff1f0; color: #f53f3f; }
 .score-tag.mid { background: #fff7e6; color: #fa8c16; }
 .score-tag.low { background: #f5f5f5; color: #8c8c8c; }
+
+.new-entry {
+  animation: insertFlash 3s ease-out;
+}
+@keyframes insertFlash {
+  0% { background: #fff1f0; }
+  20% { background: #ffccc7; }
+  40% { background: #fff1f0; }
+  60% { background: #fff7e6; }
+  80% { background: #f5f5f5; }
+  100% { background: transparent; }
+}
+
+.question-form {
+  padding: 8px 0;
+}
+.question-form .form-row {
+  display: flex;
+  gap: 16px;
+}
+.question-form .form-row .a-form-item {
+  flex: 1;
+}
+.question-form .options-label .arco-form-item-wrapper {
+  margin-bottom: 0;
+}
+.question-form .options-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.question-form .options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.question-form .option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.question-form .option-key-tag {
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+  font-weight: 600;
+}
+.question-form .option-input {
+  flex: 1;
+}
+.question-form .option-delete {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.question-form .option-delete:hover {
+  opacity: 1;
+}
+.question-form .add-option-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+.question-form .answer-label .arco-select-view-single,
+.question-form .answer-label .arco-select-view-multiple {
+  width: 100%;
+}
 
 :deep(.arco-tabs-nav) { margin-bottom: 20px; }
 :deep(.arco-input-wrapper) { border-radius: var(--radius-base) !important; }

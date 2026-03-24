@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>考试测试</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+</head>
+<body>
+    <div id="app">
+        <h1>测试页面</h1>
+        <p>试卷: {{ paper.title }}</p>
+        <p>时间: {{ paper.time_limit }}分钟</p>
+        <p>总分: {{ paper.total_score }}分</p>
+        <button @click="startExam">开始考试</button>
+    </div>
+    <script>
+        const { createApp, ref } = Vue
+        const app = createApp({
+            setup() {
+                const paper = ref({title: '加载中...', time_limit: 0, total_score: 0})
+                fetch('/api/papers/public/3').then(r=>r.json()).then(d=>{
+                    if(d.success) paper.value = d.data
+                })
+                const startExam = () => alert('开始考试')
+                return {paper, startExam}
+            }
+        })
+        app.use(ElementPlus)
+        app.mount('#app')
+    </script>
+</body>
+</html>

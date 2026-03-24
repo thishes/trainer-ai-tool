@@ -2,11 +2,48 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+const io = require('socket.io')(server, {
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS || 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+const BASE_URL = process.env.BASE_URL || `http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`;
+app.locals.BASE_URL = BASE_URL;
+
+// Socket.io 连接管理
+const examRooms = new Map();
+
+io.on('connection', (socket) => {
+  console.log(`[Socket.io] Client connected: ${socket.id}`);
+
+  // 加入试卷房间
+  socket.on('join-paper', (paperId) => {
+    socket.join(`paper-${paperId}`);
+    console.log(`[Socket.io] Socket ${socket.id} joined paper-${paperId}`);
+  });
+
+  // 离开试卷房间
+  socket.on('leave-paper', (paperId) => {
+    socket.leave(`paper-${paperId}`);
+    console.log(`[Socket.io] Socket ${socket.id} left paper-${paperId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+  });
+});
+
+// 导出io供路由使用
+app.set('io', io);
 
 // 中间件
 app.use(cors());
@@ -51,7 +88,7 @@ app.get('*', (req, res) => {
 });
 
 // 启动服务
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
   console.log(`🚀 服务已启动: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
 });
 
