@@ -44,18 +44,15 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
-  if (to.path === '/login') {
-    if (token) {
-      next('/dashboard')
-    } else {
-      next()
-    }
+  const publicPaths = ['/login', '/exam', '/exam/result']
+  const isPublicPath = publicPaths.some(p => to.path === p || to.path.startsWith(p + '/'))
+
+  if (isPublicPath) {
+    next()
+  } else if (!token) {
+    next('/login')
   } else {
-    if (!token) {
-      next('/login')
-    } else {
-      next()
-    }
+    next()
   }
 })
 

@@ -83,7 +83,7 @@
                 <td>
                   <a-link @click="editQuestion(q)">编辑</a-link>
                   <a-divider direction="vertical" />
-                  <a-link status="danger" @click="deleteQuestionAction(q.id)">删除</a-link>
+                  <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
                 </td>
               </tr>
             </tbody>
@@ -638,12 +638,20 @@ export default {
 
     const deleteUserApi = async (id) => {
       try {
-        await Modal.confirm({ title: '提示', content: '确定要删除该用户吗？', okText: '确定', cancelText: '取消' })
-        await deleteUser(id)
-        loadUsers()
-        Message.success('删除成功')
+        const confirmed = await Modal.confirm({
+          title: '确认删除',
+          content: '确定要删除该用户吗？此操作不可撤销。',
+          okText: '确认删除',
+          cancelText: '取消',
+          type: 'warning'
+        })
+        if (confirmed !== 'cancel') {
+          await deleteUser(id)
+          loadUsers()
+          Message.success('删除成功')
+        }
       } catch (e) {
-        if (e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
+        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
       }
     }
 
@@ -673,18 +681,20 @@ export default {
     const loadStats = async () => {
       if (!selectedPaper.value) return
       try {
-        // 离开之前的房间
         if (stats.value.paper_id) {
           leavePaperRoom(stats.value.paper_id)
         }
         const res = await getExamStats(selectedPaper.value)
+        console.log('loadStats response:', res)
+        console.log('loadStats res.data:', res.data)
+        console.log('loadStats ranking:', res.data?.ranking)
         if (res.data) {
           stats.value = {
             ...res.data,
             paper_id: selectedPaper.value,
             ranking: Array.isArray(res.data.ranking) ? res.data.ranking : []
           }
-          // 加入新的房间
+          console.log('stats.value.ranking:', stats.value.ranking)
           joinPaperRoom(selectedPaper.value)
         }
       } catch (e) { console.error(e) }
@@ -725,12 +735,20 @@ export default {
 
     const deleteQuestionAction = async (id) => {
       try {
-        await Modal.confirm({ title: '提示', content: '确定删除这道题吗?', okText: '确定', cancelText: '取消' })
-        await deleteQuestion(id)
-        Message.success('删除成功')
-        loadQuestions()
+        const confirmed = await Modal.confirm({
+          title: '确认删除',
+          content: '确定要删除这道题吗？此操作不可撤销。',
+          okText: '确认删除',
+          cancelText: '取消',
+          type: 'warning'
+        })
+        if (confirmed !== 'cancel') {
+          await deleteQuestion(id)
+          Message.success('删除成功')
+          loadQuestions()
+        }
       } catch (e) {
-        if (e !== 'cancel' && e !== false) Message.error('删除失败')
+        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
       }
     }
 
@@ -747,28 +765,39 @@ export default {
 
     const unpublishPaperAction = async (id) => {
       try {
-        await Modal.confirm({
+        const confirmed = await Modal.confirm({
           title: '取消发布确认',
           content: '确定要取消发布这份试卷吗？取消发布后考生将无法访问。',
           okText: '确定取消',
-          cancelText: '暂不取消'
+          cancelText: '暂不取消',
+          type: 'warning'
         })
-        await unpublishPaper(id)
-        Message.success('取消发布成功')
-        loadPapers()
+        if (confirmed !== 'cancel') {
+          await unpublishPaper(id)
+          Message.success('取消发布成功')
+          loadPapers()
+        }
       } catch (e) {
-        if (e !== 'cancel' && e !== false) Message.error('取消发布失败')
+        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '取消发布失败')
       }
     }
 
     const deletePaperAction = async (id) => {
       try {
-        await Modal.confirm({ title: '提示', content: '确定删除这份试卷吗?', okText: '确定', cancelText: '取消' })
-        await deletePaper(id)
-        Message.success('删除成功')
-        loadPapers()
+        const confirmed = await Modal.confirm({
+          title: '确认删除',
+          content: '确定要删除这份试卷吗？此操作不可撤销。',
+          okText: '确认删除',
+          cancelText: '取消',
+          type: 'warning'
+        })
+        if (confirmed !== 'cancel') {
+          await deletePaper(id)
+          Message.success('删除成功')
+          loadPapers()
+        }
       } catch (e) {
-        if (e !== 'cancel' && e !== false) Message.error('删除失败')
+        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
       }
     }
 

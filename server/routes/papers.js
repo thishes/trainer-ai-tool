@@ -38,15 +38,15 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// 获取公开试卷信息（学员访问）
+// 获取公开试卷信息（学员访问）- 必须放在 /:id 之前
 router.get('/public/:id', async (req, res) => {
   try {
     const paper = db.papers.findPublic(req.params.id);
-    
+
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在或未发布' });
     }
-    
+
     // 检查访问密码
     if (paper.access_code) {
       const { access_code } = req.query;
@@ -54,10 +54,10 @@ router.get('/public/:id', async (req, res) => {
         return res.status(403).json({ success: false, message: '访问密码错误' });
       }
     }
-    
+
     // 获取创建者信息
     const user = db.users.findById(paper.user_id);
-    
+
     res.json({
       success: true,
       data: {
@@ -65,8 +65,52 @@ router.get('/public/:id', async (req, res) => {
         title: paper.title,
         description: paper.description,
         time_limit: paper.time_limit,
+        status: paper.status,
+        shuffle: paper.shuffle,
         show_score: paper.show_score,
         show_answer: paper.show_answer,
+        access_code: paper.access_code,
+        ip_limit: paper.ip_limit,
+        question_count: paper.question_count,
+        total_score: paper.total_score,
+        trainer: user ? { id: user.id, username: user.username, avatar: user.avatar } : null
+      }
+    });
+  } catch (error) {
+    console.error('获取公开试卷信息错误:', error);
+    res.status(500).json({ success: false, message: '获取失败' });
+  }
+});
+
+// 获取单个试卷（管理用）
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const paper = db.papers.findById(req.params.id);
+
+    if (!paper) {
+      return res.status(404).json({ success: false, message: '试卷不存在' });
+    }
+
+    if (req.user.role !== "admin" && paper.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: '无权限' });
+    }
+
+    const user = db.users.findById(paper.user_id);
+
+    res.json({
+      success: true,
+      data: {
+        id: paper.id,
+        title: paper.title,
+        description: paper.description,
+        time_limit: paper.time_limit,
+        status: paper.status,
+        shuffle: paper.shuffle,
+        show_score: paper.show_score,
+        show_answer: paper.show_answer,
+        access_code: paper.access_code,
+        ip_limit: paper.ip_limit,
+        question_count: paper.question_count,
         total_score: paper.total_score,
         trainer: user ? { id: user.id, username: user.username, avatar: user.avatar } : null
       }
@@ -81,11 +125,11 @@ router.get('/public/:id', async (req, res) => {
 router.get('/:id/questions', async (req, res) => {
   try {
     const paper = db.papers.findPublic(req.params.id);
-    
+
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在或未发布' });
     }
-    
+
     // 检查访问密码
     if (paper.access_code) {
       const { access_code } = req.query;

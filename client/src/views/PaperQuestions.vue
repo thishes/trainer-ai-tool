@@ -3,7 +3,7 @@
     <div class="header">
       <div class="header-left">
         <a-button @click="goBack">← 返回</a-button>
-        <h2>{{ paper?.title }} - 题目管理</h2>
+        <h2>{{ paper?.title || '加载中...' }} - 题目管理</h2>
       </div>
       <div class="header-right">
         <a-button type="primary" @click="showAddFromBank = true">📥 从题库选择</a-button>
@@ -17,45 +17,40 @@
         <span>已关联题目 ({{ paperQuestions.length }}) - 总分: {{ totalScore }}分</span>
       </template>
 
-      <a-table :data="paperQuestions" :pagination="false" :bordered="false">
-        <a-table-column title="ID" data-index="id" :width="60" />
-        <a-table-column title="题目" data-index="title" :ellipsis="true" />
-        <a-table-column title="类型" data-index="type" :width="80">
-          <template #cell="{ record }">
-            <a-tag v-if="record.type === 'single'" color="blue" size="small">单选</a-tag>
-            <a-tag v-else-if="record.type === 'multiple'" color="orange" size="small">多选</a-tag>
-            <a-tag v-else-if="record.type === 'judge'" color="gray" size="small">判断</a-tag>
+      <div v-if="paperQuestions.length > 0">
+        <div v-for="q in paperQuestions" :key="q.id" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color-light)">
+          <div>
+            <strong>{{ q.id }}.</strong> {{ q.title }}
+            <a-tag v-if="q.type === 'single'" color="blue" size="small">单选</a-tag>
+            <a-tag v-else-if="q.type === 'multiple'" color="orange" size="small">多选</a-tag>
+            <a-tag v-else-if="q.type === 'judge'" color="gray" size="small">判断</a-tag>
             <a-tag v-else color="green" size="small">问答</a-tag>
-          </template>
-        </a-table-column>
-        <a-table-column title="分值" data-index="score" :width="60" />
-        <a-table-column title="操作" :width="100">
-          <template #cell="{ record }">
-            <a-button size="small" status="danger" @click="removeQuestion(record.id)">移除</a-button>
-          </template>
-        </a-table-column>
-      </a-table>
-
-      <a-empty v-if="paperQuestions.length === 0" description="暂无题目，请添加题目" />
+            <span style="color: #666; margin-left: 10px">{{ q.score }}分</span>
+          </div>
+          <a-button size="small" status="danger" @click="removeQuestion(q.id)">移除</a-button>
+        </div>
+      </div>
+      <a-empty v-else description="暂无题目，请添加题目" />
     </a-card>
 
     <a-modal v-model:visible="showAddFromBank" title="从题库选择题目" :width="700" @cancel="showAddFromBank = false" @ok="addFromBank" :ok-text="'添加已选 (' + selectedQuestions.length + ')'" :cancel-text="'取消'" :ok-disabled="selectedQuestions.length === 0">
       <a-input v-model="searchText" placeholder="搜索题目..." style="margin-bottom: 10px" allow-clear />
 
-      <a-table :data="filteredQuestions" @selection-change="handleSelection" :pagination="false" :bordered="false" :row-selection="{ type: 'checkbox', showCheckedAll: true }">
-        <a-table-column type="selection" :width="40" />
-        <a-table-column title="ID" data-index="id" :width="50" />
-        <a-table-column title="题目" data-index="title" :ellipsis="true" />
-        <a-table-column title="类型" data-index="type" :width="70">
-          <template #cell="{ record }">
-            <a-tag v-if="record.type === 'single'" color="blue" size="small">单选</a-tag>
-            <a-tag v-else-if="record.type === 'multiple'" color="orange" size="small">多选</a-tag>
-            <a-tag v-else-if="record.type === 'judge'" color="gray" size="small">判断</a-tag>
+      <div v-if="filteredQuestions.length > 0">
+        <div v-for="q in filteredQuestions" :key="q.id"
+          :style="{ display: 'flex', alignItems: 'center', padding: '10px', borderBottom: '1px solid var(--border-color-light)', cursor: 'pointer', background: selectedQuestions.includes(q) ? 'var(--color-primary-light-1)' : 'transparent' }"
+          @click="toggleQuestionSelection(q)">
+          <a-checkbox :checked="selectedQuestions.includes(q)" style="margin-right: 10px" />
+          <div style="flex: 1">
+            <strong>{{ q.id }}.</strong> {{ q.title }}
+            <a-tag v-if="q.type === 'single'" color="blue" size="small">单选</a-tag>
+            <a-tag v-else-if="q.type === 'multiple'" color="orange" size="small">多选</a-tag>
+            <a-tag v-else-if="q.type === 'judge'" color="gray" size="small">判断</a-tag>
             <a-tag v-else color="green" size="small">问答</a-tag>
-          </template>
-        </a-table-column>
-        <a-table-column title="分值" data-index="score" :width="50" />
-      </a-table>
+          </div>
+        </div>
+      </div>
+      <a-empty v-else description="题库中暂无题目" />
     </a-modal>
 
     <a-modal v-model:visible="showNewQuestion" title="新建题目" :width="600" @before-ok="createQuestionAndAdd" @cancel="showNewQuestion = false" :ok-text="'保存并添加到试卷'" :cancel-text="'取消'">
@@ -125,7 +120,6 @@ export default {
   setup() {
     const router = useRouter()
     const route = useRoute()
-
     const paperId = route.params.id
     const paper = ref(null)
     const paperQuestions = ref([])
@@ -166,7 +160,7 @@ export default {
     const loadPaperQuestions = async () => {
       try {
         const res = await getPaperQuestions(paperId)
-        paperQuestions.value = res.data.list || []
+        paperQuestions.value = res.data?.list || []
       } catch (e) { Message.error('加载题目失败') }
     }
 
@@ -174,12 +168,21 @@ export default {
       try {
         const res = await getQuestions({ limit: 100 })
         const usedIds = new Set(paperQuestions.value.map(q => q.id))
-        allQuestions.value = (res.data.list || []).filter(q => !usedIds.has(q.id))
+        allQuestions.value = (res.data?.list || []).filter(q => !usedIds.has(q.id))
       } catch (e) { Message.error('加载题库失败') }
     }
 
     const handleSelection = (selection) => {
       selectedQuestions.value = selection
+    }
+
+    const toggleQuestionSelection = (q) => {
+      const idx = selectedQuestions.value.findIndex(s => s.id === q.id)
+      if (idx >= 0) {
+        selectedQuestions.value.splice(idx, 1)
+      } else {
+        selectedQuestions.value.push(q)
+      }
     }
 
     const addFromBank = () => {
@@ -202,18 +205,21 @@ export default {
 
     const removeQuestion = async (questionId) => {
       try {
-        await Modal.confirm({
-          title: '提示',
-          content: '确定要移除这道题吗?',
-          okText: '确定',
-          cancelText: '取消'
+        const confirmed = await Modal.confirm({
+          title: '确认移除',
+          content: '确定要从试卷中移除这道题吗？此操作不可撤销。',
+          okText: '确认移除',
+          cancelText: '取消',
+          type: 'warning'
         })
-        await removeQuestionFromPaper(paperId, questionId)
-        Message.success('移除成功')
-        loadPaperQuestions()
-        loadAllQuestions()
+        if (confirmed !== 'cancel') {
+          await removeQuestionFromPaper(paperId, questionId)
+          Message.success('移除成功')
+          loadPaperQuestions()
+          loadAllQuestions()
+        }
       } catch (e) {
-        if (e !== 'cancel' && e !== false) Message.error('移除失败')
+        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '移除失败')
       }
     }
 
@@ -324,13 +330,14 @@ export default {
       })()
     }
 
-    onMounted(() => {
-      loadPaper()
-      loadPaperQuestions()
-      loadAllQuestions()
+    onMounted(async () => {
+      await loadPaper()
+      await loadPaperQuestions()
+      await loadAllQuestions()
     })
 
     return {
+      paperId,
       paper,
       paperQuestions,
       allQuestions,
@@ -345,6 +352,7 @@ export default {
       importText,
       goBack,
       handleSelection,
+      toggleQuestionSelection,
       addFromBank,
       removeQuestion,
       createQuestion: createQuestionAndAdd,

@@ -71,12 +71,15 @@ router.get('/:examId/questions', async (req, res) => {
     if (!examRecord) {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
     }
-    
+
     const paper = db.papers.findById(examRecord.paper_id);
-    
+    console.log('getExamQuestions paper:', paper);
+    console.log('getExamQuestions paper.id:', paper?.id);
+
     // 获取试卷题目
     let paperQuestions = db.paperQuestions.findByPaperId(paper.id);
-    
+    console.log('getExamQuestions paperQuestions:', paperQuestions);
+
     // 获取题目详情
     let questions = paperQuestions.map(pq => {
       const q = db.questions.findById(pq.question_id);
@@ -88,10 +91,11 @@ router.get('/:examId/questions', async (req, res) => {
         options: q.options,
         score: pq.score,
         order: pq.order,
-        // 如果已有答案，返回答案（用于断线续考）
         user_answer: examRecord.answers ? examRecord.answers[q.id] : null
       };
     }).filter(q => q !== null);
+
+    console.log('getExamQuestions final questions:', questions);
     
     // 如果设置了随机顺序
     if (paper.shuffle) {
@@ -378,17 +382,21 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
 router.get('/stats/:paperId', authenticate, async (req, res) => {
   try {
     const { paperId } = req.params;
-    
+
     const paper = db.papers.findById(paperId);
     if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
       return res.status(403).json({ success: false, message: '无权限' });
     }
-    
-    const records = db.examRecords.findAll({ 
-      paper_id: parseInt(paperId), 
-      status: 'submitted' 
+
+    const records = db.examRecords.findAll({
+      paper_id: parseInt(paperId),
+      status: 'submitted'
     });
-    
+
+    console.log('Stats records:', records);
+    console.log('Stats records[0]:', records[0]);
+    console.log('Stats percentage:', records.length > 0 ? records[0].percentage : 'no records');
+
     // 排名数据（使用百分制分数）
     const ranking = records
       .filter(r => r.percentage !== null && r.percentage !== undefined)

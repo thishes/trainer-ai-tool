@@ -269,6 +269,9 @@ export default {
         examInfo.value = startRes.data
 
         const questionsRes = await getExamQuestions(examId.value)
+        console.log('questionsRes:', questionsRes)
+        console.log('questionsRes.data:', questionsRes.data)
+        console.log('questionsRes.data.questions:', questionsRes.data?.questions)
         questions.value = questionsRes.data.questions || []
 
         if (questionsRes.data.answers) {
