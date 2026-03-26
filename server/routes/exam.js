@@ -325,7 +325,7 @@ router.get('/:examId/result', async (req, res) => {
       data: {
         exam_id: examRecord.id,
         title: paper.title,
-        score: examRecord.score,
+        score: examRecord.percentage !== null && examRecord.percentage !== undefined ? examRecord.percentage : examRecord.score,
         status: examRecord.status,
         start_time: examRecord.start_time,
         end_time: examRecord.end_time,

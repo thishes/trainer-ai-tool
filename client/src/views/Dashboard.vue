@@ -26,6 +26,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>用户管理</span>
         </div>
+        <div v-if="user?.role === 'admin'" class="nav-item" :class="{ active: activeTab === 'announcements' }" @click="switchTab('announcements')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>公告管理</span>
+        </div>
       </nav>
       <div class="sidebar-footer">
         <div class="user-card">
@@ -132,7 +136,8 @@
                         <a-doption @click="handlePaperCommand('questions', p); p._showMenu = false">题目管理</a-doption>
                         <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('url', p); p._showMenu = false">考试地址</a-doption>
                         <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('records', p); p._showMenu = false">查看记录</a-doption>
-                        <a-doption v-if="p.status !== 'published'" @click="handlePaperCommand('publish', p); p._showMenu = false">发布试卷</a-doption>
+                        <a-doption v-if="p.status !== 'published' && p.question_count > 0" @click="handlePaperCommand('publish', p); p._showMenu = false">发布试卷</a-doption>
+                        <a-doption v-if="p.status !== 'published' && (!p.question_count || p.question_count === 0)" disabled>发布试卷（暂无题目）</a-doption>
                         <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('unpublish', p); p._showMenu = false">取消发布</a-doption>
                         <a-doption @click="handlePaperCommand('edit', p); p._showMenu = false">编辑试卷</a-doption>
                         <a-doption danger @click="handlePaperCommand('delete', p); p._showMenu = false">删除试卷</a-doption>
@@ -277,6 +282,50 @@
                   <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
                   <a-divider direction="vertical" />
                   <a-link status="danger" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </a-card>
+      </div>
+
+      <div v-show="activeTab === 'announcements'" v-if="user?.role === 'admin'" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">公告管理</h1>
+          <p class="page-desc">管理新闻公告，支持富文本和图片上传</p>
+        </div>
+        <div class="toolbar">
+          <a-button type="primary" @click="openAnnouncementDialog()">+ 新建公告</a-button>
+        </div>
+        <a-card class="content-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">ID</th>
+                <th>标题</th>
+                <th width="100">类型</th>
+                <th width="100">状态</th>
+                <th width="160">创建时间</th>
+                <th width="150">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in announcements" :key="a.id">
+                <td>{{ a.id }}</td>
+                <td class="title-cell">{{ a.title }}</td>
+                <td>
+                  <span v-if="a.type === 'notice'" class="tag tag-blue">通知</span>
+                  <span v-else-if="a.type === 'news'" class="tag tag-green">新闻</span>
+                  <span v-else class="tag tag-orange">公告</span>
+                </td>
+                <td>
+                  <span :class="a.status === 'published' ? 'tag tag-green' : 'tag tag-gray'">{{ a.status === 'published' ? '已发布' : '草稿' }}</span>
+                </td>
+                <td>{{ a.created_at ? new Date(a.created_at).toLocaleString() : '-' }}</td>
+                <td>
+                  <a-link @click="openAnnouncementDialog(a)">编辑</a-link>
+                  <a-divider direction="vertical" />
+                  <a-link status="danger" @click="deleteAnnouncementAction(a.id)">删除</a-link>
                 </td>
               </tr>
             </tbody>
@@ -455,14 +504,47 @@
         <p style="color: var(--text-secondary); font-size: 13px">请使用单条新建题目</p>
       </div>
     </a-modal>
+
+    <div class="footer">
+      <span>© thishe.com</span>
+    </div>
+
+    <a-modal v-model:visible="showAnnouncementDialog" :title="editingAnnouncement ? '编辑公告' : '新建公告'" :width="800" @cancel="showAnnouncementDialog = false" :footer="null">
+      <a-form :model="announcementForm" layout="vertical">
+        <a-form-item label="标题">
+          <a-input v-model="announcementForm.title" placeholder="请输入公告标题" />
+        </a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="announcementForm.type">
+            <a-option label="通知" value="notice" />
+            <a-option label="新闻" value="news" />
+            <a-option label="公告" value="announcement" />
+          </a-select>
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="announcementForm.status">
+            <a-option label="已发布" value="published" />
+            <a-option label="草稿" value="draft" />
+          </a-select>
+        </a-form-item>
+        <a-form-item label="内容">
+          <div ref="editorContainerRef" class="rich-editor-wrapper"></div>
+        </a-form-item>
+      </a-form>
+      <div style="text-align: right; margin-top: 16px">
+        <a-button @click="showAnnouncementDialog = false">取消</a-button>
+        <a-button type="primary" style="margin-left: 8px" @click="saveAnnouncement" :loading="savingAnnouncement">保存</a-button>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import { io } from 'socket.io-client'
+import E from 'wangeditor'
 import {
   IconUser, IconDashboard, IconCheckCircle, IconTrophy,
   IconBarChart, IconRobot, IconDown, IconDelete, IconPlus
@@ -471,7 +553,8 @@ import {
   getQuestions, createQuestion, updateQuestion, deleteQuestion,
   getPapers, createPaper, updatePaper, deletePaper, publishPaper, unpublishPaper, createRandomPaper,
   getExamStats, getPaperExamUrl, getExamRecords,
-  getUsers, createUser, updateUser, lockUser, deleteUser
+  getUsers, createUser, updateUser, lockUser, deleteUser,
+  getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement
 } from '@/api'
 
 export default {
@@ -586,6 +669,14 @@ export default {
     const editingUser = ref(null)
     const userForm = ref({ username: '', password: '', phone: '', role: 'trainer' })
 
+    const announcements = ref([])
+    const showAnnouncementDialog = ref(false)
+    const editingAnnouncement = ref(null)
+    const announcementForm = ref({ title: '', content: '', type: 'notice', status: 'published' })
+    const savingAnnouncement = ref(false)
+    const editorContainerRef = ref(null)
+    let editorInstance = null
+
     const loadUsers = async () => {
       userLoading.value = true
       try {
@@ -637,22 +728,140 @@ export default {
     }
 
     const deleteUserApi = async (id) => {
-      try {
-        const confirmed = await Modal.confirm({
-          title: '确认删除',
-          content: '确定要删除该用户吗？此操作不可撤销。',
-          okText: '确认删除',
-          cancelText: '取消',
-          type: 'warning'
-        })
-        if (confirmed !== 'cancel') {
-          await deleteUser(id)
-          loadUsers()
-          Message.success('删除成功')
+      Modal.confirm({
+        title: '确认删除',
+        content: '确定要删除该用户吗？此操作不可撤销。',
+        okText: '确认删除',
+        cancelText: '取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await deleteUser(id)
+            loadUsers()
+            Message.success('删除成功')
+          } catch (e) {
+            Message.error(e.message || '删除失败')
+          }
         }
+      })
+    }
+
+    const loadAnnouncements = async () => {
+      try {
+        const res = await getAnnouncements()
+        announcements.value = res.data || []
       } catch (e) {
-        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
+        console.error(e)
       }
+    }
+
+    const openAnnouncementDialog = (announcement = null) => {
+      if (announcement) {
+        editingAnnouncement.value = announcement
+        announcementForm.value = {
+          title: announcement.title,
+          content: announcement.content,
+          type: announcement.type,
+          status: announcement.status
+        }
+      } else {
+        editingAnnouncement.value = null
+        announcementForm.value = { title: '', content: '', type: 'notice', status: 'published' }
+      }
+      showAnnouncementDialog.value = true
+      nextTick(() => {
+        if (editorInstance) {
+          editorInstance.destroy()
+          editorInstance = null
+        }
+        if (editorContainerRef.value) {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+          let ignoreNextChange = true
+          editorInstance = new E(editorContainerRef.value)
+          editorInstance.config.uploadImgServer = `${apiBase}/announcements/upload`
+          editorInstance.config.uploadImgHeaders = {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+          editorInstance.config.uploadFileName = 'image'
+          editorInstance.config.uploadImgHooks = {
+            before: () => { Message.info('图片上传中...') },
+            success: () => {},
+            fail: (xhr) => {
+              Message.error('图片上传失败')
+              console.error('Upload failed:', xhr)
+            },
+            error: (xhr) => {
+              Message.error('图片上传出错')
+              console.error('Upload error:', xhr)
+            },
+            customInsert: (insertFn, result) => {
+              if (result.success && result.url) {
+                insertFn(result.url)
+                Message.success('图片上传成功')
+              } else {
+                Message.error(result.message || '图片上传失败')
+              }
+            }
+          }
+          editorInstance.config.showLinkImg = false
+          editorInstance.config.uploadImgMaxSize = 5 * 1024 * 1024
+          editorInstance.config.uploadImgMaxLength = 10
+          editorInstance.create()
+          editorInstance.txt.html(announcementForm.value.content || '')
+          editorInstance.onchange = () => {
+            if (ignoreNextChange) {
+              ignoreNextChange = false
+              return
+            }
+            announcementForm.value.content = editorInstance.txt.html()
+          }
+        }
+      })
+    }
+
+    const saveAnnouncement = async () => {
+      if (!announcementForm.value.title) {
+        Message.error('请输入公告标题')
+        return
+      }
+      if (editorInstance) {
+        announcementForm.value.content = editorInstance.txt.html()
+      }
+      savingAnnouncement.value = true
+      try {
+        if (editingAnnouncement.value) {
+          await updateAnnouncement(editingAnnouncement.value.id, announcementForm.value)
+          Message.success('更新成功')
+        } else {
+          await createAnnouncement(announcementForm.value)
+          Message.success('创建成功')
+        }
+        showAnnouncementDialog.value = false
+        loadAnnouncements()
+      } catch (e) {
+        Message.error(e.response?.data?.message || '操作失败')
+      } finally {
+        savingAnnouncement.value = false
+      }
+    }
+
+    const deleteAnnouncementAction = (id) => {
+      Modal.confirm({
+        title: '确认删除',
+        content: '确定要删除该公告吗？此操作不可撤销。',
+        okText: '确认删除',
+        cancelText: '取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await deleteAnnouncement(id)
+            Message.success('删除成功')
+            loadAnnouncements()
+          } catch (e) {
+            Message.error(e.message || '删除失败')
+          }
+        }
+      })
     }
 
     const loadPapers = async () => {
@@ -734,22 +943,22 @@ export default {
     }
 
     const deleteQuestionAction = async (id) => {
-      try {
-        const confirmed = await Modal.confirm({
-          title: '确认删除',
-          content: '确定要删除这道题吗？此操作不可撤销。',
-          okText: '确认删除',
-          cancelText: '取消',
-          type: 'warning'
-        })
-        if (confirmed !== 'cancel') {
-          await deleteQuestion(id)
-          Message.success('删除成功')
-          loadQuestions()
+      Modal.confirm({
+        title: '确认删除',
+        content: '确定要删除这道题吗？此操作不可撤销。',
+        okText: '确认删除',
+        cancelText: '取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await deleteQuestion(id)
+            Message.success('删除成功')
+            loadQuestions()
+          } catch (e) {
+            Message.error(e.message || '删除失败')
+          }
         }
-      } catch (e) {
-        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
-      }
+      })
     }
 
     const publishPaperAction = async (id) => {
@@ -760,45 +969,47 @@ export default {
           Modal.info({ title: '发布成功', content: `试卷已发布！访问链接: ${res.data.access_url}` })
         }
         loadPapers()
-      } catch (e) { Message.error('发布失败') }
+      } catch (e) {
+        Message.error(e.response?.data?.message || '发布失败')
+      }
     }
 
     const unpublishPaperAction = async (id) => {
-      try {
-        const confirmed = await Modal.confirm({
-          title: '取消发布确认',
-          content: '确定要取消发布这份试卷吗？取消发布后考生将无法访问。',
-          okText: '确定取消',
-          cancelText: '暂不取消',
-          type: 'warning'
-        })
-        if (confirmed !== 'cancel') {
-          await unpublishPaper(id)
-          Message.success('取消发布成功')
-          loadPapers()
+      Modal.confirm({
+        title: '取消发布确认',
+        content: '确定要取消发布这份试卷吗？取消发布后考生将无法访问。',
+        okText: '确定取消',
+        cancelText: '暂不取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await unpublishPaper(id)
+            Message.success('取消发布成功')
+            loadPapers()
+          } catch (e) {
+            Message.error(e.message || '取消发布失败')
+          }
         }
-      } catch (e) {
-        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '取消发布失败')
-      }
+      })
     }
 
     const deletePaperAction = async (id) => {
-      try {
-        const confirmed = await Modal.confirm({
-          title: '确认删除',
-          content: '确定要删除这份试卷吗？此操作不可撤销。',
-          okText: '确认删除',
-          cancelText: '取消',
-          type: 'warning'
-        })
-        if (confirmed !== 'cancel') {
-          await deletePaper(id)
-          Message.success('删除成功')
-          loadPapers()
+      Modal.confirm({
+        title: '确认删除',
+        content: '确定要删除这份试卷吗？此操作不可撤销。',
+        okText: '确认删除',
+        cancelText: '取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await deletePaper(id)
+            Message.success('删除成功')
+            loadPapers()
+          } catch (e) {
+            Message.error(e.message || '删除失败')
+          }
         }
-      } catch (e) {
-        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '删除失败')
-      }
+      })
     }
 
     const createRandomPaper = (done) => {
@@ -937,12 +1148,26 @@ export default {
     onMounted(() => {
       loadQuestions()
       loadPapers()
-      if (user.value.role === 'admin') loadUsers()
+      if (user.value.role === 'admin') {
+        loadUsers()
+        loadAnnouncements()
+      }
       initSocket()
+    })
+
+    watch(() => showAnnouncementDialog.value, (val) => {
+      if (!val && editorInstance) {
+        editorInstance.destroy()
+        editorInstance = null
+      }
     })
 
     onUnmounted(() => {
       if (socket) socket.disconnect()
+      if (editorInstance) {
+        editorInstance.destroy()
+        editorInstance = null
+      }
     })
 
     return {
@@ -960,7 +1185,9 @@ export default {
       getDistBgColor, formatTime,
       IconUser, IconDashboard, IconCheckCircle, IconTrophy,
       IconBarChart, IconRobot, IconDown, IconDelete, IconPlus,
-      newEntryAnimation, newEntryKey
+      newEntryAnimation, newEntryKey,
+      announcements, showAnnouncementDialog, editingAnnouncement, announcementForm, savingAnnouncement, editorContainerRef,
+      openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction
     }
   }
 }
@@ -1338,4 +1565,52 @@ export default {
 .exam-url-content .qr-wrapper img { width: 160px; height: 160px; border-radius: 8px; border: 1px solid var(--border-color); }
 .exam-url-content .arco-input { color: var(--text-primary) !important; }
 .exam-url-content .arco-input input { color: var(--text-primary) !important; text-align: center; }
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 220px;
+  right: 0;
+  text-align: center;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: var(--bg-color);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.rich-editor-wrapper {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+}
+
+.rich-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.rich-editor-content {
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px;
+  outline: none;
+  line-height: 1.6;
+}
+
+.rich-editor-content:empty:before {
+  content: '请输入公告内容...';
+  color: var(--text-secondary);
+}
+
+.rich-editor-content img {
+  max-width: 100%;
+  height: auto;
+}
 </style>

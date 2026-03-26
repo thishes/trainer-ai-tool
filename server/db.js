@@ -11,7 +11,8 @@ const defaultData = {
   papers: [],
   paperQuestions: [],
   examRecords: [],
-  scoreRecords: []
+  scoreRecords: [],
+  announcements: []
 };
 
 function readDB() {
@@ -44,11 +45,12 @@ let idCounters = {
   papers: 0,
   paperQuestions: 0,
   examRecords: 0,
-  scoreRecords: 0
+  scoreRecords: 0,
+  announcements: 0
 };
 
 function initCounters(data) {
-  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords'];
+  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords', 'announcements'];
   tables.forEach(table => {
     if (data[table] && data[table].length > 0) {
       idCounters[table] = Math.max(...data[table].map(item => item.id));
@@ -286,7 +288,7 @@ module.exports = {
       return null;
     }
   },
-  
+
   // 积分记录表
   scoreRecords: {
     findAll: (filters = {}) => {
@@ -299,6 +301,41 @@ module.exports = {
       db.scoreRecords.push(record);
       writeDB(db);
       return record;
+    }
+  },
+
+  // 公告表
+  announcements: {
+    findAll: (filters = {}) => {
+      let result = [...db.announcements];
+      if (filters.status) result = result.filter(a => a.status === filters.status);
+      if (filters.type) result = result.filter(a => a.type === filters.type);
+      return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    },
+    findById: (id) => db.announcements.find(a => a.id === parseInt(id)),
+    create: (data) => {
+      const announcement = { id: getNextId('announcements'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      db.announcements.push(announcement);
+      writeDB(db);
+      return announcement;
+    },
+    update: (id, data) => {
+      const index = db.announcements.findIndex(a => a.id === parseInt(id));
+      if (index !== -1) {
+        db.announcements[index] = { ...db.announcements[index], ...data, updated_at: new Date().toISOString() };
+        writeDB(db);
+        return db.announcements[index];
+      }
+      return null;
+    },
+    delete: (id) => {
+      const index = db.announcements.findIndex(a => a.id === parseInt(id));
+      if (index !== -1) {
+        db.announcements.splice(index, 1);
+        writeDB(db);
+        return true;
+      }
+      return false;
     }
   }
 };

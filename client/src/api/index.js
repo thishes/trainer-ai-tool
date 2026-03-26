@@ -24,7 +24,10 @@ api.interceptors.response.use(
   error => {
     if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      const isExamPage = window.location.pathname.startsWith('/exam')
+      if (!isExamPage) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
@@ -72,6 +75,20 @@ export const submitExam = (data) => api.post('/exam/submit', data)
 export const getExamResult = (examId) => api.get(`/exam/${examId}/result`)
 export const getExamRecords = (paperId) => api.get(`/exam/records/${paperId}`)
 export const getExamStats = (paperId) => api.get(`/exam/stats/${paperId}`)
+
+// 公告
+export const getAnnouncements = (params) => api.get('/announcements', { params })
+export const getAnnouncement = (id) => api.get(`/announcements/${id}`)
+export const createAnnouncement = (data) => api.post('/announcements', data)
+export const updateAnnouncement = (id, data) => api.put(`/announcements/${id}`, data)
+export const deleteAnnouncement = (id) => api.delete(`/announcements/${id}`)
+export const uploadAnnouncementImage = (file) => {
+  const formData = new FormData()
+  formData.append('image', file)
+  return api.post('/announcements/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
 
 export default api
 

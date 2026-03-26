@@ -47,13 +47,7 @@ router.get('/public/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: '试卷不存在或未发布' });
     }
 
-    // 检查访问密码
-    if (paper.access_code) {
-      const { access_code } = req.query;
-      if (access_code !== paper.access_code) {
-        return res.status(403).json({ success: false, message: '访问密码错误' });
-      }
-    }
+    // 注意：访问密码验证不在此处进行，只在开始考试时验证
 
     // 获取创建者信息
     const user = db.users.findById(paper.user_id);
@@ -206,10 +200,13 @@ router.post('/', authenticate, async (req, res) => {
         };
       });
       db.paperQuestions.bulkCreate(paperQuestions);
-      
-      // 更新总分
+
+      // 更新总分和题目数量
       const totalScore = paperQuestions.reduce((sum, pq) => sum + pq.score, 0);
-      db.papers.update(paper.id, { total_score: totalScore });
+      db.papers.update(paper.id, {
+        total_score: totalScore,
+        question_count: question_ids.length
+      });
     }
     
     res.json({ success: true, message: '创建成功', data: paper });
@@ -266,13 +263,17 @@ router.put('/:id', authenticate, async (req, res) => {
 router.post('/:id/publish', authenticate, async (req, res) => {
   try {
     const paper = db.papers.findById(req.params.id);
-    
+
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在' });
     }
-    
+
     if (req.user.role !== "admin" && paper.user_id !== req.user.id) {
       return res.status(403).json({ success: false, message: '无权限' });
+    }
+
+    if (!paper.question_count || paper.question_count === 0) {
+      return res.status(400).json({ success: false, message: '试卷暂无题目，请先添加题目后再发布' });
     }
     
     // 生成访问链接
@@ -441,7 +442,10 @@ router.post('/random', authenticate, async (req, res) => {
       score: q.score
     }));
     db.paperQuestions.bulkCreate(paperQuestions);
-    
+
+    // 更新试卷的题目数量
+    db.papers.update(paper.id, { question_count: questions.length });
+
     res.json({ 
       success: true, 
       message: '创建成功', 
@@ -537,11 +541,14 @@ router.post('/:id/questions/add', authenticate, async (req, res) => {
     });
     
     db.paperQuestions.bulkCreate(newPaperQuestions);
-    
-    // 更新试卷总分
+
+    // 更新试卷总分和题目数量
     const allPaperQuestions = db.paperQuestions.findByPaperId(paper.id);
     const totalScore = allPaperQuestions.reduce((sum, pq) => sum + pq.score, 0);
-    db.papers.update(paper.id, { total_score: totalScore });
+    db.papers.update(paper.id, {
+      total_score: totalScore,
+      question_count: allPaperQuestions.length
+    });
     
     res.json({
       success: true,
@@ -567,11 +574,14 @@ router.delete('/:id/questions/:questionId', authenticate, async (req, res) => {
     }
     
     db.paperQuestions.deleteByPaperIdAndQuestionId(paper.id, parseInt(req.params.questionId));
-    
-    // 更新试卷总分
+
+    // 更新试卷总分和题目数量
     const allPaperQuestions = db.paperQuestions.findByPaperId(paper.id);
     const totalScore = allPaperQuestions.reduce((sum, pq) => sum + pq.score, 0);
-    db.papers.update(paper.id, { total_score: totalScore });
+    db.papers.update(paper.id, {
+      total_score: totalScore,
+      question_count: allPaperQuestions.length
+    });
     
     res.json({
       success: true,

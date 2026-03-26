@@ -52,6 +52,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 静态文件
 app.use(express.static(path.join(__dirname, '../client/dist')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -63,11 +64,13 @@ const authRoutes = require('./routes/auth');
 const questionRoutes = require('./routes/questions');
 const paperRoutes = require('./routes/papers');
 const examRoutes = require('./routes/exam');
+const announcementRoutes = require('./routes/announcements');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/papers', paperRoutes);
 app.use('/api/exam', examRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // 分类路由
 const categoryRoutes = require('./routes/categories');

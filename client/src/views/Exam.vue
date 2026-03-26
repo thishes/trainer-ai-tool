@@ -30,9 +30,19 @@
           </a-form-item>
         </a-form>
 
-        <a-button type="primary" style="width: 100%; margin-top: 16px" :loading="loading" @click="beginExam">
+        <a-alert v-if="startError" type="error" style="margin-bottom: 16px">{{ startError }}</a-alert>
+
+        <a-button type="primary" style="width: 100%; margin-top: 16px" :loading="loading" :disabled="!!startError" @click="beginExam">
           {{ loading ? '加载中...' : '开始考试' }}
         </a-button>
+
+        <div v-if="announcements.length > 0" class="announcements-section">
+          <h3>公告</h3>
+          <div v-for="a in announcements" :key="a.id" class="announcement-item">
+            <h4>{{ a.title }}</h4>
+            <div class="announcement-content" v-html="a.content"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -157,14 +167,19 @@
         </a-alert>
       </div>
     </a-modal>
+
+    <div class="footer">
+      <span>© thishe.com</span>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
-import { getPaperPublic, startExamApi, getExamQuestions, saveProgress, submitExam as submitExamApi } from '@/api'
+import DOMPurify from 'dompurify'
+import { getPaperPublic, startExamApi, getExamQuestions, saveProgress, submitExam as submitExamApi, getAnnouncements } from '@/api'
 
 export default {
   name: 'ExamPage',
@@ -183,11 +198,25 @@ export default {
     const timeLeft = ref(0)
     const submitDialogVisible = ref(false)
     const loading = ref(false)
+    const startError = ref('')
     const startForm = ref({
       student_name: '',
       access_code: route.query.code || ''
     })
+    const announcements = ref([])
     let timer = null
+
+    const loadAnnouncements = async () => {
+      try {
+        const res = await getAnnouncements({ status: 'published' })
+        announcements.value = (res.data || []).map(a => ({
+          ...a,
+          content: DOMPurify.sanitize(a.content || '', { USE_PROFILES: { html: true } })
+        }))
+      } catch (e) {
+        console.error(e)
+      }
+    }
 
     const currentQuestion = computed(() => questions.value[currentIndex.value] || {})
 
@@ -282,9 +311,11 @@ export default {
         startTimer()
 
         examStarted.value = true
+        startError.value = ''
       } catch (error) {
-        Message.error('加载试卷信息失败，请检查链接是否正确')
-        console.error(error)
+        const msg = error.response?.data?.message || '加载试卷信息失败，请检查链接是否正确'
+        startError.value = msg
+        Message.error(msg)
       } finally {
         loading.value = false
       }
@@ -336,6 +367,13 @@ export default {
       } catch (error) {
         Message.error('加载试卷信息失败，请检查链接是否正确')
       }
+      loadAnnouncements()
+    })
+
+    watch(() => startForm.value.access_code, () => {
+      if (startError.value) {
+        startError.value = ''
+      }
     })
 
     onUnmounted(() => {
@@ -344,10 +382,10 @@ export default {
 
     return {
       paperInfo, examInfo, examStarted, questions, currentIndex, currentQuestion,
-      answers, timeLeft, submitDialogVisible, loading, startForm,
+      answers, timeLeft, submitDialogVisible, loading, startForm, startError,
       answeredCount, unansweredCount, questionTypeName, formatTime, isAnswered,
       selectAnswer, toggleMultipleAnswer, prevQuestion, nextQuestion, goToQuestion,
-      showSubmitConfirm, beginExam, submitExam
+      showSubmitConfirm, beginExam, submitExam, announcements
     }
   }
 }
@@ -572,5 +610,52 @@ export default {
 }
 .dot.answered {
   background: var(--color-success);
+}
+
+.exam-page .footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: var(--bg-color);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.announcements-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color-light);
+}
+
+.announcements-section h3 {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.announcement-item {
+  background: var(--bg-color);
+  border-radius: var(--radius-base);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.announcement-item h4 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.announcement-content {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.announcement-content img {
+  max-width: 100%;
+  height: auto;
+  margin-top: 8px;
 }
 </style>

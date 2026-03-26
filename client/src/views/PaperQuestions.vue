@@ -204,23 +204,23 @@ export default {
     }
 
     const removeQuestion = async (questionId) => {
-      try {
-        const confirmed = await Modal.confirm({
-          title: '确认移除',
-          content: '确定要从试卷中移除这道题吗？此操作不可撤销。',
-          okText: '确认移除',
-          cancelText: '取消',
-          type: 'warning'
-        })
-        if (confirmed !== 'cancel') {
-          await removeQuestionFromPaper(paperId, questionId)
-          Message.success('移除成功')
-          loadPaperQuestions()
-          loadAllQuestions()
+      Modal.confirm({
+        title: '确认移除',
+        content: '确定要从试卷中移除这道题吗？此操作不可撤销。',
+        okText: '确认移除',
+        cancelText: '取消',
+        type: 'warning',
+        onOk: async () => {
+          try {
+            await removeQuestionFromPaper(paperId, questionId)
+            Message.success('移除成功')
+            loadPaperQuestions()
+            loadAllQuestions()
+          } catch (e) {
+            Message.error(e.message || '移除失败')
+          }
         }
-      } catch (e) {
-        if (e && e !== 'cancel' && e !== false) Message.error(e.message || '移除失败')
-      }
+      })
     }
 
     const createQuestionAndAdd = (done) => {
