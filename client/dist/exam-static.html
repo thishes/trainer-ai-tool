@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线考试</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .card { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .info { background: #f5f7fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .btn { background: #409eff; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 10px 5px; }
+        .btn:hover { background: #66b1ff; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .question { margin: 20px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; }
+        .option:hover { border-color: #409eff; }
+        .option.selected { border-color: #409eff; background: #ecf5ff; }
+        .timer { font-size: 24px; font-weight: bold; color: #333; }
+        .timer.warning { color: #f56c6c; }
+    </style>
+</head>
+<body>
+    <div class="card" id="app">
+        <!-- 开始界面 -->
+        <div v-if="!examStarted">
+            <h1>{{ paper.title }}</h1>
+            <div class="info">
+                <p><strong>时间限制:</strong> {{ paper.time_limit }} 分钟</p>
+                <p><strong>总分:</strong> {{ paper.total_score }} 分</p>
+            </div>
+            <div>
+                <input type="text" v-model="studentName" placeholder="请输入姓名" style="padding:10px;width:200px;font-size:16px;">
+            </div>
+            <br>
+            <button class="btn" @click="startExam" :disabled="!studentName">开始考试</button>
+        </div>
+
+        <!-- 考试界面 -->
+        <div v-else>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2>{{ paper.title }}</h2>
+                <div class="timer" :class="{warning: timeLeft<60}">
+                    剩余: {{ Math.floor(timeLeft/60) }}:{{ (timeLeft%60).toString().padStart(2,'0') }}
+                </div>
+            </div>
+
+            <div class="question">
+                <h3>第 {{ currentIndex+1 }} 题 / {{ questions.length }}</h3>
+                <p style="font-size:18px;margin:15px 0;">{{ currentQuestion.title }}</p>
+                
+                <div v-if="currentQuestion.type=='single' || currentQuestion.type=='multiple'">
+                    <div v-for="opt in currentQuestion.options" :key="opt.key"
+                         class="option" 
+                         :class="{selected: isSelected(opt.key)}"
+                         @click="selectAnswer(opt.key)">
+                        <strong>{{ opt.key }}.</strong> {{ opt.value }}
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <button class="btn" @click="prevQuestion" :disabled="currentIndex==0">上一题</button>
+                <button class="btn" @click="nextQuestion" v-if="currentIndex<questions.length-1">下一题</button>
+                <button class="btn" @click="showConfirm=true" v-else style="background:#67c23a;">交卷</button>
+            </div>
+        </div>
+
+        <!-- 交卷确认 -->
+        <div v-if="showConfirm" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+            <div class="card" style="max-width:400px;">
+                <h3>确认交卷</h3>
+                <p>已答题: {{ answeredCount }} / {{ questions.length }}</p>
+                <button class="btn" @click="showConfirm=false">再检查</button>
+                <button class="btn" @click="submitExam">确认交卷</button>
+            </div>
+        </div>
+
+        <!-- 结果 -->
+        <div v-if="result">
+            <h1>考试成绩</h1>
+            <p style="font-size:24px;">得分: <strong>{{ result.score }}</strong> 分</p>
+            <button class="btn" onclick="location.reload()">重新考试</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+        const { createApp, ref, computed } = Vue;
+        
+        createApp({
+            setup() {
+                const paper = ref({title:'加载中...',time_limit:0,total_score:0});
+                const examId = ref(null);
+                const examStarted = ref(false);
+                const questions = ref([]);
+                const currentIndex = ref(0);
+                const answers = ref({});
+                const timeLeft = ref(0);
+                const studentName = ref('');
+                const showConfirm = ref(false);
+                const result = ref(null);
+                let timer = null;
+
+                const currentQuestion = computed(()=>questions.value[currentIndex.value]||{});
+                const answeredCount = computed(()=>Object.keys(answers.value).length);
+
+                // 加载试卷
+                fetch('/api/papers/public/3').then(r=>r.json()).then(d=>{
+                    if(d.success) paper.value = d.data;
+                });
+
+                const startExam = async () => {
+                    if(!studentName.value) return alert('请输入姓名');
+                    
+                    // 开始考试
+                    const res = await fetch('/api/exam/start', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({paper_id:3, student_name:studentName.value})
+                    }).then(r=>r.json());
+                    
+                    if(res.success) {
+                        examId.value = res.data.exam_id;
+                        paper.value.time_limit = res.data.time_limit;
+                        
+                        // 获取题目
+                        const qRes = await fetch('/api/exam/'+examId.value+'/questions').then(r=>r.json());
+                        if(qRes.success) questions.value = qRes.data.questions;
+                        
+                        examStarted.value = true;
+                        timeLeft.value = res.data.time_limit * 60;
+                        
+                        timer = setInterval(()=>{
+                            timeLeft.value--;
+                            if(timeLeft.value<=0) submitExam();
+                        },1000);
+                    }
+                };
+
+                const selectAnswer = (key) => {
+                    answers.value[currentQuestion.value.id] = key;
+                };
+                
+                const isSelected = (key) => answers.value[currentQuestion.value.id] === key;
+                
+                const prevQuestion = () => { if(currentIndex.value>0) currentIndex.value--; };
+                const nextQuestion = () => { if(currentIndex.value<questions.value.length-1) currentIndex.value++; };
+                
+                const submitExam = async () => {
+                    clearInterval(timer);
+                    const res = await fetch('/api/exam/submit', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({exam_id:examId.value, answers:answers.value})
+                    }).then(r=>r.json());
+                    
+                    if(res.success) result.value = res.data;
+                };
+
+                return {paper,examStarted,questions,currentIndex,currentQuestion,answers,
+                        timeLeft,studentName,startExam,selectAnswer,isSelected,
+                        prevQuestion,nextQuestion,showConfirm,submitExam,result,answeredCount};
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

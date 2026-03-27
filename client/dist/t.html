@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>考试</title>
+<link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
+<script src="https://unpkg.com/vue@3"></script><script src="https://unpkg.com/element-plus"></script>
+<style>body{font-family:sans-serif;background:#667eea;padding:20px}.c{background:white;border-radius:12px;padding:30px;max-width:700px;margin:0 auto}.btn{background:#409eff;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;margin:5px}.opt{display:block;padding:12px;margin:8px 0;border:2px solid #ddd;border-radius:6px;cursor:pointer}.opt.s{border-color:#409eff;background:#ecf5ff}</style>
+</head><body><div id="a"><div class="c" v-if="!s">
+<h1>{{p.title||'加载中...'}}</h1><div v-if="p.title"><p>时间:{{p.time_limit}}分钟</p><p>总分:{{p.total_score}}分</p>
+<input v-model="n" placeholder="姓名"><br><button class="btn" @click="start" :disabled="!n">开始考试</button></div></div>
+<div class="c" v-else><h2>{{p.title}}<span style="float:right">{{Math.floor(t/60)}}:{{(t%60).toString().padStart(2,'0')}}</span></h2>
+<h3>第{{i+1}}题</h3><p>{{q.title}}</p><span v-for="o in q.options" :key="o.key" :class="a[q.id]===o.key?'opt s':'opt'" @click="a[q.id]=o.key"><b>{{o.key}}.</b>{{o.value}}</span>
+<div style="margin-top:20px"><button class="btn" @click="i>0?i--:0">上一题</button><button class="btn" @click="i<cs.length-1?i++:i" v-if="i<cs.length-1">下一题</button><button class="btn" style="background:#67c23a" @click="sub=1" v-else>交卷</button></div></div>
+<div class="c" v-if="sub"><h3>确认交卷</h3><p>已答:{{Object.keys(a).length}}/{{cs.length}}</p><button class="btn" @click="sub=0">再检查</button><button class="btn" style="background:#67c23a" @click="doSubmit">确认</button></div>
+<div class="c" v-if="r"><h1>成绩</h1><p style="font-size:32px">{{r.score}}分</p></div></div>
+<script>const{createApp:_,ref:$,computed:k}=Vue;_(()).$mount('#a')</script></body></html>

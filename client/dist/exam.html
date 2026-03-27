@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>在线考试</title>
+    <link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; font-family: sans-serif; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        h1 { margin-bottom: 20px; }
+        .info { background: #f5f7fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        input:focus { border-color: #409eff; outline: none; }
+        .btn { background: #409eff; color: white; border: none; padding: 14px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px; }
+        .btn:hover { background: #66b1ff; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .q { margin: 30px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+        .opt { display: block; padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; }
+        .opt:hover { border-color: #409eff; }
+        .opt.sel { border-color: #409eff; background: #ecf5ff; }
+        .t { font-size: 24px; font-weight: bold; text-align: right; }
+        .t.w { color: #f56c6c; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <div class="card" v-if="!started">
+            <h1>{{ p.title || '加载中...' }}</h1>
+            <div class="info" v-if="p.title">
+                <p>时间: {{ p.time_limit }}分钟</p>
+                <p>总分: {{ p.total_score }}分</p>
+            </div>
+            <div v-if="p.title">
+                <input v-model="name" placeholder="请输入姓名" @keyup.enter="start">
+                <br><br>
+                <button class="btn" @click="start" :disabled="!name">开始考试</button>
+            </div>
+        </div>
+        <div class="card" v-else>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>{{ p.title }}</h2>
+                <div class="t" :class="{w:t<60}">{{ Math.floor(t/60) }}:{{ (t%60).toString().padStart(2,'0') }}</div>
+            </div>
+            <div class="q" v-if="cs.length">
+                <h3>第{{ i+1 }}题 / {{ cs.length }}</h3>
+                <p style="font-size:18px;margin:15px 0;">{{ q.title }}</p>
+                <div v-for="o in q.options" :key="o.key" :class="as[q.id]===o.key?'opt sel':'opt'" @click="as[q.id]=o.key">
+                    <b>{{ o.key }}.</b> {{ o.value }}
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <button class="btn" @click="i>0?i--:0">上一题</button>
+                <button class="btn" @click="i<cs.length-1?i++:i" v-if="i<cs.length-1">下一题</button>
+                <button class="btn" style="background:#67c23a" @click="show=1" v-else>交卷</button>
+            </div>
+        </div>
+        <div class="card" v-if="show" style="margin-top:20px;">
+            <h3>确认交卷</h3>
+            <p>已答: {{ Object.keys(as).length }} / {{ cs.length }}</p>
+            <button class="btn" @click="show=0">再检查</button>
+            <button class="btn" style="background:#67c23a" @click="submit">确认</button>
+        </div>
+        <div class="card" v-if="r">
+            <h1>考试成绩</h1>
+            <p style="font-size:32px;text-align:center;margin:30px 0;">得分: <b style="color:#409eff">{{ r.score }}</b> 分</p>
+            <p style="text-align:center;">正确: {{ r.correct_count }}/{{ r.total_count }}</p>
+            <p style="text-align:center;margin-top:20px;"><button class="btn" onclick="location.reload()">再来一次</button></p>
+        </div>
+    </div>
+</div>
+<script>
+const { createApp, ref, computed } = Vue;
+createApp({
+    setup() {
+        const p = ref({title:'',time_limit:0,total_score:0});
+        const e = ref(null);
+        const started = ref(false);
+        const cs = ref([]);
+        const i = ref(0);
+        const as = ref({});
+        const t = ref(0);
+        const name = ref('');
+        const show = ref(0);
+        const r = ref(null);
+        let tt = null;
+        
+        fetch('/api/papers/public/3').then(x=>x.json()).then(d=>{ if(d.success) p.value=d.data });
+        
+        const q = computed(()=>cs.value[i.value]||{});
+        
+        const start = async () => {
+            if(!name.value) return;
+            const x = await fetch('/api/exam/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paper_id:3,student_name:name.value})}).then(x=>x.json());
+            if(x.success){
+                e.value = x.data.exam_id;
+                p.value.time_limit = x.data.time_limit;
+                const q = await fetch('/api/exam/'+e.value+'/questions').then(x=>x.json());
+                if(q.success) cs.value = q.data.questions;
+                started.value = true;
+                t.value = x.data.time_limit*60;
+                tt = setInterval(()=>{ t.value--; if(t.value<=0) submit(); },1000);
+            }
+        };
+        
+        const submit = async () => {
+            clearInterval(tt);
+            const x = await fetch('/api/exam/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({exam_id:e.value,answers:as.value})}).then(x=>x.json());
+            if(x.success) r.value = x.data;
+        };
+        
+        return {p,started,cs,i,q,as,t,name,start,show,submit,r};
+    }
+}).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>
