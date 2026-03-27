@@ -187,6 +187,46 @@ router.get('/:id', authenticate, async (req, res) => { /* ... */ })
 2. 用简单 HTML 列表验证数据传递
 3. 检查组件属性配置
 
+### 4. Maximum call stack size exceeded（无限递归）
+**原因：** 局部函数名与导入的API函数名重名，导致函数调用自身造成死循环。
+
+**问题示例：**
+```javascript
+import { createRandomPaper } from '@/api'  // 导入API函数
+
+export default {
+  setup() {
+    // 局部函数名与导入的API函数名相同！
+    const createRandomPaper = (done) => {
+      // 这里调用的是自己，不是API！
+      await createRandomPaper(randomForm.value)  // 无限递归！
+      // ...
+    }
+  }
+}
+```
+
+**正确写法：**
+```javascript
+import { createRandomPaper } from '@/api'
+
+export default {
+  setup() {
+    // 使用不同的函数名避免冲突
+    const createRandomPaperAction = (done) => {
+      await createRandomPaper(randomForm.value)  // 调用API函数
+      // ...
+    }
+    return { createRandomPaperAction }
+  }
+}
+```
+
+**排查方法：**
+1. 检查报错堆栈，如果函数调用自身形成循环，就是这个问题
+2. 搜索函数定义，确认没有重名冲突
+3. 特别检查 `import` 的API函数名是否与局部函数名冲突
+
 ---
 
 ## 六、开发建议
