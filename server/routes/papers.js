@@ -67,6 +67,9 @@ router.get('/public/:id', async (req, res) => {
         ip_limit: paper.ip_limit,
         question_count: paper.question_count,
         total_score: paper.total_score,
+        allow_all_users: paper.allow_all_users,
+        start_time: paper.start_time,
+        end_time: paper.end_time,
         trainer: user ? { id: user.id, username: user.username, avatar: user.avatar } : null
       }
     });
@@ -172,8 +175,8 @@ router.get('/:id/questions', async (req, res) => {
 // 创建试卷
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids, ip_limit } = req.body;
-    
+    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids, ip_limit, allow_all_users, start_time, end_time } = req.body;
+
     const paper = db.papers.create({
       title,
       description,
@@ -183,9 +186,12 @@ router.post('/', authenticate, async (req, res) => {
       show_answer: show_answer !== false,
       access_code: access_code || null,
       ip_limit: ip_limit || 0,
+      allow_all_users: allow_all_users !== false,
       user_id: (req.user.role === "admin" ? null : req.user.id),
       status: 'draft',
-      total_score: 0
+      total_score: 0,
+      start_time: start_time || null,
+      end_time: end_time || null
     });
     
     // 添加题目到试卷
@@ -229,7 +235,7 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
     
-    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids, status } = req.body;
+    const { title, description, time_limit, shuffle, show_score, show_answer, access_code, question_ids, status, allow_all_users } = req.body;
     
     // 更新题目关联
     if (question_ids) {
@@ -406,21 +412,21 @@ router.get('/:id/exam-url', async (req, res) => {
 // 随机抽题组卷
 router.post('/random', authenticate, async (req, res) => {
   try {
-    const { title, category_id, count, time_limit, shuffle, show_score, show_answer } = req.body;
-    
+    const { title, category_ids, count, time_limit, shuffle, show_score, show_answer } = req.body;
+
     // 随机抽取题目
     // admin可以抽所有用户的题目，普通用户只能抽自己的
     const userId = req.user.role === "admin" ? null : req.user.id;
     const questions = db.questions.random(
       userId,
-      category_id ? parseInt(category_id) : null,
+      category_ids || [],
       count
     );
-    
+
     if (questions.length < count) {
       return res.status(400).json({ success: false, message: `题库中只有 ${questions.length} 道题目` });
     }
-    
+
     // 创建试卷
     const paper = db.papers.create({
       title,

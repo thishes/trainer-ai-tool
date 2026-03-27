@@ -12,7 +12,9 @@ const defaultData = {
   paperQuestions: [],
   examRecords: [],
   scoreRecords: [],
-  announcements: []
+  announcements: [],
+  students: [],
+  paperStudents: []
 };
 
 function readDB() {
@@ -46,11 +48,13 @@ let idCounters = {
   paperQuestions: 0,
   examRecords: 0,
   scoreRecords: 0,
-  announcements: 0
+  announcements: 0,
+  students: 0,
+  paperStudents: 0
 };
 
 function initCounters(data) {
-  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords', 'announcements'];
+  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords', 'announcements', 'students', 'paperStudents'];
   tables.forEach(table => {
     if (data[table] && data[table].length > 0) {
       idCounters[table] = Math.max(...data[table].map(item => item.id));
@@ -181,12 +185,13 @@ module.exports = {
       }
       return false;
     },
-    random: (userId, categoryId, count) => {
+    random: (userId, categoryIds, count) => {
       let pool;
+      const catIds = Array.isArray(categoryIds) ? categoryIds : (categoryIds ? [categoryIds] : []);
       if (userId === null) {
-        pool = db.questions.filter(q => (!categoryId || q.category_id === categoryId));
+        pool = db.questions.filter(q => catIds.length === 0 || catIds.includes(q.category_id));
       } else {
-        pool = db.questions.filter(q => q.user_id === userId && (!categoryId || q.category_id === categoryId));
+        pool = db.questions.filter(q => q.user_id === userId && (catIds.length === 0 || catIds.includes(q.category_id)));
       }
       // 洗牌算法
       for (let i = pool.length - 1; i > 0; i--) {
@@ -336,6 +341,104 @@ module.exports = {
         return true;
       }
       return false;
+    }
+  },
+
+  // 考生表
+  students: {
+    findAll: (filters = {}) => {
+      let result = [...db.students];
+      if (filters.paper_id) {
+        const paperStudentIds = db.paperStudents.filter(ps => ps.paper_id === parseInt(filters.paper_id)).map(ps => ps.student_id);
+        result = result.filter(s => paperStudentIds.includes(s.id));
+      }
+      return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    },
+    findById: (id) => db.students.find(s => s.id === parseInt(id)),
+    findByStudentNo: (studentNo) => db.students.find(s => s.student_no === studentNo),
+    create: (data) => {
+      const student = { 
+        id: getNextId('students'), 
+        student_no: data.student_no || `S${String(getNextId('students')).padStart(6, '0')}`,
+        name: data.name,
+        phone: data.phone || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.students.push(student);
+      writeDB(db);
+      return student;
+    },
+    bulkCreate: (items) => {
+      const students = items.map(data => ({
+        id: getNextId('students'),
+        student_no: `S${String(getNextId('students')).padStart(6, '0')}`,
+        name: data.name,
+        phone: data.phone || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      db.students.push(...students);
+      writeDB(db);
+      return students;
+    },
+    update: (id, data) => {
+      const index = db.students.findIndex(s => s.id === parseInt(id));
+      if (index !== -1) {
+        db.students[index] = { ...db.students[index], ...data, updated_at: new Date().toISOString() };
+        writeDB(db);
+        return db.students[index];
+      }
+      return null;
+    },
+    delete: (id) => {
+      const index = db.students.findIndex(s => s.id === parseInt(id));
+      if (index !== -1) {
+        db.students.splice(index, 1);
+        db.paperStudents = db.paperStudents.filter(ps => ps.student_id !== parseInt(id));
+        writeDB(db);
+        return true;
+      }
+      return false;
+    }
+  },
+
+  // 试卷考生关联表
+  paperStudents: {
+    findByPaperId: (paperId) => {
+      const paperStudents = db.paperStudents.filter(ps => ps.paper_id === parseInt(paperId));
+      return paperStudents.map(ps => {
+        const student = db.students.find(s => s.id === ps.student_id);
+        return { ...ps, student };
+      });
+    },
+    create: (data) => {
+      const ps = { id: getNextId('paperStudents'), ...data };
+      db.paperStudents.push(ps);
+      writeDB(db);
+      return ps;
+    },
+    bulkCreate: (paperId, studentIds) => {
+      const existing = db.paperStudents.filter(ps => ps.paper_id === parseInt(paperId));
+      const existingIds = existing.map(ps => ps.student_id);
+      const newRelations = studentIds
+        .filter(id => !existingIds.includes(id))
+        .map(student_id => ({ id: getNextId('paperStudents'), paper_id: parseInt(paperId), student_id }));
+      if (newRelations.length > 0) {
+        db.paperStudents.push(...newRelations);
+        writeDB(db);
+      }
+      return newRelations;
+    },
+    deleteByPaperId: (paperId) => {
+      db.paperStudents = db.paperStudents.filter(ps => ps.paper_id !== parseInt(paperId));
+      writeDB(db);
+    },
+    deleteByPaperIdAndStudentId: (paperId, studentId) => {
+      db.paperStudents = db.paperStudents.filter(ps => 
+        !(ps.paper_id === parseInt(paperId) && ps.student_id === parseInt(studentId))
+      );
+      writeDB(db);
     }
   }
 };

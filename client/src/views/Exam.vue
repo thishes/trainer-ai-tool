@@ -18,22 +18,37 @@
             <a-descriptions-item label="时间限制">{{ paperInfo.time_limit }} 分钟</a-descriptions-item>
             <a-descriptions-item label="总分">{{ paperInfo.total_score }} 分</a-descriptions-item>
             <a-descriptions-item v-if="paperInfo.trainer" label="出题人">{{ paperInfo.trainer?.username }}</a-descriptions-item>
+            <a-descriptions-item label="考生范围">
+              <span v-if="paperInfo.allow_all_users !== false" style="color: #00b42a; font-weight: 500;">开放考试</span>
+              <span v-else style="color: #ff7d00; font-weight: 500;">指定考生</span>
+            </a-descriptions-item>
+            <a-descriptions-item v-if="paperInfo.start_time || paperInfo.end_time" label="考试时间">
+              <span>{{ formatDateTime(paperInfo.start_time) }} 至 {{ formatDateTime(paperInfo.end_time) }}</span>
+            </a-descriptions-item>
           </a-descriptions>
+        </div>
+
+        <div v-if="countdownTime > 0" class="countdown-section">
+          <div class="countdown-title">距离考试开始还有</div>
+          <div class="countdown-time">{{ formatCountdown(countdownTime) }}</div>
         </div>
 
         <a-form :model="startForm" layout="vertical" style="text-align: left">
           <a-form-item v-if="paperInfo.access_code" label="访问密码">
             <a-input v-model="startForm.access_code" placeholder="请输入访问密码" />
           </a-form-item>
-          <a-form-item label="您的姓名">
+          <a-form-item v-if="paperInfo.allow_all_users === false" label="考生号">
+            <a-input v-model="startForm.student_no" placeholder="请输入考生号" />
+          </a-form-item>
+          <a-form-item :label="paperInfo.allow_all_users === false ? '考生姓名' : '您的姓名'">
             <a-input v-model="startForm.student_name" placeholder="请输入姓名" />
           </a-form-item>
         </a-form>
 
         <a-alert v-if="startError" type="error" style="margin-bottom: 16px">{{ startError }}</a-alert>
 
-        <a-button type="primary" style="width: 100%; margin-top: 16px" :loading="loading" :disabled="!!startError" @click="beginExam">
-          {{ loading ? '加载中...' : '开始考试' }}
+        <a-button type="primary" style="width: 100%; margin-top: 16px" :loading="loading" :disabled="!!startError || countdownTime > 0" @click="beginExam">
+          {{ loading ? '加载中...' : (countdownTime > 0 ? '请等待倒计时结束' : '开始考试') }}
         </a-button>
 
         <div v-if="announcements.length > 0" class="announcements-section">
@@ -200,11 +215,33 @@ export default {
     const loading = ref(false)
     const startError = ref('')
     const startForm = ref({
+      student_no: '',
       student_name: '',
       access_code: route.query.code || ''
     })
     const announcements = ref([])
     let timer = null
+    let countdownTimer = null
+    const countdownTime = ref(0)
+
+    const formatDateTime = (datetime) => {
+      if (!datetime) return '-'
+      const date = new Date(datetime)
+      return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    }
+
+    const formatCountdown = (seconds) => {
+      const d = Math.floor(seconds / 86400)
+      const h = Math.floor((seconds % 86400) / 3600)
+      const m = Math.floor((seconds % 3600) / 60)
+      const s = seconds % 60
+      let str = ''
+      if (d > 0) str += `${d}天`
+      if (h > 0) str += `${h}时`
+      if (m > 0) str += `${m}分`
+      str += `${s}秒`
+      return str
+    }
 
     const loadAnnouncements = async () => {
       try {
@@ -283,6 +320,10 @@ export default {
         Message.warning('请输入姓名')
         return
       }
+      if (paperInfo.value.allow_all_users === false && !startForm.value.student_no) {
+        Message.warning('请输入考生号')
+        return
+      }
       loading.value = true
       try {
         const paperRes = await getPaperPublic(paperId.value, { access_code: startForm.value.access_code })
@@ -291,6 +332,7 @@ export default {
         const startRes = await startExamApi({
           paper_id: paperId.value,
           student_name: startForm.value.student_name,
+          student_no: startForm.value.student_no || null,
           access_code: startForm.value.access_code
         })
 
@@ -364,11 +406,31 @@ export default {
       try {
         const paperRes = await getPaperPublic(paperId.value)
         paperInfo.value = paperRes.data
+        if (paperInfo.value.start_time) {
+          startCountdown()
+        }
       } catch (error) {
         Message.error('加载试卷信息失败，请检查链接是否正确')
       }
       loadAnnouncements()
     })
+
+    const startCountdown = () => {
+      if (countdownTimer) clearInterval(countdownTimer)
+      const updateCountdown = () => {
+        const now = Date.now()
+        const start = new Date(paperInfo.value.start_time).getTime()
+        const diff = Math.floor((start - now) / 1000)
+        if (diff <= 0) {
+          countdownTime.value = 0
+          if (countdownTimer) clearInterval(countdownTimer)
+        } else {
+          countdownTime.value = diff
+        }
+      }
+      updateCountdown()
+      countdownTimer = setInterval(updateCountdown, 1000)
+    }
 
     watch(() => startForm.value.access_code, () => {
       if (startError.value) {
@@ -378,6 +440,7 @@ export default {
 
     onUnmounted(() => {
       if (timer) clearInterval(timer)
+      if (countdownTimer) clearInterval(countdownTimer)
     })
 
     return {
@@ -385,7 +448,8 @@ export default {
       answers, timeLeft, submitDialogVisible, loading, startForm, startError,
       answeredCount, unansweredCount, questionTypeName, formatTime, isAnswered,
       selectAnswer, toggleMultipleAnswer, prevQuestion, nextQuestion, goToQuestion,
-      showSubmitConfirm, beginExam, submitExam, announcements
+      showSubmitConfirm, beginExam, submitExam, announcements,
+      countdownTime, formatDateTime, formatCountdown
     }
   }
 }
@@ -653,9 +717,29 @@ export default {
   line-height: 1.6;
 }
 
+.countdown-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  margin: 16px 0;
+  color: #fff;
+}
+
+.countdown-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+
+.countdown-time {
+  font-size: 32px;
+  font-weight: bold;
+  font-family: monospace;
+}
+</style>
 .announcement-content img {
   max-width: 100%;
   height: auto;
   margin-top: 8px;
 }
-</style>

@@ -65,16 +65,22 @@ const questionRoutes = require('./routes/questions');
 const paperRoutes = require('./routes/papers');
 const examRoutes = require('./routes/exam');
 const announcementRoutes = require('./routes/announcements');
+const studentRoutes = require('./routes/students');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/papers', paperRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/students', studentRoutes);
 
 // 分类路由
 const categoryRoutes = require('./routes/categories');
 app.use('/api/categories', categoryRoutes);
+
+// 升级路由
+app.use('/api/upgrade', require('./routes/upgrade'));
+
 app.use('/api/users', require('./routes/users'));
 
 // 全局错误处理中间件

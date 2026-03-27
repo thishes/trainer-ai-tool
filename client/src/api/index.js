@@ -90,7 +90,40 @@ export const uploadAnnouncementImage = (file) => {
   })
 }
 
+// 考生管理
+export const getStudents = (params) => api.get('/students', { params })
+export const getStudent = (id) => api.get(`/students/${id}`)
+export const createStudent = (data) => api.post('/students', data)
+export const updateStudent = (id, data) => api.put(`/students/${id}`, data)
+export const deleteStudent = (id) => api.delete(`/students/${id}`)
+export const importStudents = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/students/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+export const getPaperStudents = (paperId) => api.get(`/students/paper/${paperId}`)
+export const addPaperStudents = (paperId, studentIds) => api.post(`/students/paper/${paperId}`, { student_ids: studentIds })
+export const removePaperStudent = (paperId, studentId) => api.delete(`/students/paper/${paperId}/${studentId}`)
+export const clearPaperStudents = (paperId) => api.delete(`/students/paper/${paperId}/all`)
+export const exportPaperStudents = (paperId) => {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || ''
+  const token = localStorage.getItem('token')
+  return fetch(`${baseURL}/api/students/paper/${paperId}/export`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }).then(res => {
+    if (!res.ok) throw new Error('导出失败')
+    return res.blob()
+  })
+}
+export const verifyStudent = (data) => api.post('/students/verify', data)
+
 export default api
+
+// 升级管理
+export const checkUpgrade = () => api.get('/upgrade/check')
+export const doUpgrade = (version) => api.post('/upgrade/upgrade', { version })
 
 // 用户管理
 export const getUsers = (params) => api.get('/users', { params })

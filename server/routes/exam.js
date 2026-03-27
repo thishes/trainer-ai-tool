@@ -28,7 +28,7 @@ router.post('/start', async (req, res) => {
         paper_id: parseInt(paper_id),
         status: 'submitted'
       }).filter(r => r.ip_address === clientIp);
-      
+
       if (existingRecords.length >= paper.ip_limit) {
         return res.status(403).json({
           success: false,
@@ -36,7 +36,27 @@ router.post('/start', async (req, res) => {
         });
       }
     }
-    
+
+    // 指定考生检查
+    if (!paper.allow_all_users) {
+      const { student_no } = req.body;
+      const paperStudents = db.paperStudents.findByPaperId(paper_id);
+      const student = paperStudents.find(ps => {
+        if (!ps.student) return false;
+        if (student_no) {
+          return ps.student.student_no === student_no && ps.student.name === student_name;
+        }
+        return ps.student.name === student_name;
+      });
+
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: '考生号或姓名不匹配，无法参加考试'
+        });
+      }
+    }
+
     // 创建考试记录
     const examRecord = db.examRecords.create({
       paper_id: parseInt(paper_id),

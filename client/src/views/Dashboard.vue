@@ -30,6 +30,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           <span>公告管理</span>
         </div>
+        <div v-if="user?.role === 'admin'" class="nav-item" :class="{ active: activeTab === 'upgrade' }" @click="switchTab('upgrade')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>平台升级</span>
+        </div>
       </nav>
       <div class="sidebar-footer">
         <div class="user-card">
@@ -54,6 +58,7 @@
         <div class="toolbar">
           <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
           <a-button @click="showImportDialog = true">批量导入</a-button>
+          <a-button @click="showCategoryDialog = true">类别管理</a-button>
           <a-input v-model="questionSearch" placeholder="搜索题目..." style="width: 180px" />
         </div>
         <a-card class="content-card">
@@ -113,6 +118,7 @@
                 <th width="80">总分</th>
                 <th width="80">时限</th>
                 <th width="80">状态</th>
+                <th width="100">考生范围</th>
                 <th width="100">操作</th>
               </tr>
             </thead>
@@ -125,6 +131,10 @@
                 <td>
                   <span v-if="p.status === 'published'" class="tag tag-green">已发布</span>
                   <span v-else class="tag tag-gray">草稿</span>
+                </td>
+                <td>
+                  <span v-if="p.allow_all_users !== false" class="tag tag-green">开放</span>
+                  <span v-else class="tag tag-orange">指定考生</span>
                 </td>
                 <td>
                   <div class="action-group">
@@ -349,6 +359,11 @@
                 <a-option value="essay">问答题</a-option>
               </a-select>
             </a-form-item>
+            <a-form-item label="所属类别">
+              <a-select v-model="questionForm.category_id" placeholder="选择类别（可选）" allow-clear>
+                <a-option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</a-option>
+              </a-select>
+            </a-form-item>
             <a-form-item label="难度">
               <a-select v-model="questionForm.difficulty">
                 <a-option value="easy">简单</a-option>
@@ -394,7 +409,7 @@
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="showPaperDialog" :title="editingPaper ? '编辑试卷' : '新建试卷'" :width="700" @before-ok="createNewPaper" @cancel="showPaperDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
+    <a-modal v-model:visible="showPaperDialog" :title="editingPaper ? '编辑试卷' : '新建试卷'" :width="800" @before-ok="createNewPaper" @cancel="showPaperDialog = false" :ok-text="'保存'" :cancel-text="'取消'">
       <a-form :model="paperForm" layout="vertical">
         <a-form-item label="试卷标题" required>
           <a-input v-model="paperForm.title" placeholder="请输入试卷标题" />
@@ -420,16 +435,78 @@
             <a-option :value="1">每个IP只能考1次</a-option>
           </a-select>
         </a-form-item>
+        <a-form-item label="考生范围">
+          <a-checkbox v-model="paperForm.allow_all_users">开放给所有考生</a-checkbox>
+          <span style="color: #888; font-size: 12px; margin-left: 8px">关闭则需要指定考生才能参加考试</span>
+        </a-form-item>
+        <a-form-item label="考试时间">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a-date-picker v-model="paperForm.start_time" show-time format="YYYY-MM-DD HH:mm" placeholder="开始时间" style="width: 180px" />
+            <span>至</span>
+            <a-date-picker v-model="paperForm.end_time" show-time format="YYYY-MM-DD HH:mm" placeholder="结束时间" style="width: 180px" />
+          </div>
+          <span style="color: #888; font-size: 12px;">留空则不限制考试时间</span>
+        </a-form-item>
+        <a-form-item v-if="!paperForm.allow_all_users" label="指定考生">
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+              <a-button type="primary" size="small" @click="showStudentDialog = true">
+                <template #icon><icon-plus /></template>
+                添加考生
+              </a-button>
+              <a-button size="small" @click="showImportStudentDialog = true">
+                <template #icon><icon-upload /></template>
+                批量导入
+              </a-button>
+              <a-button size="small" @click="handleExportStudents" :disabled="paperStudents.length === 0">
+                <template #icon><icon-download /></template>
+                导出名单
+              </a-button>
+            </div>
+            <div v-if="paperStudents.length > 0" style="border: 1px solid #e5e5e5; border-radius: 4px; overflow: hidden;">
+              <div style="max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <thead style="position: sticky; top: 0; z-index: 1;">
+                    <tr style="background: #f7f8fa;">
+                      <th style="padding: 10px 8px; text-align: left; font-weight: 500; color: #333; border-bottom: 1px solid #e5e5e5;">考生号</th>
+                      <th style="padding: 10px 8px; text-align: left; font-weight: 500; color: #333; border-bottom: 1px solid #e5e5e5;">姓名</th>
+                      <th style="padding: 10px 8px; text-align: left; font-weight: 500; color: #333; border-bottom: 1px solid #e5e5e5;">手机</th>
+                      <th style="padding: 10px 8px; text-align: center; font-weight: 500; color: #333; border-bottom: 1px solid #e5e5e5; width: 70px;">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="student in paperStudents" :key="student.id">
+                      <td style="padding: 10px 8px; color: #666; border-bottom: 1px solid #f0f0f0;">{{ student.student_no }}</td>
+                      <td style="padding: 10px 8px; color: #333; border-bottom: 1px solid #f0f0f0;">{{ student.name }}</td>
+                      <td style="padding: 10px 8px; color: #666; border-bottom: 1px solid #f0f0f0;">{{ student.phone || '-' }}</td>
+                      <td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #f0f0f0;">
+                        <a-button type="text" status="danger" size="small" @click="removeStudentFromPaper(student.id)">移除</a-button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div v-else style="text-align: center; padding: 30px 20px; color: #999; background: #fafafa; border-radius: 4px; border: 1px dashed #ddd;">
+              暂无考生，请添加或导入
+            </div>
+          </div>
+        </a-form-item>
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="showRandomDialog" title="随机组卷" :width="500" @before-ok="createRandomPaper" @cancel="showRandomDialog = false" :ok-text="'创建'" :cancel-text="'取消'">
+    <a-modal v-model:visible="showRandomDialog" title="随机组卷" :width="500" @before-ok="createRandomPaperAction" @cancel="showRandomDialog = false" :ok-text="'创建'" :cancel-text="'取消'">
       <a-form :model="randomForm" layout="vertical">
         <a-form-item label="试卷标题" required>
           <a-input v-model="randomForm.title" placeholder="请输入试卷标题" />
         </a-form-item>
         <a-form-item label="题目数量">
           <a-input-number v-model="randomForm.count" :min="1" :max="100" />
+        </a-form-item>
+        <a-form-item label="题目范围">
+          <a-select v-model="randomForm.category_ids" multiple placeholder="选择类别（不选则从全部题目中抽取）">
+            <a-option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</a-option>
+          </a-select>
         </a-form-item>
         <a-form-item label="时间限制">
           <a-input-number v-model="randomForm.time_limit" :min="1" :max="300" />
@@ -505,8 +582,86 @@
       </div>
     </a-modal>
 
+    <a-modal v-model:visible="showCategoryDialog" title="类别管理" :width="500" @cancel="showCategoryDialog = false" :footer="null">
+      <div style="margin-bottom: 16px;">
+        <a-input v-model="newCategoryName" placeholder="输入新类别名称" style="width: 200px; margin-right: 8px;" />
+        <a-button type="primary" size="small" @click="handleAddCategory">添加</a-button>
+      </div>
+      <div v-if="categories.length > 0">
+        <div v-for="cat in categories" :key="cat.id" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f0f0f0;">
+          <span>{{ cat.name }}</span>
+          <a-button type="text" status="danger" size="small" @click="handleDeleteCategory(cat.id)">删除</a-button>
+        </div>
+      </div>
+      <div v-else style="text-align: center; padding: 30px; color: #999;">
+        暂无类别
+      </div>
+    </a-modal>
+
+    <a-modal v-model:visible="showStudentDialog" title="添加考生" :width="500" @before-ok="addStudent" @cancel="showStudentDialog = false" :ok-text="'添加'" :cancel-text="'取消'">
+      <a-form :model="studentForm" layout="vertical">
+        <a-form-item label="考生姓名" required>
+          <a-input v-model="studentForm.name" placeholder="请输入考生姓名" />
+        </a-form-item>
+        <a-form-item label="手机号码">
+          <a-input v-model="studentForm.phone" placeholder="可选" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:visible="showImportStudentDialog" title="批量导入考生" :width="500" @cancel="showImportStudentDialog = false" :footer="null">
+      <div style="text-align: center; padding: 20px 0">
+        <a-upload :custom-request="handleImportStudents" :show-file-list="false" accept=".xlsx,.xls">
+          <a-button type="primary">
+            <template #icon><icon-upload /></template>
+            选择Excel文件
+          </a-button>
+        </a-upload>
+        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 12px">
+          Excel格式：考生姓名（必填）、考生手机（可选）
+        </p>
+        <p style="color: var(--text-secondary); font-size: 12px">
+          支持 .xlsx 和 .xls 文件
+        </p>
+      </div>
+    </a-modal>
+
     <div class="footer">
       <span>© thishe.com</span>
+      <a-tag size="small" color="arcoblue">v{{ currentVersion }}</a-tag>
+    </div>
+
+    <div v-show="activeTab === 'upgrade'" v-if="user?.role === 'admin'" class="page-view">
+      <div class="page-header">
+        <h1 class="page-title">平台升级</h1>
+        <p class="page-desc">检查并更新系统到最新版本</p>
+      </div>
+      <a-card class="content-card">
+        <div class="upgrade-info">
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item label="当前版本">
+              <a-tag color="arcoblue">v{{ upgradeInfo.currentVersion || currentVersion }}</a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="最新版本">
+              <a-tag :color="upgradeInfo.hasUpdate ? 'red' : 'green'">v{{ upgradeInfo.latestVersion || '-' }}</a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="状态">
+              <a-tag v-if="upgradeInfo.hasUpdate" color="orange">发现新版本</a-tag>
+              <a-tag v-else color="green">已是最新版本</a-tag>
+            </a-descriptions-item>
+          </a-descriptions>
+          <div style="margin-top: 20px;">
+            <a-button type="primary" :loading="checkingUpgrade" @click="checkForUpgrade">
+              <template #icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></template>
+              检查更新
+            </a-button>
+            <a-button v-if="upgradeInfo.hasUpdate" type="primary" status="warning" :loading="upgrading" @click="performUpgrade" style="margin-left: 12px;">
+              升级到 v{{ upgradeInfo.latestVersion }}
+            </a-button>
+          </div>
+          <a-alert v-if="upgradeMessage" :type="upgradeSuccess ? 'success' : 'error'" style="margin-top: 16px">{{ upgradeMessage }}</a-alert>
+        </div>
+      </a-card>
     </div>
 
     <a-modal v-model:visible="showAnnouncementDialog" :title="editingAnnouncement ? '编辑公告' : '新建公告'" :width="800" @cancel="showAnnouncementDialog = false" :footer="null">
@@ -547,14 +702,18 @@ import { io } from 'socket.io-client'
 import E from 'wangeditor'
 import {
   IconUser, IconDashboard, IconCheckCircle, IconTrophy,
-  IconBarChart, IconRobot, IconDown, IconDelete, IconPlus
+  IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload
 } from '@arco-design/web-vue/es/icon'
 import {
   getQuestions, createQuestion, updateQuestion, deleteQuestion,
   getPapers, createPaper, updatePaper, deletePaper, publishPaper, unpublishPaper, createRandomPaper,
   getExamStats, getPaperExamUrl, getExamRecords,
   getUsers, createUser, updateUser, lockUser, deleteUser,
-  getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement
+  getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,
+  getStudents, createStudent, deleteStudent, importStudents,
+  getPaperStudents, addPaperStudents, removePaperStudent, exportPaperStudents,
+  getCategories, createCategory, deleteCategory,
+  checkUpgrade, doUpgrade
 } from '@/api'
 
 export default {
@@ -563,6 +722,51 @@ export default {
     const router = useRouter()
     const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
     const activeTab = ref('questions')
+    const currentVersion = ref('1.0.0')
+    const upgradeInfo = ref({})
+    const checkingUpgrade = ref(false)
+    const upgrading = ref(false)
+    const upgradeMessage = ref('')
+    const upgradeSuccess = ref(false)
+
+    const checkForUpgrade = async () => {
+      checkingUpgrade.value = true
+      upgradeMessage.value = ''
+      try {
+        const res = await checkUpgrade()
+        upgradeInfo.value = res.data || {}
+        if (!upgradeInfo.value.hasUpdate) {
+          upgradeMessage.value = '当前已是最新版本'
+          upgradeSuccess.value = true
+        }
+      } catch (e) {
+        upgradeMessage.value = '检查更新失败'
+        upgradeSuccess.value = false
+      }
+      checkingUpgrade.value = false
+    }
+
+    const performUpgrade = async () => {
+      if (!upgradeInfo.value.hasUpdate) return
+      Modal.confirm({
+        title: '确认升级',
+        content: `确定要升级到 v${upgradeInfo.value.latestVersion} 吗？升级后版本信息将更新。`,
+        onOk: async () => {
+          upgrading.value = true
+          upgradeMessage.value = ''
+          try {
+            await doUpgrade(upgradeInfo.value.latestVersion)
+            upgradeMessage.value = '升级成功，请刷新页面'
+            upgradeSuccess.value = true
+            currentVersion.value = upgradeInfo.value.latestVersion
+          } catch (e) {
+            upgradeMessage.value = '升级失败'
+            upgradeSuccess.value = false
+          }
+          upgrading.value = false
+        }
+      })
+    }
 
     const switchTab = (tab) => {
       closeAllPaperMenus()
@@ -573,20 +777,28 @@ export default {
     const questionSearch = ref('')
     const showQuestionDialog = ref(false)
     const showImportDialog = ref(false)
+    const showCategoryDialog = ref(false)
+    const newCategoryName = ref('')
+    const categories = ref([])
     const editingQuestion = ref(null)
     const questionForm = ref({
       title: '', type: 'single', difficulty: 'medium', score: 10,
-      options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: ''
+      options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: '', category_id: null
     })
 
     const papers = ref([])
     const showPaperDialog = ref(false)
     const showRandomDialog = ref(false)
     const editingPaper = ref(null)
-    const randomForm = ref({ title: '', count: 10, time_limit: 60 })
-    const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '', ip_limit: 0 })
+    const randomForm = ref({ title: '', count: 10, time_limit: 60, category_ids: [] })
+    const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '', ip_limit: 0, allow_all_users: true, start_time: null, end_time: null })
     const selectedQuestionIds = ref([])
     const selectedQuestions = ref([])
+
+    const showStudentDialog = ref(false)
+    const showImportStudentDialog = ref(false)
+    const studentForm = ref({ name: '', phone: '' })
+    const paperStudents = ref([])
 
     const selectedPaper = ref(null)
     const stats = ref({
@@ -659,6 +871,42 @@ export default {
         }
       } catch (e) {
         Message.error('加载题目失败')
+      }
+    }
+
+    const loadCategories = async () => {
+      try {
+        const res = await getCategories()
+        if (res.data) {
+          categories.value = res.data
+        }
+      } catch (e) {
+        console.error('加载类别失败', e)
+      }
+    }
+
+    const handleAddCategory = async () => {
+      if (!newCategoryName.value.trim()) {
+        Message.warning('请输入类别名称')
+        return
+      }
+      try {
+        await createCategory({ name: newCategoryName.value.trim() })
+        Message.success('添加成功')
+        newCategoryName.value = ''
+        loadCategories()
+      } catch (e) {
+        Message.error('添加失败')
+      }
+    }
+
+    const handleDeleteCategory = async (id) => {
+      try {
+        await deleteCategory(id)
+        Message.success('删除成功')
+        loadCategories()
+      } catch (e) {
+        Message.error('删除失败')
       }
     }
 
@@ -1012,7 +1260,7 @@ export default {
       })
     }
 
-    const createRandomPaper = (done) => {
+    const createRandomPaperAction = (done) => {
       (async () => {
         try {
           await createRandomPaper(randomForm.value)
@@ -1036,18 +1284,28 @@ export default {
         }
         try {
           const data = { ...paperForm.value, question_ids: selectedQuestionIds.value }
+          let paperId
           if (editingPaper.value) {
             await updatePaper(editingPaper.value.id, data)
+            paperId = editingPaper.value.id
             Message.success('更新成功')
           } else {
-            await createPaper(data)
+            const res = await createPaper(data)
+            paperId = res.data.id
             Message.success('创建成功')
+          }
+          if (!paperForm.value.allow_all_users && paperId) {
+            const studentIds = paperStudents.value.map(s => s.id)
+            if (studentIds.length > 0) {
+              await addPaperStudents(paperId, studentIds)
+            }
           }
           showPaperDialog.value = false
           editingPaper.value = null
-          paperForm.value = { title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '' }
+          paperForm.value = { title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '', ip_limit: 0, allow_all_users: true }
           selectedQuestionIds.value = []
           selectedQuestions.value = []
+          paperStudents.value = []
           loadPapers()
           done(true)
         } catch (e) {
@@ -1057,7 +1315,73 @@ export default {
       })()
     }
 
-    const editPaperAction = (row) => {
+    const addStudent = (done) => {
+      (async () => {
+        if (!studentForm.value.name) {
+          Message.warning('请输入考生姓名')
+          done(false)
+          return
+        }
+        try {
+          const res = await createStudent(studentForm.value)
+          const newStudent = res.data
+          paperStudents.value.push(newStudent)
+          studentForm.value = { name: '', phone: '' }
+          showStudentDialog.value = false
+          Message.success('添加成功')
+          done(true)
+        } catch (e) {
+          Message.error('添加失败: ' + (e.response?.data?.message || e.message))
+          done(false)
+        }
+      })()
+    }
+
+    const removeStudentFromPaper = async (studentId) => {
+      if (!editingPaper.value) return
+      try {
+        await removePaperStudent(editingPaper.value.id, studentId)
+        paperStudents.value = paperStudents.value.filter(s => s.id !== studentId)
+        Message.success('移除成功')
+      } catch (e) {
+        Message.error('移除失败')
+      }
+    }
+
+    const handleExportStudents = async () => {
+      if (!editingPaper.value) return
+      try {
+        const blob = await exportPaperStudents(editingPaper.value.id)
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${editingPaper.value.title}_考生名单.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        Message.success('导出成功')
+      } catch (e) {
+        Message.error('导出失败')
+      }
+    }
+
+    const handleImportStudents = async (options) => {
+      const { file } = options
+      try {
+        const res = await importStudents(file)
+        Message.success(res.message || '导入成功')
+        showImportStudentDialog.value = false
+        if (editingPaper.value) {
+          const paperRes = await getPaperStudents(editingPaper.value.id)
+          paperStudents.value = paperRes.data.map(ps => ps.student).filter(s => s)
+        }
+      } catch (e) {
+        Message.error('导入失败: ' + (e.response?.data?.message || e.message))
+      }
+    }
+
+    const editPaperAction = async (row) => {
       editingPaper.value = row
       paperForm.value = {
         title: row.title,
@@ -1066,10 +1390,25 @@ export default {
         shuffle: row.shuffle,
         show_score: row.show_score,
         show_answer: row.show_answer,
-        access_code: row.access_code || ''
+        access_code: row.access_code || '',
+        allow_all_users: row.allow_all_users === true
       }
       selectedQuestionIds.value = []
       selectedQuestions.value = []
+      if (!row.allow_all_users) {
+        try {
+          const res = await getPaperStudents(row.id)
+          console.log('考生列表 API 返回:', res.data)
+          const mapped = res.data.map(ps => ps.student).filter(s => s)
+          paperStudents.value = [...mapped]
+          console.log('处理后 paperStudents:', paperStudents.value)
+        } catch (e) {
+          console.error('获取考生列表失败:', e)
+          paperStudents.value = []
+        }
+      } else {
+        paperStudents.value = []
+      }
       showPaperDialog.value = true
     }
 
@@ -1147,6 +1486,7 @@ export default {
 
     onMounted(() => {
       loadQuestions()
+      loadCategories()
       loadPapers()
       if (user.value.role === 'admin') {
         loadUsers()
@@ -1173,21 +1513,24 @@ export default {
     return {
       userList, userSearch, showUserDialog, editingUser, userForm, userLoading,
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
-      user, activeTab, switchTab, questions, questionSearch, showQuestionDialog, showImportDialog,
+      user, activeTab, switchTab, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, showQuestionDialog, showImportDialog,
       editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
       randomForm, paperForm, selectedPaper, stats, publishedPapers,
       showExamUrlDialog, examUrlData,
       showRecordsDialog, examRecords,
       loadQuestions, loadPapers, loadStats, saveQuestion, editQuestion, deleteQuestion: deleteQuestionAction,
       publishPaper: publishPaperAction, deletePaper: deletePaperAction,
-      createRandomPaper, createNewPaper, logout: handleLogout, viewExamUrl, copyUrl, viewExamRecords, editPaperAction, handlePaperCommand,
+      createRandomPaperAction, createNewPaper, logout: handleLogout, viewExamUrl, copyUrl, viewExamRecords, editPaperAction, handlePaperCommand,
       togglePaperMenu, closeAllPaperMenus,
       getDistBgColor, formatTime,
       IconUser, IconDashboard, IconCheckCircle, IconTrophy,
-      IconBarChart, IconRobot, IconDown, IconDelete, IconPlus,
+      IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
       newEntryAnimation, newEntryKey,
       announcements, showAnnouncementDialog, editingAnnouncement, announcementForm, savingAnnouncement, editorContainerRef,
-      openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction
+      openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction,
+      showStudentDialog, showImportStudentDialog, studentForm, paperStudents,
+      addStudent, removeStudentFromPaper, handleImportStudents, handleExportStudents,
+      showCategoryDialog, newCategoryName, categories, handleAddCategory, handleDeleteCategory
     }
   }
 }
