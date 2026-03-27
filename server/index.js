@@ -51,7 +51,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/exam.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/exam.html'));
+  const paperId = req.query.paper || '3';
+  res.redirect('/#/exam/' + paperId);
 });
 
 // 静态文件
