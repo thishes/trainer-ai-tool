@@ -7,7 +7,7 @@ const path = require('path');
 const authenticate = require('../middleware/auth');
 
 const CURRENT_VERSION = '1.0.1';
-const GITHUB_REPO = 'trainer-ai-tool';
+const GITHUB_REPO = 'thishes/trainer-ai-tool';
 
 router.get('/check', authenticate, async (req, res) => {
   try {
@@ -63,10 +63,11 @@ function fetchLatestVersion() {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.github.com',
-      path: `/repos/thishe/${GITHUB_REPO}/releases/latest`,
+      path: `/repos/thishes/trainer-ai-tool/releases/latest`,
       method: 'GET',
       headers: {
-        'User-Agent': 'trainer-ai-tool'
+        'User-Agent': 'trainer-ai-tool',
+        'Accept': 'application/vnd.github.v3+json'
       }
     };
 
@@ -74,16 +75,32 @@ function fetchLatestVersion() {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
+        console.log('GitHub API响应状态:', res.statusCode);
+        console.log('GitHub API响应数据:', data.substring(0, 500));
         try {
           const release = JSON.parse(data);
-          resolve(release.tag_name ? release.tag_name.replace(/^v/, '') : '1.0.0');
+          if (release.tag_name) {
+            const version = release.tag_name.replace(/^v/, '');
+            console.log('解析版本号:', version);
+            resolve(version);
+          } else if (release.message) {
+            console.log('GitHub API错误:', release.message);
+            resolve(CURRENT_VERSION);
+          } else {
+            console.log('无法获取tag_name，使用当前版本');
+            resolve(CURRENT_VERSION);
+          }
         } catch (e) {
+          console.error('解析GitHub响应失败:', e.message);
           resolve(CURRENT_VERSION);
         }
       });
     });
 
-    req.on('error', () => resolve(CURRENT_VERSION));
+    req.on('error', (e) => {
+      console.error('GitHub API请求失败:', e.message);
+      resolve(CURRENT_VERSION);
+    });
     req.end();
   });
 }
