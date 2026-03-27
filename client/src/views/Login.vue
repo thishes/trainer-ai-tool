@@ -211,4 +211,25 @@ export default {
 :deep(.arco-modal) {
   border-radius: var(--radius-lg);
 }
+
+@media screen and (max-width: 480px) {
+  .login-box {
+    width: 90vw;
+    padding: 24px 16px;
+  }
+
+  .login-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .login-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .login-box h1 {
+    font-size: 18px;
+  }
+}
 </style>

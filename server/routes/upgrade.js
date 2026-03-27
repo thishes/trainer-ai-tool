@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const authenticate = require('../middleware/auth');
 
-const CURRENT_VERSION = '1.0.0';
+const CURRENT_VERSION = '1.0.1';
 const GITHUB_REPO = 'trainer-ai-tool';
 
 router.get('/check', authenticate, async (req, res) => {

@@ -191,4 +191,28 @@ export default {
   padding: 40px 0;
   text-align: center;
 }
+
+@media screen and (max-width: 480px) {
+  .result-card {
+    padding: 24px 16px;
+  }
+
+  .result-card h1 {
+    font-size: 18px;
+  }
+
+  :deep(.arco-statistic .arco-statistic-value) {
+    font-size: 36px;
+  }
+
+  .result-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .result-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+}
 </style>

@@ -1,6 +1,7 @@
 <template>
   <div class="dashboard toutiao-layout">
-    <aside class="sidebar">
+    <div class="sidebar-overlay" :class="{ 'mobile-visible': sidebarOpen }" @click="sidebarOpen = false"></div>
+    <aside class="sidebar" :class="{ 'mobile-open': sidebarOpen }">
       <div class="sidebar-brand">
         <div class="logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -48,6 +49,17 @@
         </a-button>
       </div>
     </aside>
+
+    <div class="mobile-header" style="display: none;">
+      <button class="hamburger-btn" @click="sidebarOpen = !sidebarOpen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="brand-text">AI考试</span>
+    </div>
 
     <main class="main-content">
       <div v-show="activeTab === 'questions'" class="page-view">
@@ -722,7 +734,8 @@ export default {
     const router = useRouter()
     const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
     const activeTab = ref('questions')
-    const currentVersion = ref('1.0.0')
+    const sidebarOpen = ref(false)
+    const currentVersion = ref('1.0.1')
     const upgradeInfo = ref({})
     const checkingUpgrade = ref(false)
     const upgrading = ref(false)
@@ -771,6 +784,7 @@ export default {
     const switchTab = (tab) => {
       closeAllPaperMenus()
       activeTab.value = tab
+      sidebarOpen.value = false
     }
 
     const questions = ref([])
@@ -1513,7 +1527,7 @@ export default {
     return {
       userList, userSearch, showUserDialog, editingUser, userForm, userLoading,
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
-      user, activeTab, switchTab, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, showQuestionDialog, showImportDialog,
+      user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, showQuestionDialog, showImportDialog,
       editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
       randomForm, paperForm, selectedPaper, stats, publishedPapers,
       showExamUrlDialog, examUrlData,

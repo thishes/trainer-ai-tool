@@ -717,25 +717,91 @@ export default {
   line-height: 1.6;
 }
 
-.countdown-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  padding: 24px;
-  text-align: center;
-  margin: 16px 0;
-  color: #fff;
-}
 
-.countdown-title {
-  font-size: 14px;
-  margin-bottom: 8px;
-  opacity: 0.9;
-}
+@media screen and (max-width: 767.98px) {
+  .exam-container {
+    padding: 12px;
+  }
 
-.countdown-time {
-  font-size: 32px;
-  font-weight: bold;
-  font-family: monospace;
+  .start-card {
+    padding: 24px 16px;
+    margin: 10px;
+  }
+
+  .start-card-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .start-card h2 {
+    font-size: 18px;
+  }
+
+  .exam-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .exam-header h2 {
+    font-size: 16px;
+  }
+
+  .exam-timer {
+    font-size: 16px;
+  }
+
+  .question-title {
+    font-size: 15px;
+  }
+
+  .option-item {
+    padding: 10px 12px;
+  }
+
+  .option-text {
+    font-size: 13px;
+  }
+
+  .question-dots {
+    max-width: 280px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .question-nav {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .question-nav .arco-btn {
+    width: 100%;
+  }
+
+  .exam-info {
+    padding: 12px;
+  }
+
+  .exam-page .footer {
+    padding: 12px;
+    font-size: 12px;
+  }
+
+  .countdown-section {
+    padding: 16px;
+  }
+
+  .countdown-title {
+    font-size: 12px;
+  }
+
+  .countdown-time {
+    font-size: 24px;
+  }
 }
 </style>
 .announcement-content img {
