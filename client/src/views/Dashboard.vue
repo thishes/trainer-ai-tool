@@ -1132,8 +1132,9 @@ export default {
     const loadPapers = async () => {
       try {
         const res = await getPapers({ limit: 100 });
-        if (res.data && res.data.list) {
-          papers.value = res.data.list.map(p => ({ ...p, _showMenu: false }))
+        if (res.data) {
+          const paperList = res.data.papers || res.data.list || [];
+          papers.value = paperList.map(p => ({ ...p, _showMenu: false }))
         }
       } catch (e) {
         Message.error('加载试卷失败')

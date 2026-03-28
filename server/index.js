@@ -106,7 +106,13 @@ const csrfProtection = csrf({
 });
 
 // 白名单路由（公开API不需要CSRF）
-const csrfExclude = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/students/verify'];
+const csrfExclude = [
+  '/api/health',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/students/verify',
+  '/api/papers'
+];
 
 app.use((req, res, next) => {
   if (csrfExclude.some(path => req.path.startsWith(path))) {
