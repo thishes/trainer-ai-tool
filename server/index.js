@@ -5,16 +5,17 @@ const path = require('path');
 const http = require('http');
 require('dotenv').config();
 
+const config = require('./config');
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : (process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000', 'http://localhost:5173']),
+    origin: config.ALLOWED_ORIGINS,
     methods: ['GET', 'POST']
   }
 });
 
-const DEBUG = process.env.DEBUG === 'true';
+const DEBUG = config.DEBUG;
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -93,13 +94,13 @@ const csrf = require('csurf');
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.SECURE_COOKIE === 'true';
+const isSecureCookie = config.SECURE_COOKIE;
 
 // 仅对 API 启用 CSRF 保护
 const csrfProtection = csrf({ 
   cookie: {
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureCookie,
     sameSite: 'strict'
   }
 });

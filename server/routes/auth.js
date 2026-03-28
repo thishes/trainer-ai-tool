@@ -7,9 +7,6 @@ const db = require('../db');
 const config = require('../config');
 
 const JWT_SECRET = config.JWT_SECRET;
-if (!JWT_SECRET && config.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET 环境变量未设置');
-}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // 登录
@@ -41,10 +38,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
     
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.SECURE_COOKIE === 'true';
+    const isSecureCookie = config.SECURE_COOKIE;
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecureCookie,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     };
@@ -214,10 +211,9 @@ router.post('/refresh', async (req, res) => {
     );
     
     // 更新 Cookie
-    const isSecureCookie = process.env.NODE_ENV === 'production' || process.env.SECURE_COOKIE === 'true';
     res.cookie('token', newToken, {
       httpOnly: true,
-      secure: isSecureCookie,
+      secure: config.SECURE_COOKIE,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });

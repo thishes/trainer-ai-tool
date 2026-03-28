@@ -1,121 +1,127 @@
 #!/bin/bash
+# deploy.sh - 远程部署脚本
+# 用法: ./deploy.sh <服务器IP> <用户名> <前端路径> <后端路径>
 
-# 培训师AI工具 - 一键部署脚本 (Git版)
-# 使用 git clone 获取最新代码
+set -e
 
-echo "========================================="
-echo "   培训师AI工具 - Git 一键部署"
-echo "========================================="
+SERVER_IP="${1:-43.153.192.88}"
+SERVER_USER="${2:-root}"
+FRONTEND_PATH="${3:-/var/www/knowledge-base}"
+BACKEND_PATH="${4:-/root/trainer-ai-tool}"
+DOMAIN="${5:-kb.thishe.com}"
+SSH_PORT="${SSH_PORT:-22}"
 
-# 1. 检查并安装 Node.js
-if ! command -v node &> /dev/null; then
-    echo "请先安装 Node.js: https://nodejs.org/"
-    exit 1
-fi
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DATE=$(date +%Y%m%d%H%M%S)
 
-# 2. 清理旧目录
-echo "清理旧目录..."
-rm -rf ~/trainer-ai-tool
+echo "=========================================="
+echo "开始部署 Trainer AI Tool"
+echo "服务器: ${SERVER_USER}@${SERVER_IP}"
+echo "前端路径: ${FRONTEND_PATH}"
+echo "后端路径: ${BACKEND_PATH}"
+echo "域名: ${DOMAIN}"
+echo "时间: ${DATE}"
+echo "=========================================="
 
-# 3. 克隆仓库
-echo "克隆最新代码..."
-cd ~
-git clone https://github.com/thishes/trainer-ai-tool.git trainer-ai-tool
-cd trainer-ai-tool
-git checkout 393b5ec
+# 1. 打包项目
+echo "[1/6] 打包项目..."
+cd "$PROJECT_DIR"
+tar --exclude='node_modules' \
+    --exclude='.git' \
+    --exclude='client/dist' \
+    --exclude='*.log' \
+    -czf "/tmp/trainer-ai-tool-${DATE}.tar.gz" .
 
-# 4. 安装依赖
-echo "安装依赖..."
-npm install
-cd client && npm install && cd ..
+# 2. 上传到服务器
+echo "[2/6] 上传到服务器..."
+scp -P ${SSH_PORT} "/tmp/trainer-ai-tool-${DATE}.tar.gz" ${SERVER_USER}@${SERVER_IP}:/tmp/
 
-# 5. 初始化数据库
-echo "初始化数据库..."
-mkdir -p uploads
-if [ ! -f exam.db ]; then
-    node -e "
-    const Database = require('better-sqlite3');
-    const db = new Database('exam.db');
-    db.exec(\`
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            username TEXT UNIQUE,
-            password TEXT,
-            role TEXT DEFAULT 'student',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS questions (
-            id TEXT PRIMARY KEY,
-            type TEXT,
-            content TEXT,
-            options TEXT,
-            answer TEXT,
-            explanation TEXT,
-            difficulty TEXT,
-            category TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS papers (
-            id TEXT PRIMARY KEY,
-            title TEXT,
-            description TEXT,
-            time_limit INTEGER,
-            password TEXT,
-            random_order INTEGER,
-            published INTEGER DEFAULT 0,
-            created_by TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS paper_questions (
-            id TEXT PRIMARY KEY,
-            paper_id TEXT,
-            question_id TEXT,
-            order_num INTEGER
-        );
-        CREATE TABLE IF NOT EXISTS exams (
-            id TEXT PRIMARY KEY,
-            paper_id TEXT,
-            student_name TEXT,
-            start_time DATETIME,
-            end_time DATETIME,
-            score REAL,
-            status TEXT DEFAULT 'in_progress',
-            answers TEXT,
-            ip_address TEXT
-        );
-        CREATE TABLE IF NOT EXISTS announcements (
-            id TEXT PRIMARY KEY,
-            title TEXT,
-            content TEXT,
-            created_by TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-    \`);
-    const { v4: uuidv4 } = require('uuid');
-    db.prepare('INSERT OR IGNORE INTO users (id, username, password, role) VALUES (?, ?, ?, ?)').run(uuidv4(), 'admin', 'admin123', 'admin');
-    console.log('数据库初始化完成');
-    "
-fi
+# 3. 备份旧版本
+echo "[3/6] 备份旧版本..."
+ssh -p ${SSH_PORT} ${SERVER_USER}@${SERVER_IP} "
+    if [ -d '${BACKEND_PATH}' ]; then
+        echo '备份后端...'
+        mkdir -p /tmp/backup
+        cp -r ${BACKEND_PATH} /tmp/backup/trainer-ai-tool-${DATE} 2>/dev/null || true
+    fi
+"
 
-# 6. 构建前端
-echo "构建前端..."
-cd client
-npm run build
-cd ..
-
-# 7. 启动服务
-echo ""
-echo "========================================="
-echo "   启动服务..."
-echo "========================================="
-
-# 使用 PM2 或直接运行
-if command -v pm2 &> /dev/null; then
+# 4. 部署后端
+echo "[4/6] 部署后端..."
+ssh -p ${SSH_PORT} ${SERVER_USER}@${SERVER_IP} "
+    mkdir -p ${BACKEND_PATH}
+    tar -xzf /tmp/trainer-ai-tool-${DATE}.tar.gz -C ${BACKEND_PATH}
+    cd ${BACKEND_PATH}
+    
+    # 安装依赖
+    npm install --production 2>/dev/null || true
+    
+    # 重启后端服务
     pm2 stop trainer-ai-tool 2>/dev/null || true
-    pm2 start server/index.js --name trainer-ai-tool
-    pm2 save
-    echo "服务已启动: pm2 list 查看"
-else
-    node server/index.js
-fi
+    pm2 start npm --name 'trainer-ai-tool' -- start || true
+    pm2 save 2>/dev/null || true
+"
+
+# 5. 部署前端
+echo "[5/6] 部署前端..."
+ssh -p ${SSH_PORT} ${SERVER_USER}@${SERVER_IP} "
+    mkdir -p ${FRONTEND_PATH}
+    cd ${BACKEND_PATH}/client
+    
+    # 构建前端
+    npm install 2>/dev/null || true
+    npm run build 2>/dev/null || true
+    
+    # 复制到前端目录
+    rm -rf ${FRONTEND_PATH}/*
+    cp -r ${BACKEND_PATH}/client/dist/* ${FRONTEND_PATH}/
+    
+    # 配置 Nginx
+    cat > /etc/nginx/sites-available/${DOMAIN} << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    root ${FRONTEND_PATH};
+    index index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    location /socket.io {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+NGINX_EOF
+
+    ln -sf /etc/nginx/sites-available/${DOMAIN} /etc/nginx/sites-enabled/ 2>/dev/null || true
+    
+    # 测试并重载 Nginx
+    nginx -t && nginx -s reload 2>/dev/null || true
+"
+
+# 6. 清理
+echo "[6/6] 清理临时文件..."
+ssh -p ${SSH_PORT} ${SERVER_USER}@${SERVER_IP} "rm -f /tmp/trainer-ai-tool-${DATE}.tar.gz"
+rm -f "/tmp/trainer-ai-tool-${DATE}.tar.gz"
+
+echo ""
+echo "=========================================="
+echo "部署完成！"
+echo "访问地址: http://${DOMAIN}"
+echo "=========================================="

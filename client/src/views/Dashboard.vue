@@ -836,7 +836,10 @@ export default {
     const newEntryKey = ref(0)
 
     const initSocket = () => {
-      const wsUrl = window.location.protocol === 'https:' ? 'wss://' + window.location.hostname + ':' + (window.location.port || '3000') : 'ws://' + window.location.hostname + ':' + (window.location.port || '3000')
+      const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+      const host = window.location.hostname
+      const port = window.location.protocol === 'https:' ? '' : (window.location.port ? ':' + window.location.port : ':3000')
+      const wsUrl = protocol + host + port
       socket = io(wsUrl, { transports: ['websocket', 'polling'] })
 
       socket.on('connect', () => {
