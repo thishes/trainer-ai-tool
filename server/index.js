@@ -110,8 +110,20 @@ const csrfExclude = [
   '/api/health',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/logout',
+  '/api/auth/refresh',
+  '/api/auth/me',
   '/api/students/verify',
-  '/api/papers'
+  '/api/papers',
+  '/api/papers/public',
+  '/api/papers/\d+/exam-url',
+  '/api/exam',
+  '/api/exam/\d+/questions',
+  '/api/categories',
+  '/api/questions',
+  '/api/users',
+  '/api/announcements',
+  '/api/students'
 ];
 
 app.use((req, res, next) => {

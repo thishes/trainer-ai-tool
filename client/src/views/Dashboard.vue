@@ -837,10 +837,8 @@ export default {
 
     const initSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
-      const host = window.location.hostname
-      const port = window.location.protocol === 'https:' ? '' : (window.location.port ? ':' + window.location.port : ':3000')
-      const wsUrl = protocol + host + port
-      socket = io(wsUrl, { transports: ['websocket', 'polling'] })
+      const wsUrl = protocol + window.location.hostname
+      socket = io(wsUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
 
       socket.on('connect', () => {
         console.log('[Socket.io] Connected to server')
