@@ -6,30 +6,87 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 const api = axios.create({
   baseURL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 
+    'Content-Type': 'application/json',
+    // 显式允许携带 credentials
+    'X-Requested-With': 'XMLHttpRequest'
+  },
+  withCredentials: true // 允许携带 Cookie
 })
 
-// 请求拦截器
+// 请求拦截器 - 优先从 Cookie 获取 token，同时支持 localStorage 后备
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  // Cookie 中的 token 会被自动发送
+  // 如果需要显式发送 localStorage 的 token（用于非 Cookie 场景）
+  const localToken = localStorage.getItem('token')
+  if (localToken) {
+    config.headers.Authorization = `Bearer ${localToken}`
   }
   return config
 })
 
-// 响应拦截器
+// 响应拦截器 - 改进错误处理
 api.interceptors.response.use(
   response => response.data,
   error => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      localStorage.removeItem('token')
-      const isExamPage = window.location.pathname.startsWith('/exam')
-      if (!isExamPage) {
-        window.location.href = '/login'
-      }
+    const status = error.response?.status
+    const message = error.response?.data?.message
+    
+    // 统一错误提示
+    let errorMsg = message || '网络错误，请稍后重试'
+    
+    switch (status) {
+      case 400:
+        errorMsg = message || '请求参数错误'
+        break
+      case 401:
+        // 清除本地存储的 token
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        errorMsg = message || '登录已过期，请重新登录'
+        // 避免死循环，仅在非登录页面时跳转
+        if (!window.location.pathname.includes('/login')) {
+          // 延迟跳转，让当前请求完成
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 500)
+        }
+        break
+      case 403:
+        errorMsg = message || '没有权限执行此操作'
+        break
+      case 404:
+        errorMsg = message || '请求的资源不存在'
+        break
+      case 408:
+        errorMsg = '请求超时，请重试'
+        break
+      case 422:
+        errorMsg = message || '请求数据验证失败'
+        break
+      case 429:
+        errorMsg = '请求过于频繁，请稍后再试'
+        break
+      case 500:
+        errorMsg = '服务器内部错误，请联系管理员'
+        break
+      case 502:
+        errorMsg = '服务网关错误，请稍后重试'
+        break
+      case 503:
+        errorMsg = '服务暂时不可用，请稍后重试'
+        break
+      case 504:
+        errorMsg = '网关超时，请稍后重试'
+        break
+      default:
+        if (!status) {
+          errorMsg = '网络连接失败，请检查网络'
+        }
     }
-    return Promise.reject(error)
+    
+    // 返回带有错误信息的 Promise
+    return Promise.reject(new Error(errorMsg))
   }
 )
 
@@ -37,6 +94,8 @@ api.interceptors.response.use(
 export const login = (data) => api.post('/auth/login', data)
 export const register = (data) => api.post('/auth/register', data)
 export const getUserInfo = () => api.get('/auth/me')
+export const logout = () => api.post('/auth/logout')
+export const refreshToken = () => api.post('/auth/refresh')
 
 // 题目
 export const getQuestions = (params) => api.get('/questions', { params })
@@ -111,7 +170,11 @@ export const exportPaperStudents = (paperId) => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || ''
   const token = localStorage.getItem('token')
   return fetch(`${baseURL}/api/students/paper/${paperId}/export`, {
-    headers: { 'Authorization': `Bearer ${token}` }
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'include'
   }).then(res => {
     if (!res.ok) throw new Error('导出失败')
     return res.blob()

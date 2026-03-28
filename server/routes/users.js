@@ -4,8 +4,12 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const config = require('../config');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'trainer-ai-tool-secret-key';
+const JWT_SECRET = config.JWT_SECRET;
+if (!JWT_SECRET && config.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET 环境变量未设置');
+}
 
 // 验证管理员身份
 const requireAdmin = (req, res, next) => {

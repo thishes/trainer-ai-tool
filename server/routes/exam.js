@@ -312,16 +312,13 @@ router.post('/ai-grade', authenticate, async (req, res) => {
     if (paperQuestions.length === 0) {
       return res.json({ success: true, message: '没有主观题', data: { graded: 0 } });
     }
-    
-    // TODO: 调用AI API批改
-    // 这里需要接入AI服务
-    
+
     res.json({
       success: true,
-      message: 'AI批改功能需要配置AI API',
-      data: { 
+      message: 'AI批改功能开发中，请等待后续版本',
+      data: {
         subjective_count: paperQuestions.length,
-        note: '请在环境变量中配置AI_API_KEY'
+        note: 'AI批改功能需要配置AI_API_KEY环境变量'
       }
     });
   } catch (error) {

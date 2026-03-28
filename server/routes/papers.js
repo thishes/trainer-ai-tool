@@ -10,7 +10,6 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
     
-    console.log("DEBUG:", JSON.stringify(req.user));
     let papers;
     if (req.user.role === "admin") {
       papers = db.papers.findAll({});
@@ -283,8 +282,11 @@ router.post('/:id/publish', authenticate, async (req, res) => {
     }
     
     // 生成访问链接
-    const baseUrl = req.app.locals.BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const accessUrl = `${baseUrl}/exam/${paper.id}`;
+    const baseUrl = req.app.locals.BASE_URL;
+    if (!baseUrl || baseUrl.includes('localhost')) {
+      console.warn('警告: BASE_URL 未设置或使用 localhost，生产环境应配置实际访问地址');
+    }
+    const accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
     
     // 生成二维码
     const qrcodeDataUrl = await QRCode.toDataURL(accessUrl);
@@ -381,8 +383,8 @@ router.get('/:id/exam-url', async (req, res) => {
     }
     
     // 生成访问链接
-    const baseUrl = req.app.locals.BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    let accessUrl = `${baseUrl}/exam/${paper.id}`;
+    const baseUrl = req.app.locals.BASE_URL;
+    let accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
     
     // 如果有访问密码，添加到链接
     if (paper.access_code) {

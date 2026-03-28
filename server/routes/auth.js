@@ -1,11 +1,74 @@
-// server/routes/auth.js - 认证路由 (JSON版)
+// server/routes/auth.js - 认证路由 (安全加固版)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const config = require('../config');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'trainer-ai-tool-secret-key';
+const JWT_SECRET = config.JWT_SECRET;
+if (!JWT_SECRET && config.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET 环境变量未设置');
+}
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+// 登录
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    const user = db.users.findByUsername(username);
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    // 验证密码
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    // 检查账号是否被锁定
+    if (user.status === 'locked') {
+      return res.status(403).json({ success: false, message: '账号已被锁定，请联系管理员' });
+    }
+    
+    // 生成 token
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+    
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.SECURE_COOKIE === 'true';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    };
+    
+    res.cookie('token', token, cookieOptions);
+    
+    res.json({
+      success: true,
+      data: {
+        token, // 同时返回 token 供前端使用
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          avatar: user.avatar
+        }
+      }
+    });
+  } catch (error) {
+    console.error('登录错误:', error);
+    res.status(500).json({ success: false, message: '登录失败' });
+  }
+});
 
 // 注册
 router.post('/register', async (req, res) => {
@@ -16,6 +79,11 @@ router.post('/register', async (req, res) => {
     const existingUser = db.users.findByUsername(username);
     if (existingUser) {
       return res.status(400).json({ success: false, message: '用户名已存在' });
+    }
+    
+    // 密码强度验证
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: '密码长度至少6位' });
     }
     
     // 加密密码
@@ -33,54 +101,6 @@ router.post('/register', async (req, res) => {
   } catch (error) {
     console.error('注册错误:', error);
     res.status(500).json({ success: false, message: '注册失败' });
-  }
-});
-
-// 登录
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    // 查找用户
-    console.log("查找用户:", username); const user = db.users.findByUsername(username); console.log("找到用户:", user ? user.username : null);
-    if (!user) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
-    }
-    
-    // 验证密码
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
-    }
-    
-    // 生成token
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    
-    // 检查账号是否被锁定
-    if (user.status === 'locked') {
-      return res.status(403).json({ success: false, message: '账号已被锁定，请联系管理员' });
-    }
-    
-    res.json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          status: user.status,
-          avatar: user.avatar
-        }
-      }
-    });
-  } catch (error) {
-    console.error('登录错误:', error);
-    res.status(500).json({ success: false, message: '登录失败' });
   }
 });
 
@@ -126,10 +146,17 @@ router.post('/wechat/login', async (req, res) => {
   }
 });
 
-// 获取当前用户信息
+// 获取当前用户信息 (支持 Cookie 或 Header)
 router.get('/me', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // 优先从 Cookie 获取 token
+    let token = req.cookies?.token;
+    
+    // 如果没有 Cookie，从 Header 获取
+    if (!token) {
+      token = req.headers.authorization?.replace('Bearer ', '');
+    }
+    
     if (!token) {
       return res.status(401).json({ success: false, message: '未登录' });
     }
@@ -153,6 +180,54 @@ router.get('/me', async (req, res) => {
     });
   } catch (error) {
     console.error('获取用户信息错误:', error);
+    res.status(401).json({ success: false, message: 'token无效' });
+  }
+});
+
+// 登出
+router.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ success: true, message: '登出成功' });
+});
+
+// 刷新 Token
+router.post('/refresh', async (req, res) => {
+  try {
+    let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ success: false, message: '未登录' });
+    }
+    
+    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+    const user = db.users.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    
+    // 生成新 token
+    const newToken = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+    
+    // 更新 Cookie
+    const isSecureCookie = process.env.NODE_ENV === 'production' || process.env.SECURE_COOKIE === 'true';
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: isSecureCookie,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+    
+    res.json({
+      success: true,
+      data: { token: newToken }
+    });
+  } catch (error) {
+    console.error('刷新Token错误:', error);
     res.status(401).json({ success: false, message: 'token无效' });
   }
 });

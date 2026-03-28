@@ -71,23 +71,25 @@ function fetchLatestVersion() {
       }
     };
 
+    const DEBUG = process.env.DEBUG === 'true';
+
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        console.log('GitHub API响应状态:', res.statusCode);
-        console.log('GitHub API响应数据:', data.substring(0, 500));
+        if (DEBUG) console.log('GitHub API响应状态:', res.statusCode);
+        if (DEBUG) console.log('GitHub API响应数据:', data.substring(0, 500));
         try {
           const release = JSON.parse(data);
           if (release.tag_name) {
             const version = release.tag_name.replace(/^v/, '');
-            console.log('解析版本号:', version);
+            if (DEBUG) console.log('解析版本号:', version);
             resolve(version);
           } else if (release.message) {
-            console.log('GitHub API错误:', release.message);
+            if (DEBUG) console.log('GitHub API错误:', release.message);
             resolve(CURRENT_VERSION);
           } else {
-            console.log('无法获取tag_name，使用当前版本');
+            if (DEBUG) console.log('无法获取tag_name，使用当前版本');
             resolve(CURRENT_VERSION);
           }
         } catch (e) {
