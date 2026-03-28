@@ -141,11 +141,6 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.get('/exam.html', (req, res) => {
-  const paperId = req.query.paper || '3';
-  res.redirect('/#/exam/' + paperId);
-});
-
 // 静态文件 - 开启缓存和压缩
 app.use(express.static(path.join(__dirname, '../client/dist'), {
   maxAge: '1d', // 缓存1天

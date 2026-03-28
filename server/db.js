@@ -110,7 +110,7 @@ module.exports = {
   // 分类表
   categories: {
     findAll: () => db.categories,
-    findById: (id) => db.categories.find(c => c.id === id),
+    findById: (id) => db.categories.find(c => c.id === parseInt(id)),
     findByUserId: (userId) => db.categories.filter(c => c.user_id === userId),
     create: (data) => {
       const category = { id: getNextId('categories'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
@@ -119,7 +119,7 @@ module.exports = {
       return category;
     },
     update: (id, data) => {
-      const index = db.categories.findIndex(c => c.id === id);
+      const index = db.categories.findIndex(c => c.id === parseInt(id));
       if (index !== -1) {
         db.categories[index] = { ...db.categories[index], ...data, updated_at: new Date().toISOString() };
         writeDB(db);
@@ -128,7 +128,7 @@ module.exports = {
       return null;
     },
     delete: (id) => {
-      const index = db.categories.findIndex(c => c.id === id);
+      const index = db.categories.findIndex(c => c.id === parseInt(id));
       if (index !== -1) {
         db.categories.splice(index, 1);
         writeDB(db);
