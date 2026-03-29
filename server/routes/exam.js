@@ -38,9 +38,9 @@ router.post('/start', async (req, res) => {
     }
 
     // 指定考生检查
-    if (!paper.allow_all_users) {
+    if (paper.allow_all_users === false) {
       const { student_no } = req.body;
-      const paperStudents = db.paperStudents.findByPaperId(paper_id);
+      const paperStudents = db.paperStudents.findByPaperKeyId(paper.key_id);
       const student = paperStudents.find(ps => {
         if (!ps.student) return false;
         if (student_no) {
@@ -60,6 +60,7 @@ router.post('/start', async (req, res) => {
     // 创建考试记录
     const examRecord = db.examRecords.create({
       paper_id: parseInt(paper_id),
+      paper_key_id: paper.key_id,
       user_id: user_id ? parseInt(user_id) : null,
       student_name: student_name || '匿名学员',
       ip_address: req.ip,
@@ -92,12 +93,25 @@ router.get('/:examId/questions', async (req, res) => {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
     }
 
-    const paper = db.papers.findById(examRecord.paper_id);
+    let paper;
+    if (examRecord.paper_id) {
+      paper = db.papers.findById(examRecord.paper_id);
+    } else if (examRecord.paper_key_id) {
+      paper = db.papers.findByKeyId(examRecord.paper_key_id);
+    }
+    
+    if (!paper) {
+      return res.status(404).json({ success: false, message: '试卷不存在' });
+    }
     console.log('getExamQuestions paper:', paper);
     console.log('getExamQuestions paper.id:', paper?.id);
+    console.log('getExamQuestions paper.key_id:', paper?.key_id);
 
-    // 获取试卷题目
-    let paperQuestions = db.paperQuestions.findByPaperId(paper.id);
+    // 获取试卷题目 - 使用key_id系统
+    if (!paper.key_id) {
+      return res.status(500).json({ success: false, message: '试卷缺少key_id' });
+    }
+    let paperQuestions = db.paperQuestions.findByPaperKeyId(paper.key_id);
     console.log('getExamQuestions paperQuestions:', paperQuestions);
 
     // 获取题目详情
@@ -176,57 +190,65 @@ router.post('/submit', async (req, res) => {
     }
     
     // 获取试卷和题目
-    const paper = db.papers.findById(examRecord.paper_id);
-    const paperQuestions = db.paperQuestions.findByPaperId(paper.id);
+    let paper;
+    if (examRecord.paper_id) {
+      paper = db.papers.findById(examRecord.paper_id);
+    } else if (examRecord.paper_key_id) {
+      paper = db.papers.findByKeyId(examRecord.paper_key_id);
+    }
+    if (!paper) {
+      return res.status(404).json({ success: false, message: '试卷不存在' });
+    }
+    const paperQuestions = paper.key_id ? db.paperQuestions.findByPaperKeyId(paper.key_id) : [];
     
     // 自动批改客观题
     let totalScore = 0;
     let correctCount = 0;
     const results = {};
-    
+    const totalPaperScore = paperQuestions.reduce((sum, pq) => sum + pq.score, 0);
+
     for (const pq of paperQuestions) {
       const question = db.questions.findById(pq.question_id);
       if (!question) continue;
-      
+
       const userAnswer = answers[question.id];
+      const questionAnswer = question.answer;
       let isCorrect = false;
       let score = 0;
-      
+
       if (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') {
         if (question.type === 'single' || question.type === 'judge') {
-          // 单选或判断题
-          isCorrect = String(userAnswer) === String(question.answer);
+          isCorrect = String(userAnswer).trim() === String(questionAnswer).trim();
         } else if (question.type === 'multiple') {
-          // 多选题（需要答案完全匹配）
-          const userAns = Array.isArray(userAnswer) ? userAnswer.sort() : [userAnswer].sort();
-          const correctAns = Array.isArray(question.answer) ? question.answer.sort() : [question.answer].sort();
+          const userAns = Array.isArray(userAnswer) ? userAnswer.map(a => String(a).trim()).sort() : [String(userAnswer).trim()];
+          const correctAns = Array.isArray(questionAnswer) ? questionAnswer.map(a => String(a).trim()).sort() : [String(questionAnswer).trim()];
           isCorrect = JSON.stringify(userAns) === JSON.stringify(correctAns);
         } else if (question.type === 'subjective') {
-          // 主观题暂不自动批改，分数待定
           isCorrect = null;
         }
-        
+
         if (isCorrect === true) {
           score = pq.score;
           totalScore += score;
           correctCount++;
         }
       }
-      
+
       results[question.id] = {
         user_answer: userAnswer,
-        correct_answer: question.answer,
+        correct_answer: questionAnswer,
         is_correct: isCorrect,
         score: score,
         explanation: question.explanation
       };
     }
-    
+
     // 更新考试记录
+    const finalPercentage = totalPaperScore > 0 ? Math.round((totalScore / totalPaperScore) * 100) : 0;
     db.examRecords.update(exam_id, {
       answers,
       score: totalScore,
-      percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
+      percentage: finalPercentage,
       end_time: new Date().toISOString(),
       status: 'submitted'
     });
@@ -234,12 +256,13 @@ router.post('/submit', async (req, res) => {
     // 通过WebSocket推送实时排名更新
     try {
       const io = req.app.get('io');
-      if (io) {
-        // 获取最新排名数据
-        const allRecords = db.examRecords.findAll({
-          paper_id: parseInt(examRecord.paper_id),
-          status: 'submitted'
-        });
+      const paperKeyId = examRecord.paper_key_id || (paper ? paper.key_id : null);
+      const paperIdForQuery = examRecord.paper_id ? parseInt(examRecord.paper_id) : null;
+      if (io && paperKeyId) {
+        const filter = { status: 'submitted' };
+        if (paperIdForQuery) filter.paper_id = paperIdForQuery;
+        if (paperKeyId) filter.paper_key_id = paperKeyId;
+        const allRecords = db.examRecords.findAll(filter);
         const ranking = allRecords
           .filter(r => r.percentage !== null && r.percentage !== undefined)
           .sort((a, b) => b.percentage - a.percentage)
@@ -253,8 +276,8 @@ router.post('/submit', async (req, res) => {
           }));
 
         const newEntry = ranking.find(r => r.isNew);
-        io.to(`paper-${examRecord.paper_id}`).emit('rank-update', {
-          paper_id: examRecord.paper_id,
+        io.to(`paper-${paperKeyId}`).emit('rank-update', {
+          paper_key_id: paperKeyId,
           ranking,
           newEntry,
           total_submitted: allRecords.length
@@ -270,10 +293,12 @@ router.post('/submit', async (req, res) => {
       data: {
         exam_id: examRecord.id,
         paper_id: examRecord.paper_id,
+        paper_key_id: paper.key_id,
         title: paper.title,
         student_name: examRecord.student_name,
         score: totalScore,
-        percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
+        total_score: totalPaperScore,
+        percentage: finalPercentage,
         correct_count: correctCount,
         total_count: paperQuestions.length,
         start_time: examRecord.start_time,

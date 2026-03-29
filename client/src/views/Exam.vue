@@ -438,6 +438,12 @@ export default {
       }
     })
 
+    watch(submitDialogVisible, (visible) => {
+      if (!visible && examStarted.value && timeLeft.value > 0) {
+        startTimer()
+      }
+    })
+
     onUnmounted(() => {
       if (timer) clearInterval(timer)
       if (countdownTimer) clearInterval(countdownTimer)

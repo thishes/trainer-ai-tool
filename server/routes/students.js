@@ -235,7 +235,7 @@ router.post('/paper/:paperId', authenticate, async (req, res) => {
     }
 
     const validStudentIds = student_ids.filter(id => db.students.findById(id)).map(id => parseInt(id));
-    const created = db.paperStudents.bulkCreate(req.params.paperId, validStudentIds);
+    const created = db.paperStudents.bulkCreate(paper.id, paper.key_id, validStudentIds);
 
     res.json({ success: true, message: `成功添加${created.length}名考生`, data: created });
   } catch (error) {

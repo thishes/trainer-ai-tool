@@ -2,12 +2,10 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-        </svg>
+        <img src="/logo.png" alt="logo" style="width: 80px; height: 80px; object-fit: contain;" />
       </div>
-      <h1>AI考试平台</h1>
-      <p class="login-subtitle">登录以开始管理您的在线考试</p>
+      <h1>培训师小助手</h1>
+      <p class="login-subtitle">登录感受教学数字化</p>
       <a-form :model="form" @submit.prevent="handleLogin">
         <a-form-item>
           <a-input v-model="form.username" placeholder="用户名" size="large">
@@ -124,7 +122,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('/login-bg2.png') no-repeat center center;
+  background: url('/login-bg2.webp') no-repeat center center;
   background-size: cover;
   position: relative;
 }

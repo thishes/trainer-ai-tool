@@ -199,7 +199,9 @@ router.post('/', authenticate, async (req, res) => {
         const q = db.questions.findById(question_id);
         return {
           paper_id: paper.id,
+          paper_key_id: paper.key_id,
           question_id,
+          question_key_id: q ? q.key_id : null,
           order: index,
           score: q ? q.score : 10
         };
@@ -238,12 +240,14 @@ router.put('/:id', authenticate, async (req, res) => {
     
     // 更新题目关联
     if (question_ids) {
-      db.paperQuestions.deleteByPaperId(paper.id);
+      db.paperQuestions.deleteByPaperKeyId(paper.key_id);
       const paperQuestions = question_ids.map((question_id, index) => {
         const q = db.questions.findById(question_id);
         return {
           paper_id: paper.id,
+          paper_key_id: paper.key_id,
           question_id,
+          question_key_id: q ? q.key_id : null,
           order: index,
           score: q ? q.score : 10
         };
@@ -384,20 +388,21 @@ router.get('/:id/exam-url', async (req, res) => {
     
     // 生成访问链接
     const baseUrl = req.app.locals.BASE_URL;
-    let accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
-    
+    let accessUrl = baseUrl ? `${baseUrl}/exam/${paper.key_id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.key_id}`;
+
     // 如果有访问密码，添加到链接
     if (paper.access_code) {
       accessUrl += `?code=${paper.access_code}`;
     }
-    
+
     // 生成二维码
     const qrcodeDataUrl = await QRCode.toDataURL(accessUrl);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       data: {
         paper_id: paper.id,
+        paper_key_id: paper.key_id,
         title: paper.title,
         status: paper.status,
         access_url: accessUrl,
@@ -437,6 +442,7 @@ router.post('/random', authenticate, async (req, res) => {
       shuffle: shuffle || false,
       show_score: show_score !== false,
       show_answer: show_answer !== false,
+      allow_all_users: true,
       user_id: req.user.id,
       status: 'draft',
       total_score: questions.reduce((sum, q) => sum + q.score, 0)
@@ -445,7 +451,9 @@ router.post('/random', authenticate, async (req, res) => {
     // 添加题目到试卷
     const paperQuestions = questions.map((q, index) => ({
       paper_id: paper.id,
+      paper_key_id: paper.key_id,
       question_id: q.id,
+      question_key_id: q.key_id,
       order: index,
       score: q.score
     }));
@@ -532,22 +540,24 @@ router.post('/:id/questions/add', authenticate, async (req, res) => {
     
     // 获取当前最大order
     const existingQuestions = db.paperQuestions.findByPaperId(paper.id);
-    let maxOrder = existingQuestions.length > 0 
-      ? Math.max(...existingQuestions.map(pq => pq.order)) 
+    let maxOrder = existingQuestions.length > 0
+      ? Math.max(...existingQuestions.map(pq => pq.order))
       : 0;
-    
+
     // 添加新题目
     const newPaperQuestions = question_ids.map(question_id => {
       const q = db.questions.findById(question_id);
       maxOrder++;
       return {
         paper_id: paper.id,
+        paper_key_id: paper.key_id,
         question_id,
+        question_key_id: q ? q.key_id : null,
         order: maxOrder,
         score: q ? q.score : 10
       };
     });
-    
+
     db.paperQuestions.bulkCreate(newPaperQuestions);
 
     // 更新试卷总分和题目数量

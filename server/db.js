@@ -1,6 +1,7 @@
 // server/db.json - 轻量级数据存储（无需数据库）
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const DB_PATH = path.join(__dirname, 'db.json');
 
@@ -67,6 +68,12 @@ function getNextId(table) {
   return idCounters[table];
 }
 
+function generateKeyId(prefix = '') {
+  const timestamp = Date.now().toString(36);
+  const randomPart = crypto.randomBytes(4).toString('hex');
+  return `${prefix}${timestamp}${randomPart}`.toUpperCase();
+}
+
 // 初始化
 const db = readDB();
 initCounters(db);
@@ -97,13 +104,38 @@ module.exports = {
       return null;
     },
     delete: (id) => {
-      const index = db.users.findIndex(u => u.id === id);
-      if (index !== -1) {
-        db.users.splice(index, 1);
-        writeDB(db);
-        return true;
+      const userId = parseInt(id);
+      const index = db.users.findIndex(u => u.id === userId);
+      if (index === -1) return false;
+
+      const userPapers = db.papers.filter(p => p.user_id === userId);
+      const paperKeyIds = userPapers.map(p => p.key_id).filter(k => k);
+
+      const deleteWithKeyIds = (table, keyIds) => {
+        if (keyIds.length === 0) {
+          db[table] = db[table].filter(row => row.user_id !== userId);
+        } else {
+          db[table] = db[table].filter(row => {
+            if (row.user_id === userId) return false;
+            const rowKeyId = row.paper_key_id;
+            if (rowKeyId && keyIds.includes(rowKeyId)) return false;
+            return true;
+          });
+        }
+      };
+
+      db.users.splice(index, 1);
+      db.papers = db.papers.filter(p => p.user_id !== userId);
+      db.questions = db.questions.filter(q => q.user_id !== userId);
+      db.categories = db.categories.filter(c => c.user_id !== userId);
+      deleteWithKeyIds('examRecords', paperKeyIds);
+      deleteWithKeyIds('paperStudents', paperKeyIds);
+      deleteWithKeyIds('scoreRecords', paperKeyIds);
+      if (paperKeyIds.length > 0) {
+        db.paperQuestions = db.paperQuestions.filter(pq => !paperKeyIds.includes(pq.paper_key_id));
       }
-      return false;
+      writeDB(db);
+      return true;
     }
   },
   
@@ -131,6 +163,7 @@ module.exports = {
       const index = db.categories.findIndex(c => c.id === parseInt(id));
       if (index !== -1) {
         db.categories.splice(index, 1);
+        db.questions = db.questions.filter(q => q.category_id !== parseInt(id));
         writeDB(db);
         return true;
       }
@@ -151,7 +184,8 @@ module.exports = {
     },
     findById: (id) => db.questions.find(q => q.id === parseInt(id)),
     create: (data) => {
-      const question = { id: getNextId('questions'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      const { key_id, ...rest } = data;
+      const question = { id: getNextId('questions'), key_id: generateKeyId('Q'), ...rest, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       db.questions.push(question);
       writeDB(db);
       return question;
@@ -159,6 +193,7 @@ module.exports = {
     bulkCreate: (items) => {
       const questions = items.map(data => ({
         id: getNextId('questions'),
+        key_id: generateKeyId('Q'),
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -179,7 +214,12 @@ module.exports = {
     delete: (id) => {
       const index = db.questions.findIndex(q => q.id === parseInt(id));
       if (index !== -1) {
+        const question = db.questions[index];
+        const questionKeyId = question.key_id;
         db.questions.splice(index, 1);
+        if (questionKeyId) {
+          db.paperQuestions = db.paperQuestions.filter(pq => pq.question_key_id !== questionKeyId);
+        }
         writeDB(db);
         return true;
       }
@@ -211,9 +251,14 @@ module.exports = {
       return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     },
     findById: (id) => db.papers.find(p => p.id === parseInt(id)),
-    findPublic: (id) => db.papers.find(p => p.id === parseInt(id) && p.status === 'published'),
+    findByKeyId: (keyId) => db.papers.find(p => p.key_id === keyId),
+    findPublic: (id) => {
+      const paper = db.papers.find(p => p.id === parseInt(id) && p.status === 'published');
+      if (paper) return paper;
+      return db.papers.find(p => p.key_id === id && p.status === 'published');
+    },
     create: (data) => {
-      const paper = { id: getNextId('papers'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      const paper = { id: getNextId('papers'), key_id: generateKeyId('P'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       db.papers.push(paper);
       writeDB(db);
       return paper;
@@ -230,9 +275,15 @@ module.exports = {
     delete: (id) => {
       const index = db.papers.findIndex(p => p.id === parseInt(id));
       if (index !== -1) {
+        const paper = db.papers[index];
+        const paperKeyId = paper.key_id;
         db.papers.splice(index, 1);
-        // 同时删除关联题目
-        db.paperQuestions = db.paperQuestions.filter(pq => pq.paper_id !== parseInt(id));
+        if (paperKeyId) {
+          db.paperQuestions = db.paperQuestions.filter(pq => pq.paper_key_id !== paperKeyId);
+          db.examRecords = db.examRecords.filter(e => e.paper_key_id !== paperKeyId);
+          db.paperStudents = db.paperStudents.filter(ps => ps.paper_key_id !== paperKeyId);
+          db.scoreRecords = db.scoreRecords.filter(sr => sr.paper_key_id !== paperKeyId);
+        }
         writeDB(db);
         return true;
       }
@@ -243,6 +294,7 @@ module.exports = {
   // 试卷题目关联表
   paperQuestions: {
     findByPaperId: (paperId) => db.paperQuestions.filter(pq => pq.paper_id === parseInt(paperId)),
+    findByPaperKeyId: (paperKeyId) => db.paperQuestions.filter(pq => pq.paper_key_id === paperKeyId),
     create: (data) => {
       const pq = { id: getNextId('paperQuestions'), ...data };
       db.paperQuestions.push(pq);
@@ -259,9 +311,13 @@ module.exports = {
       db.paperQuestions = db.paperQuestions.filter(pq => pq.paper_id !== parseInt(paperId));
       writeDB(db);
     },
-    deleteByPaperIdAndQuestionId: (paperId, questionId) => {
-      db.paperQuestions = db.paperQuestions.filter(pq => 
-        !(pq.paper_id === parseInt(paperId) && pq.question_id === parseInt(questionId))
+    deleteByPaperKeyId: (paperKeyId) => {
+      db.paperQuestions = db.paperQuestions.filter(pq => pq.paper_key_id !== paperKeyId);
+      writeDB(db);
+    },
+    deleteByPaperKeyIdAndQuestionKeyId: (paperKeyId, questionKeyId) => {
+      db.paperQuestions = db.paperQuestions.filter(pq =>
+        !(pq.paper_key_id === paperKeyId && pq.question_key_id === questionKeyId)
       );
       writeDB(db);
     }
@@ -271,6 +327,7 @@ module.exports = {
   examRecords: {
     findAll: (filters = {}) => {
       let result = [...db.examRecords];
+      if (filters.paper_key_id) result = result.filter(e => e.paper_key_id === filters.paper_key_id);
       if (filters.paper_id) result = result.filter(e => e.paper_id === filters.paper_id);
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(e => e.user_id === filters.user_id);
       if (filters.status) result = result.filter(e => e.status === filters.status);
@@ -278,7 +335,7 @@ module.exports = {
     },
     findById: (id) => db.examRecords.find(e => e.id === parseInt(id)),
     create: (data) => {
-      const record = { id: getNextId('examRecords'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      const record = { id: getNextId('examRecords'), key_id: generateKeyId('E'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       db.examRecords.push(record);
       writeDB(db);
       return record;
@@ -298,11 +355,12 @@ module.exports = {
   scoreRecords: {
     findAll: (filters = {}) => {
       let result = [...db.scoreRecords];
+      if (filters.paper_key_id) result = result.filter(s => s.paper_key_id === filters.paper_key_id);
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(s => s.user_id === filters.user_id);
       return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     },
     create: (data) => {
-      const record = { id: getNextId('scoreRecords'), ...data, created_at: new Date().toISOString() };
+      const record = { id: getNextId('scoreRecords'), key_id: generateKeyId('S'), ...data, created_at: new Date().toISOString() };
       db.scoreRecords.push(record);
       writeDB(db);
       return record;
@@ -412,31 +470,38 @@ module.exports = {
         return { ...ps, student };
       });
     },
+    findByPaperKeyId: (paperKeyId) => {
+      const paperStudents = db.paperStudents.filter(ps => ps.paper_key_id === paperKeyId);
+      return paperStudents.map(ps => {
+        const student = db.students.find(s => s.id === ps.student_id);
+        return { ...ps, student };
+      });
+    },
     create: (data) => {
       const ps = { id: getNextId('paperStudents'), ...data };
       db.paperStudents.push(ps);
       writeDB(db);
       return ps;
     },
-    bulkCreate: (paperId, studentIds) => {
-      const existing = db.paperStudents.filter(ps => ps.paper_id === parseInt(paperId));
+    bulkCreate: (paperId, paperKeyId, studentIds) => {
+      const existing = db.paperStudents.filter(ps => ps.paper_key_id === paperKeyId);
       const existingIds = existing.map(ps => ps.student_id);
       const newRelations = studentIds
         .filter(id => !existingIds.includes(id))
-        .map(student_id => ({ id: getNextId('paperStudents'), paper_id: parseInt(paperId), student_id }));
+        .map(student_id => ({ id: getNextId('paperStudents'), paper_id: parseInt(paperId), paper_key_id: paperKeyId, student_id }));
       if (newRelations.length > 0) {
         db.paperStudents.push(...newRelations);
         writeDB(db);
       }
       return newRelations;
     },
-    deleteByPaperId: (paperId) => {
-      db.paperStudents = db.paperStudents.filter(ps => ps.paper_id !== parseInt(paperId));
+    deleteByPaperKeyId: (paperKeyId) => {
+      db.paperStudents = db.paperStudents.filter(ps => ps.paper_key_id !== paperKeyId);
       writeDB(db);
     },
-    deleteByPaperIdAndStudentId: (paperId, studentId) => {
-      db.paperStudents = db.paperStudents.filter(ps => 
-        !(ps.paper_id === parseInt(paperId) && ps.student_id === parseInt(studentId))
+    deleteByPaperKeyIdAndStudentId: (paperKeyId, studentId) => {
+      db.paperStudents = db.paperStudents.filter(ps =>
+        !(ps.paper_key_id === paperKeyId && ps.student_id === parseInt(studentId))
       );
       writeDB(db);
     }
