@@ -193,9 +193,16 @@ router.post('/submit', async (req, res) => {
       let score = 0;
       
       if (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') {
-        if (question.type === 'single' || question.type === 'judge') {
-          // 单选或判断题
+        if (question.type === 'single') {
+          // 单选题
           isCorrect = String(userAnswer) === String(question.answer);
+        } else if (question.type === 'judge') {
+          // 判断题：用户答案为 true/false，题目答案为 A/B（A=正确，B=错误）
+          const judgeUserAnswer = String(userAnswer).toLowerCase();
+          const judgeCorrectAnswer = String(question.answer).toUpperCase();
+          // true 匹配 A（正确），false 匹配 B（错误）
+          isCorrect = (judgeUserAnswer === 'true' && judgeCorrectAnswer === 'A') ||
+                     (judgeUserAnswer === 'false' && judgeCorrectAnswer === 'B');
         } else if (question.type === 'multiple') {
           // 多选题（需要答案完全匹配）
           const userAns = Array.isArray(userAnswer) ? userAnswer.sort() : [userAnswer].sort();
