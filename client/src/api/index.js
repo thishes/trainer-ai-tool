@@ -1,35 +1,52 @@
 import axios from 'axios'
 
-// 使用相对路径，依赖服务端代理
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const api = axios.create({
   baseURL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  },
+  withCredentials: true
 })
 
 // 请求拦截器
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  const localToken = localStorage.getItem('token')
+  if (localToken) {
+    config.headers.Authorization = `Bearer ${localToken}`
   }
   return config
 })
 
-// 响应拦截器
+// 响应拦截器 - 改进错误处理
 api.interceptors.response.use(
   response => response.data,
   error => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      localStorage.removeItem('token')
-      const isExamPage = window.location.pathname.startsWith('/exam')
-      if (!isExamPage) {
-        window.location.href = '/login'
-      }
+    const status = error.response?.status
+    const message = error.response?.data?.message
+    let errorMsg = message || '网络错误，请稍后重试'
+    
+    switch (status) {
+      case 400: errorMsg = message || '请求参数错误'; break
+      case 401:
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        errorMsg = message || '登录已过期，请重新登录'
+        if (!window.location.pathname.includes('/login')) {
+          setTimeout(() => { window.location.href = '/login' }, 500)
+        }
+        break
+      case 403: errorMsg = message || '没有权限执行此操作'; break
+      case 404: errorMsg = message || '请求的资源不存在'; break
+      case 422: errorMsg = message || '请求数据验证失败'; break
+      case 429: errorMsg = '请求过于频繁，请稍后再试'; break
+      case 500: errorMsg = '服务器内部错误，请联系管理员'; break
+      default: if (!status) errorMsg = '网络连接失败，请检查网络'
     }
-    return Promise.reject(error)
+    return Promise.reject(new Error(errorMsg))
   }
 )
 
@@ -37,6 +54,8 @@ api.interceptors.response.use(
 export const login = (data) => api.post('/auth/login', data)
 export const register = (data) => api.post('/auth/register', data)
 export const getUserInfo = () => api.get('/auth/me')
+export const logout = () => api.post('/auth/logout')
+export const refreshToken = () => api.post('/auth/refresh')
 
 // 题目
 export const getQuestions = (params) => api.get('/questions', { params })
@@ -85,9 +104,7 @@ export const deleteAnnouncement = (id) => api.delete(`/announcements/${id}`)
 export const uploadAnnouncementImage = (file) => {
   const formData = new FormData()
   formData.append('image', file)
-  return api.post('/announcements/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  return api.post('/announcements/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
 // 考生管理
@@ -99,9 +116,7 @@ export const deleteStudent = (id) => api.delete(`/students/${id}`)
 export const importStudents = (file) => {
   const formData = new FormData()
   formData.append('file', file)
-  return api.post('/students/import', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  return api.post('/students/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 export const getPaperStudents = (paperId) => api.get(`/students/paper/${paperId}`)
 export const addPaperStudents = (paperId, studentIds) => api.post(`/students/paper/${paperId}`, { student_ids: studentIds })
@@ -111,11 +126,9 @@ export const exportPaperStudents = (paperId) => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || ''
   const token = localStorage.getItem('token')
   return fetch(`${baseURL}/api/students/paper/${paperId}/export`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  }).then(res => {
-    if (!res.ok) throw new Error('导出失败')
-    return res.blob()
-  })
+    headers: { 'Authorization': `Bearer ${token}`, 'X-Requested-With': 'XMLHttpRequest' },
+    credentials: 'include'
+  }).then(res => { if (!res.ok) throw new Error('导出失败'); return res.blob() })
 }
 export const verifyStudent = (data) => api.post('/students/verify', data)
 

@@ -376,8 +376,8 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
     });
     
     // 统计数据
-    const scores = records.map(r => r.score).filter(s => s !== null);
-    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const scores = records.map(r => r.percentage || 0).filter(s => s !== null);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
     const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
     
     res.json({

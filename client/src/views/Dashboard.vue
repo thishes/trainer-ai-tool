@@ -575,7 +575,7 @@
         <tbody>
           <tr v-for="r in examRecords" :key="r.id">
             <td>{{ r.student_name }}</td>
-            <td>{{ r.score ?? '-' }}</td>
+            <td>{{ r.percentage ?? r.score ?? '-' }}</td>
             <td>
               <span v-if="r.status === 'submitted'" class="tag tag-green">已提交</span>
               <span v-else class="tag tag-gray">进行中</span>
