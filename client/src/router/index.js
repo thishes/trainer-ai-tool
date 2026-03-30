@@ -52,8 +52,10 @@ router.beforeEach((to, from, next) => {
     next()
   } else if (!token && !isLoggedIn) {
     next('/login')
-  } else {
+  } else if (isLoggedIn || token) {
     next()
+  } else {
+    next('/login')
   }
 })
 
