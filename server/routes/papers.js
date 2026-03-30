@@ -101,7 +101,7 @@ router.get('/:id/exam-url', async (req, res) => {
     const host = req.get('X-Forwarded-Host') || req.get('Host') || req.hostname;
     const baseUrl = protocol + '://' + host;
     
-    let accessUrl = baseUrl + '/exam/' + paper.id;
+    let accessUrl = baseUrl + '/exam/' + paper.key_id;
     
     if (paper.access_code) {
       accessUrl += '?code=' + paper.access_code;
