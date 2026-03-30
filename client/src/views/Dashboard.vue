@@ -548,12 +548,12 @@
     </a-modal>
 
     <a-modal v-model:visible="showExamUrlDialog" title="考试地址" :width="360" @cancel="showExamUrlDialog = false" :footer="null">
-      <div v-if="examUrlData.access_url" class="exam-url-content">
+      <div v-if="examUrlData.url" class="exam-url-content">
         <p class="url-tip">考生扫描二维码或复制链接参加考试</p>
         <div class="qr-wrapper">
-          <img :src="'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(examUrlData.access_url)" alt="QR Code" />
+          <img :src="'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(examUrlData.url)" alt="QR Code" />
         </div>
-        <a-input :model-value="examUrlData.access_url" readonly style="width: 100%">
+        <a-input :model-value="examUrlData.url" readonly style="width: 100%">
           <template #append>
             <a-button @click="copyUrl">复制</a-button>
           </template>
@@ -1228,7 +1228,7 @@ export default {
         const res = await publishPaper(id)
         Message.success('发布成功')
         if (res.data?.access_url) {
-          Modal.info({ title: '发布成功', content: `试卷已发布！访问链接: ${res.data.access_url}` })
+          Modal.info({ title: '发布成功', content: `试卷已发布！访问链接: ${res.data.url}` })
         }
         loadPapers()
       } catch (e) {
