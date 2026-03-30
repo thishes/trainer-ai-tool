@@ -1453,11 +1453,11 @@ export default {
 
     const copyUrl = async () => {
       try {
-        await navigator.clipboard.writeText(examUrlData.value.access_url)
+        await navigator.clipboard.writeText(examUrlData.value.url)
         Message.success('链接已复制到剪贴板')
       } catch (e) {
         const input = document.createElement('input')
-        input.value = examUrlData.value.access_url
+        input.value = examUrlData.value.url
         document.body.appendChild(input)
         input.select()
         document.execCommand('copy')
