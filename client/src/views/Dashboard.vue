@@ -75,8 +75,12 @@
           <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
           <a-button @click="showImportDialog = true">批量导入</a-button>
           <a-button @click="showCategoryDialog = true">类别管理</a-button>
-          <a-input v-model="questionSearch" placeholder="搜索题目..." style="width: 180px" />
+          <a-input v-model="questionSearch" placeholder="搜索题目..." style="width: 180px" @keyup.enter="questionPage = 1" />
         </div>
+        <a-tabs v-model:active-key="activeCategory" @change="questionPage = 1" style="margin-bottom: 16px">
+          <a-tab-pane key="all" title="全部" />
+          <a-tab-pane v-for="c in categories" :key="String(c.id)" :title="c.name" />
+        </a-tabs>
         <a-card class="content-card">
           <table class="data-table">
             <thead>
@@ -90,7 +94,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="q in questions" :key="q.id">
+              <tr v-for="q in paginatedQuestions" :key="q.id">
                 <td>{{ q.id }}</td>
                 <td class="title-cell">{{ q.title }}</td>
                 <td>
@@ -113,6 +117,20 @@
               </tr>
             </tbody>
           </table>
+          <div class="pagination" v-if="totalQuestionPages > 1">
+            <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
+            <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
+              <a-option :value="10">10条</a-option>
+              <a-option :value="15">15条</a-option>
+              <a-option :value="20">20条</a-option>
+              <a-option :value="50">50条</a-option>
+            </a-select>
+            <span class="page-btn" @click="questionPage = 1">首页</span>
+            <span class="page-btn" @click="questionPage > 1 && questionPage--">上一页</span>
+            <span class="page-current">{{ questionPage }} / {{ totalQuestionPages }}</span>
+            <span class="page-btn" @click="questionPage < totalQuestionPages && questionPage++">下一页</span>
+            <span class="page-btn" @click="questionPage = totalQuestionPages">末页</span>
+          </div>
         </a-card>
       </div>
 
@@ -793,6 +811,9 @@ export default {
 
     const questions = ref([])
     const questionSearch = ref('')
+    const activeCategory = ref('all')
+    const questionPage = ref(1)
+    const questionPageSize = ref(15)
     const showQuestionDialog = ref(false)
     const showImportDialog = ref(false)
     const showCategoryDialog = ref(false)
@@ -881,6 +902,26 @@ export default {
     }
 
     const publishedPapers = computed(() => papers.value.filter(p => p.status === 'published'))
+
+    const filteredQuestions = computed(() => {
+      let result = questions.value
+      if (activeCategory.value !== 'all') {
+        result = result.filter(q => String(q.category_id) === activeCategory.value)
+      }
+      if (questionSearch.value) {
+        const kw = questionSearch.value.toLowerCase()
+        result = result.filter(q => q.title.toLowerCase().includes(kw))
+      }
+      return result
+    })
+
+    const paginatedQuestions = computed(() => {
+      const start = (questionPage.value - 1) * questionPageSize.value
+      const end = start + questionPage.value
+      return filteredQuestions.value.slice(start, end)
+    })
+
+    const totalQuestionPages = computed(() => Math.ceil(filteredQuestions.value.length / questionPageSize.value) || 1)
 
     const loadQuestions = async () => {
       try {
@@ -1489,6 +1530,7 @@ export default {
         onOk: () => {
           localStorage.removeItem('token')
           localStorage.removeItem('user')
+          localStorage.removeItem('loggedIn')
           window.location.replace('/login')
         }
       })
@@ -1533,7 +1575,8 @@ export default {
     return {
       userList, userSearch, showUserDialog, editingUser, userForm, userLoading,
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
-      user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, showQuestionDialog, showImportDialog,
+      user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
+      showQuestionDialog, showImportDialog,
       editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
       randomForm, paperForm, selectedPaper, stats, publishedPapers,
       showExamUrlDialog, examUrlData,
@@ -1723,6 +1766,28 @@ export default {
   gap: 12px;
   margin-bottom: 16px;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color-light);
+}
+.page-info { color: var(--text-secondary); font-size: 13px; }
+.page-current { color: var(--primary); font-weight: 500; padding: 0 8px; }
+.page-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-color);
+  transition: all 0.2s;
+}
+.page-btn:hover { color: var(--primary); background: var(--primary-light); }
 
 .content-card { border-radius: var(--radius-lg); }
 

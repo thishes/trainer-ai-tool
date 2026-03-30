@@ -88,8 +88,9 @@ module.exports = {
     findById: (id) => db.users.find(u => u.id === id),
     findByUsername: (username) => db.users.find(u => u.username === username),
     findByWechatOpenid: (openid) => db.users.find(u => u.wechat_openid === openid),
+    findByKeyId: (keyId) => db.users.find(u => u.key_id === keyId),
     create: (data) => {
-      const user = { id: getNextId('users'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      const user = { id: getNextId('users'), key_id: generateKeyId('U'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       db.users.push(user);
       writeDB(db);
       return user;

@@ -9,17 +9,22 @@ if (!JWT_SECRET && config.NODE_ENV === 'production') {
 
 module.exports = function (req, res, next) {
   const authHeader = req.headers.authorization;
+  let token = null;
   
-  if (!authHeader) {
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && parts[0] === 'Bearer') {
+      token = parts[1];
+    }
+  }
+  
+  if (!token && req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+  
+  if (!token) {
     return res.status(401).json({ success: false, message: '未登录', code: 'NO_TOKEN' });
   }
-  
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ success: false, message: 'token格式错误', code: 'INVALID_TOKEN_FORMAT' });
-  }
-  
-  const token = parts[1];
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);

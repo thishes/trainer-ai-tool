@@ -25,7 +25,7 @@ router.post('/start', async (req, res) => {
     if (paper.ip_limit > 0) {
       const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
       const existingRecords = db.examRecords.findAll({
-        paper_id: parseInt(paper_id),
+        paper_id: paper.id,
         status: 'submitted'
       }).filter(r => r.ip_address === clientIp);
 
@@ -59,7 +59,7 @@ router.post('/start', async (req, res) => {
 
     // 创建考试记录
     const examRecord = db.examRecords.create({
-      paper_id: parseInt(paper_id),
+      paper_id: paper.id,
       paper_key_id: paper.key_id,
       user_id: user_id ? parseInt(user_id) : null,
       student_name: student_name || '匿名学员',

@@ -376,19 +376,21 @@ router.delete('/:id', authenticate, async (req, res) => {
 router.get('/:id/exam-url', async (req, res) => {
   try {
     const paper = db.papers.findById(req.params.id);
-    
+
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在' });
     }
-    
+
     // 只有已发布的试卷才能查看
     if (paper.status !== 'published') {
       return res.status(403).json({ success: false, message: '试卷未发布' });
     }
-    
-    // 生成访问链接
-    const baseUrl = req.app.locals.BASE_URL;
-    let accessUrl = baseUrl ? `${baseUrl}/exam/${paper.key_id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.key_id}`;
+
+    // 生成访问链接 - 使用请求的协议和主机作为基础
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = req.app.locals.BASE_URL || `${protocol}://${host}`;
+    let accessUrl = `${baseUrl}/exam/${paper.key_id}`;
 
     // 如果有访问密码，添加到链接
     if (paper.access_code) {

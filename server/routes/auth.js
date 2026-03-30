@@ -1,57 +1,106 @@
-// server/routes/auth.js - 认证路由 (安全加固版)
+// server/routes/auth.js - 认证路由 (Redis存储验证码版)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../db');
 const config = require('../config');
+const { createClient } = require('redis');
 
 const JWT_SECRET = config.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-// 登录
+const CAPTCHA_EXPIRY = 5 * 60;
+
+let redisClient = null;
+
+const getRedisClient = async () => {
+  if (!redisClient) {
+    redisClient = createClient({
+      socket: { host: '127.0.0.1', port: 6379 }
+    });
+    redisClient.on('error', (err) => console.error('Redis错误:', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+};
+
+const generateCaptcha = async () => {
+  const client = await getRedisClient();
+  const code = crypto.randomInt(100000, 999999).toString();
+  const captchaId = crypto.randomBytes(16).toString('hex');
+  await client.setEx(`captcha:${captchaId}`, CAPTCHA_EXPIRY, code);
+  return captchaId;
+};
+
+const verifyCaptcha = async (captchaId, code) => {
+  if (!captchaId || !code) return false;
+  try {
+    const client = await getRedisClient();
+    const storedCode = await client.get(`captcha:${captchaId}`);
+    if (!storedCode) return false;
+    if (storedCode !== code) return false;
+    await client.del(`captcha:${captchaId}`);
+    return true;
+  } catch (e) {
+    console.error('验证码校验失败:', e);
+    return false;
+  }
+};
+
+router.get('/captcha', async (req, res) => {
+  try {
+    const captchaId = await generateCaptcha();
+    const client = await getRedisClient();
+    const code = await client.get(`captcha:${captchaId}`);
+    res.json({ success: true, data: { captchaId, code } });
+  } catch (e) {
+    console.error('生成验证码失败:', e);
+    res.status(500).json({ success: false, message: '生成验证码失败' });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    
+    const { username, password, captchaId, captchaCode } = req.body;
+
+    const captchaValid = await verifyCaptcha(captchaId, captchaCode);
+    if (!captchaId || !captchaCode || !captchaValid) {
+      return res.status(400).json({ success: false, message: '验证码错误或已过期' });
+    }
+
     const user = db.users.findByUsername(username);
-    
     if (!user) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
-    
-    // 验证密码
+
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ success: false, message: '用户名或密码错误' });
     }
-    
-    // 检查账号是否被锁定
+
     if (user.status === 'locked') {
       return res.status(403).json({ success: false, message: '账号已被锁定，请联系管理员' });
     }
-    
-    // 生成 token
+
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
-    
+
     const isSecureCookie = config.SECURE_COOKIE;
-    const cookieOptions = {
+    res.cookie('token', token, {
       httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
-    };
-    
-    res.cookie('token', token, cookieOptions);
-    
+    });
+
     res.json({
       success: true,
       data: {
-        token, // 同时返回 token 供前端使用
         user: {
           id: user.id,
           username: user.username,
@@ -67,165 +116,49 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 注册
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, phone, role = 'trainer' } = req.body;
-    
-    // 检查用户是否存在
+    const { username, password, phone, role = 'trainer', captchaId, captchaCode } = req.body;
+
+    const captchaValid = await verifyCaptcha(captchaId, captchaCode);
+    if (!captchaId || !captchaCode || !captchaValid) {
+      return res.status(400).json({ success: false, message: '验证码错误或已过期' });
+    }
+
     const existingUser = db.users.findByUsername(username);
     if (existingUser) {
       return res.status(400).json({ success: false, message: '用户名已存在' });
     }
-    
-    // 密码强度验证
+
     if (password.length < 6) {
       return res.status(400).json({ success: false, message: '密码长度至少6位' });
     }
-    
-    // 加密密码
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // 创建用户
+    const keyId = crypto.randomBytes(8).toString('hex');
     const user = db.users.create({
       username,
       password: hashedPassword,
       phone,
-      role
+      role,
+      key_id: keyId,
+      status: 'active'
     });
-    
-    res.json({ success: true, message: '注册成功', data: { id: user.id, username: user.username } });
+
+    res.json({ success: true, data: { user: { id: user.id, username: user.username, role: user.role } } });
   } catch (error) {
     console.error('注册错误:', error);
     res.status(500).json({ success: false, message: '注册失败' });
   }
 });
 
-// 微信登录（小程序）
-router.post('/wechat/login', async (req, res) => {
-  try {
-    const { openid, nickname, avatar } = req.body;
-    
-    let user = db.users.findByWechatOpenid(openid);
-    
-    if (!user) {
-      // 创建新用户
-      user = db.users.create({
-        username: `wx_${openid.slice(0, 8)}`,
-        wechat_openid: openid,
-        nickname,
-        avatar,
-        role: 'student'
-      });
-    }
-    
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-    
-    res.json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          avatar: user.avatar
-        }
-      }
-    });
-  } catch (error) {
-    console.error('微信登录错误:', error);
-    res.status(500).json({ success: false, message: '登录失败' });
-  }
-});
-
-// 获取当前用户信息 (支持 Cookie 或 Header)
-router.get('/me', async (req, res) => {
-  try {
-    // 优先从 Cookie 获取 token
-    let token = req.cookies?.token;
-    
-    // 如果没有 Cookie，从 Header 获取
-    if (!token) {
-      token = req.headers.authorization?.replace('Bearer ', '');
-    }
-    
-    if (!token) {
-      return res.status(401).json({ success: false, message: '未登录' });
-    }
-    
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.users.findById(decoded.id);
-    
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
-    
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        avatar: user.avatar,
-        phone: user.phone
-      }
-    });
-  } catch (error) {
-    console.error('获取用户信息错误:', error);
-    res.status(401).json({ success: false, message: 'token无效' });
-  }
-});
-
-// 登出
-router.post('/logout', (req, res) => {
+router.get('/logout', (req, res) => {
   res.clearCookie('token');
-  res.json({ success: true, message: '登出成功' });
+  res.json({ success: true });
 });
 
-// 刷新 Token
-router.post('/refresh', async (req, res) => {
-  try {
-    let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ success: false, message: '未登录' });
-    }
-    
-    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
-    const user = db.users.findById(decoded.id);
-    
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
-    
-    // 生成新 token
-    const newToken = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-    
-    // 更新 Cookie
-    res.cookie('token', newToken, {
-      httpOnly: true,
-      secure: config.SECURE_COOKIE,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-    
-    res.json({
-      success: true,
-      data: { token: newToken }
-    });
-  } catch (error) {
-    console.error('刷新Token错误:', error);
-    res.status(401).json({ success: false, message: 'token无效' });
-  }
+router.get('/me', (req, res) => {
+  res.json({ success: true, data: { user: req.user } });
 });
 
 module.exports = router;
