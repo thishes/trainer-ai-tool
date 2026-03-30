@@ -167,6 +167,7 @@ router.put('/:id', async (req, res) => {
 // 删除试卷
 router.delete('/:id', async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "admin") return res.status(403).json({ success: false, message: "无权限" });
     db.papers.remove(req.params.id);
     res.json({ success: true, message: '删除成功' });
   } catch (error) {
