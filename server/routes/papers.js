@@ -7,7 +7,7 @@ const QRCode = require('qrcode');
 router.get('/', async (req, res) => {
   try {
     const { status, page = 1, pageSize = 20 } = req.query;
-    let papers = db.papers.getAll();
+    let papers = db.papers.findAll();
     
     if (status) {
       papers = papers.filter(p => p.status === status);
@@ -269,7 +269,7 @@ router.post('/random', async (req, res) => {
   try {
     const { title, count, category_id, time_limit } = req.body;
     
-    let questions = db.questions.getAll();
+    let questions = db.questions.findAll();
     if (category_id) {
       questions = questions.filter(q => q.category_id === category_id);
     }
