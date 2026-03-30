@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     const start = (page - 1) * pageSize;
     papers = papers.slice(start, start + pageSize);
     
-    res.json({ success: true, data: { papers, total, page, pageSize } });
+    res.json({ success: true, data: { list: papers, total, page, pageSize } });
   } catch (error) {
     console.error('获取试卷列表错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
@@ -221,7 +221,7 @@ router.get('/:id/manage-questions', async (req, res) => {
       return question ? { ...question, score: pq.score } : null;
     }).filter(q => q !== null);
     
-    res.json({ success: true, data: questions });
+    res.json({ success: true, data: { list: questions } });
   } catch (error) {
     console.error('获取题目错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
