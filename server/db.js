@@ -15,7 +15,8 @@ const defaultData = {
   scoreRecords: [],
   announcements: [],
   students: [],
-  paperStudents: []
+  paperStudents: [],
+  essayScores: []
 };
 
 function readDB() {
@@ -349,6 +350,33 @@ module.exports = {
         return db.examRecords[index];
       }
       return null;
+    }
+  },
+
+  // 问答题评分表
+  essayScores: {
+    findAll: (filters = {}) => {
+      let result = [...db.essayScores];
+      if (filters.exam_record_id) result = result.filter(e => e.exam_record_id === filters.exam_record_id);
+      if (filters.question_id) result = result.filter(e => e.question_id === filters.question_id);
+      if (filters.graded_by) result = result.filter(e => e.graded_by === filters.graded_by);
+      return result;
+    },
+    findByRecordAndQuestion: (examRecordId, questionId) => {
+      return db.essayScores.find(e => e.exam_record_id === parseInt(examRecordId) && e.question_id === parseInt(questionId));
+    },
+    upsert: (data) => {
+      const existing = db.essayScores.find(e => e.exam_record_id === parseInt(data.exam_record_id) && e.question_id === parseInt(data.question_id));
+      if (existing) {
+        Object.assign(existing, data, { updated_at: new Date().toISOString() });
+        writeDB(db);
+        return existing;
+      } else {
+        const record = { id: getNextId('essayScores'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        db.essayScores.push(record);
+        writeDB(db);
+        return record;
+      }
     }
   },
 

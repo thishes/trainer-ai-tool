@@ -1,6 +1,7 @@
 // server/routes/exam.js - 考试路由 (JSON版)
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
 const db = require('../db');
 const authenticate = require('../middleware/auth');
 
@@ -217,8 +218,14 @@ router.post('/submit', async (req, res) => {
       let score = 0;
 
       if (userAnswer !== undefined && userAnswer !== null && userAnswer !== '') {
-        if (question.type === 'single' || question.type === 'judge') {
+        if (question.type === 'single') {
           isCorrect = String(userAnswer).trim() === String(questionAnswer).trim();
+        } else if (question.type === 'judge') {
+          const userAns = String(userAnswer).trim().toLowerCase();
+          const correctAns = String(questionAnswer).trim().toLowerCase();
+          const isUserTrue = ['true', 'a', '1', 'yes', '正确'].includes(userAns);
+          const isCorrectTrue = ['true', 'a', '1', 'yes', '正确'].includes(correctAns);
+          isCorrect = isUserTrue === isCorrectTrue;
         } else if (question.type === 'multiple') {
           const userAns = Array.isArray(userAnswer) ? userAnswer.map(a => String(a).trim()).sort() : [String(userAnswer).trim()];
           const correctAns = Array.isArray(questionAnswer) ? questionAnswer.map(a => String(a).trim()).sort() : [String(questionAnswer).trim()];
@@ -243,14 +250,37 @@ router.post('/submit', async (req, res) => {
       };
     }
 
-    // 更新考试记录
-    const finalPercentage = totalPaperScore > 0 ? Math.round((totalScore / totalPaperScore) * 100) : 0;
+    // 收集问答题答案
+    const essayAnswers = {};
+    for (const pq of paperQuestions) {
+      const question = db.questions.findById(pq.question_id);
+      if (question && question.type === 'subjective') {
+        essayAnswers[question.id] = {
+          user_answer: answers[question.id] || '',
+          max_score: pq.score
+        };
+      }
+    }
+
+    // 检查是否有问答题
+    const hasEssay = paperQuestions.some(pq => db.questions.findById(pq.question_id)?.type === 'subjective');
+    
+    // 计算客观题总分（排除问答题）
+    const objectiveTotalScore = paperQuestions
+      .filter(pq => db.questions.findById(pq.question_id)?.type !== 'subjective')
+      .reduce((sum, pq) => sum + pq.score, 0);
+    
+    // 更新考试记录 - 保持客观题分数，问答题单独计分
+    const finalPercentage = objectiveTotalScore > 0 ? Math.round((totalScore / objectiveTotalScore) * 100) : 0;
     db.examRecords.update(exam_id, {
       answers,
-      score: totalScore,
-      percentage: finalPercentage,
+      essay_answers: Object.keys(essayAnswers).length > 0 ? essayAnswers : null,
+      score: totalScore, // 保持客观题分数
+      percentage: finalPercentage, // 基于客观题计算百分比
+      objective_score: totalScore,
+      objective_total: objectiveTotalScore,
       end_time: new Date().toISOString(),
-      status: 'submitted'
+      status: hasEssay ? 'submitted' : 'graded'
     });
 
     // 通过WebSocket推送实时排名更新
@@ -276,12 +306,17 @@ router.post('/submit', async (req, res) => {
           }));
 
         const newEntry = ranking.find(r => r.isNew);
-        io.to(`paper-${paperKeyId}`).emit('rank-update', {
+        const emitData = {
           paper_key_id: paperKeyId,
+          paper_id: paperIdForQuery,
           ranking,
           newEntry,
           total_submitted: allRecords.length
-        });
+        };
+        io.to(`paper-${paperKeyId}`).emit('rank-update', emitData);
+        if (paperIdForQuery) {
+          io.to(`paper-${paperIdForQuery}`).emit('rank-update', emitData);
+        }
       }
     } catch (wsError) {
       console.error('WebSocket通知失败:', wsError);
@@ -297,10 +332,11 @@ router.post('/submit', async (req, res) => {
         title: paper.title,
         student_name: examRecord.student_name,
         score: totalScore,
-        total_score: totalPaperScore,
+        total_score: objectiveTotalScore,
         percentage: finalPercentage,
         correct_count: correctCount,
         total_count: paperQuestions.length,
+        has_essay: hasEssay,
         start_time: examRecord.start_time,
         end_time: new Date().toISOString(),
         show_score: paper.show_score,
@@ -417,6 +453,168 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
   } catch (error) {
     console.error('获取成绩列表错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
+  }
+});
+
+// 获取待评分列表（包含问答题且未完成评分的记录）
+router.get('/pending-grading/:paperId', authenticate, async (req, res) => {
+  try {
+    const { paperId } = req.params;
+    const paper = db.papers.findById(paperId);
+    if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
+      return res.status(403).json({ success: false, message: '无权限' });
+    }
+
+    const records = db.examRecords.findAll({ 
+      paper_id: parseInt(paperId), 
+      status: 'submitted' 
+    });
+    
+    // 获取试卷题目找出问答题
+    const paperQuestions = paper.key_id ? db.paperQuestions.findByPaperKeyId(paper.key_id) : [];
+    const essayQuestionIds = new Set();
+    for (const pq of paperQuestions) {
+      const q = db.questions.findById(pq.question_id);
+      if (q && q.type === 'subjective') {
+        essayQuestionIds.add(q.id);
+      }
+    }
+    
+    // 筛选出有待评分问答题的记录
+    const pendingGrading = records.filter(r => {
+      if (!r.essay_answers) return false;
+      for (const qId of Object.keys(r.essay_answers)) {
+        if (essayQuestionIds.has(parseInt(qId))) {
+          if (!db.essayScores || !db.essayScores.findByRecordAndQuestion) return true;
+          const existingScore = db.essayScores.findByRecordAndQuestion(r.id, parseInt(qId));
+          if (!existingScore) return true;
+        }
+      }
+      return false;
+    });
+    
+    // 填充问答题信息
+    const enrichedRecords = pendingGrading.map(r => {
+      const essayList = [];
+      for (const qId of Object.keys(r.essay_answers || {})) {
+        if (essayQuestionIds.has(parseInt(qId))) {
+          const q = db.questions.findById(parseInt(qId));
+          if (q) {
+            essayList.push({
+              question_id: parseInt(qId),
+              title: q.title,
+              max_score: r.essay_answers[qId].max_score,
+              user_answer: r.essay_answers[qId].user_answer
+            });
+          }
+        }
+      }
+      return { ...r, essay_questions: essayList };
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        list: enrichedRecords,
+        total: enrichedRecords.length
+      }
+    });
+  } catch (error) {
+    fs.appendFileSync('/tmp/exam_debug.log', `[ERROR] ${error.message}\n${error.stack}\n`);
+    res.status(500).json({ success: false, message: '获取失败' });
+  }
+});
+
+// 评分问答题
+router.post('/grade-essay', authenticate, async (req, res) => {
+  try {
+    const { exam_record_id, scores } = req.body;
+    
+    if (!exam_record_id || !scores || !Array.isArray(scores)) {
+      return res.status(400).json({ success: false, message: '参数错误' });
+    }
+    
+    const examRecord = db.examRecords.findById(exam_record_id);
+    if (!examRecord) {
+      return res.status(404).json({ success: false, message: '考试记录不存在' });
+    }
+    
+    // 验证权限
+    const paper = db.papers.findById(examRecord.paper_id);
+    if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
+      return res.status(403).json({ success: false, message: '无权限' });
+    }
+
+    if (!db.essayScores || !db.essayScores.upsert) {
+      return res.status(500).json({ success: false, message: '评分系统未初始化' });
+    }
+
+    let totalEssayScore = 0;
+    let totalMaxScore = 0;
+    
+    // 保存每题评分
+    for (const item of scores) {
+      const { question_id, score, remark } = item;
+      const maxScore = examRecord.essay_answers?.[question_id]?.max_score || 0;
+      
+      db.essayScores.upsert({
+        exam_record_id,
+        question_id,
+        score: Math.max(0, Math.min(score, maxScore)),
+        max_score: maxScore,
+        remark: remark || '',
+        graded_by: req.user.id,
+        graded_at: new Date().toISOString()
+      });
+      
+      totalEssayScore += Math.min(score, maxScore);
+      totalMaxScore += maxScore;
+    }
+    
+    // 检查是否所有问答题都已评分
+    const essayQuestionIds = Object.keys(examRecord.essay_answers || {}).map(k => parseInt(k));
+    let allGraded = true;
+    const findByRecordAndQuestion = db.essayScores?.findByRecordAndQuestion;
+    for (const qId of essayQuestionIds) {
+      if (!findByRecordAndQuestion) { allGraded = false; break; }
+      const existingScore = findByRecordAndQuestion(exam_record_id, qId);
+      if (!existingScore) {
+        allGraded = false;
+        break;
+      }
+    }
+    
+    // 如果全部评分完成，更新总分和状态
+    if (allGraded && examRecord.essay_answers) {
+      const objectiveScore = examRecord.score || 0;
+      const allPaperQuestions = paper.key_id ? db.paperQuestions.findByPaperKeyId(paper.key_id) : [];
+      const totalObjectiveScore = allPaperQuestions
+        .filter(pq => db.questions.findById(pq.question_id)?.type !== 'subjective')
+        .reduce((sum, pq) => sum + pq.score, 0);
+      
+      const finalScore = objectiveScore + totalEssayScore;
+      const totalPaperMaxScore = totalObjectiveScore + totalMaxScore;
+      const finalPercentage = totalPaperMaxScore > 0 
+        ? Math.round((finalScore / totalPaperMaxScore) * 100) : 0;
+      
+      db.examRecords.update(exam_record_id, {
+        score: finalScore,
+        percentage: finalPercentage,
+        status: 'graded'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        exam_record_id,
+        total_essay_score: totalEssayScore,
+        all_graded: allGraded
+      }
+    });
+  } catch (error) {
+    console.error('评分错误:', error);
+    res.status(500).json({ success: false, message: '评分失败' });
   }
 });
 

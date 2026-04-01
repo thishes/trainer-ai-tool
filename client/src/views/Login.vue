@@ -84,7 +84,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { login, register, getCaptcha } from '@/api'
@@ -180,8 +180,10 @@ export default {
       })()
     }
 
-    refreshCaptcha()
-    refreshRegisterCaptcha()
+    onMounted(() => {
+      refreshCaptcha()
+      refreshRegisterCaptcha()
+    })
 
     return {
       loading,

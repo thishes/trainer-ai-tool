@@ -1,0 +1,302 @@
+{
+  "users": [
+    {
+      "id": 4,
+      "username": "thishe",
+      "password": "$2a$10$CXHig/JBEiaeqSoeNIy5ceBt5q60fY9Cjn1UnBVl.L9PpwB9esbTG",
+      "role": "admin",
+      "status": "active",
+      "created_at": "2026-03-22T09:18:04.574Z",
+      "key_id": "Umnd4n0560875de87"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "管理类",
+      "parent_id": null,
+      "description": "",
+      "user_id": 4,
+      "created_at": "2026-03-27T13:10:41.159Z",
+      "updated_at": "2026-03-27T13:10:41.159Z"
+    },
+    {
+      "id": 2,
+      "name": "营销类",
+      "parent_id": null,
+      "description": "",
+      "user_id": 4,
+      "created_at": "2026-03-27T13:10:47.323Z",
+      "updated_at": "2026-03-27T13:10:47.323Z"
+    },
+    {
+      "id": 3,
+      "name": "测试类",
+      "parent_id": null,
+      "description": "",
+      "user_id": 4,
+      "created_at": "2026-03-27T13:10:51.238Z",
+      "updated_at": "2026-03-27T13:10:51.238Z"
+    }
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "key_id": "QMND52DHG82DEF93D",
+      "title": "JavaScript是什么类型的语言？",
+      "type": "choice",
+      "options": [
+        {
+          "key": "A",
+          "value": "编译型语言"
+        },
+        {
+          "key": "B",
+          "value": "解释型语言"
+        },
+        {
+          "key": "C",
+          "value": "汇编语言"
+        },
+        {
+          "key": "D",
+          "value": "标记语言"
+        }
+      ],
+      "answer": "B",
+      "explanation": "JavaScript是一种解释型语言，由浏览器动态解释执行。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-03-30T12:02:52.997Z",
+      "updated_at": "2026-03-30T12:02:52.999Z"
+    },
+    {
+      "id": 2,
+      "key_id": "QMND52DHJC5831E3A",
+      "title": "Vue.js是一个用于构建用户界面的渐进式框架",
+      "type": "judge",
+      "options": [
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Vue.js确实是一个渐进式JavaScript框架，可自底向上逐层应用。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-03-30T12:02:52.999Z",
+      "updated_at": "2026-03-30T12:02:52.999Z"
+    },
+    {
+      "id": 3,
+      "key_id": "QMND52DHJ5CEDC597",
+      "title": "以下哪个不是JavaScript的数据类型？",
+      "type": "choice",
+      "options": [
+        {
+          "key": "A",
+          "value": "String"
+        },
+        {
+          "key": "B",
+          "value": "Number"
+        },
+        {
+          "key": "C",
+          "value": "Boolean"
+        },
+        {
+          "key": "D",
+          "value": "Character"
+        }
+      ],
+      "answer": "D",
+      "explanation": "JavaScript的基本数据类型包括String、Number、Boolean、undefined、null、Symbol，没有Character类型。",
+      "difficulty": "medium",
+      "score": 10,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-03-30T12:02:52.999Z",
+      "updated_at": "2026-03-30T12:02:52.999Z"
+    },
+    {
+      "id": 4,
+      "key_id": "QMND52DHJ419687CA",
+      "title": "Node.js可以用于开发后端服务",
+      "type": "judge",
+      "options": [
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Node.js基于Chrome V8引擎，可以用来开发服务器端应用。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-03-30T12:02:52.999Z",
+      "updated_at": "2026-03-30T12:02:52.999Z"
+    },
+    {
+      "id": 5,
+      "key_id": "QMND52DHJ0ABDCCA7",
+      "title": "Express.js是Node.js的一个Web应用框架",
+      "type": "judge",
+      "options": [
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Express是最受欢迎的Node.js Web框架，简单、灵活且功能强大。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-03-30T12:02:52.999Z",
+      "updated_at": "2026-03-30T12:02:52.999Z"
+    }
+  ],
+  "papers": [
+    {
+      "id": 1,
+      "key_id": "PMND52DIN8A067FA2",
+      "title": "JavaScript基础知识测试",
+      "description": "测试JavaScript和Node.js基础知识",
+      "time_limit": 30,
+      "shuffle": false,
+      "show_score": true,
+      "show_answer": true,
+      "status": "published",
+      "user_id": 4,
+      "question_ids": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "question_count": 5,
+      "total_score": 30,
+      "created_at": "2026-03-30T12:02:53.039Z",
+      "updated_at": "2026-03-30T12:02:53.234Z"
+    }
+  ],
+  "paperQuestions": [
+    {
+      "id": 1,
+      "paper_id": 1,
+      "paper_key_id": "PMND52DIN8A067FA2",
+      "question_id": 1,
+      "question_key_id": "QMND52DHG82DEF93D",
+      "order_num": 1
+    },
+    {
+      "id": 2,
+      "paper_id": 1,
+      "paper_key_id": "PMND52DIN8A067FA2",
+      "question_id": 2,
+      "question_key_id": "QMND52DHJC5831E3A",
+      "order_num": 2
+    },
+    {
+      "id": 3,
+      "paper_id": 1,
+      "paper_key_id": "PMND52DIN8A067FA2",
+      "question_id": 3,
+      "question_key_id": "QMND52DHJ5CEDC597",
+      "order_num": 3
+    },
+    {
+      "id": 4,
+      "paper_id": 1,
+      "paper_key_id": "PMND52DIN8A067FA2",
+      "question_id": 4,
+      "question_key_id": "QMND52DHJ419687CA",
+      "order_num": 4
+    },
+    {
+      "id": 5,
+      "paper_id": 1,
+      "paper_key_id": "PMND52DIN8A067FA2",
+      "question_id": 5,
+      "question_key_id": "QMND52DHJ0ABDCCA7",
+      "order_num": 5
+    }
+  ],
+  "examRecords": [],
+  "scoreRecords": [],
+  "announcements": [
+    {
+      "id": 1,
+      "title": "欢迎使用",
+      "content": "<p>&nbsp;<img src=\"/uploads/1774534461032-932623900.png\" contenteditable=\"false\" style=\"white-space: initial; font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;noto sans&quot;, &quot;Microsoft YaHei&quot;, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif; font-size: 14px; max-width: 100%;\"/></p>",
+      "type": "notice",
+      "status": "published",
+      "author_id": 4,
+      "author_name": "thishe",
+      "created_at": "2026-03-26T14:07:25.681Z",
+      "updated_at": "2026-03-27T14:20:51.157Z"
+    }
+  ],
+  "students": [
+    {
+      "id": 1,
+      "student_no": "S000002",
+      "name": "卢某人",
+      "phone": "130000000",
+      "created_at": "2026-03-27T11:39:42.576Z",
+      "updated_at": "2026-03-27T11:39:42.576Z"
+    },
+    {
+      "id": 2,
+      "student_no": "S000003",
+      "name": "王五",
+      "phone": null,
+      "created_at": "2026-03-27T11:51:28.466Z",
+      "updated_at": "2026-03-27T11:51:28.466Z"
+    },
+    {
+      "id": 4,
+      "student_no": "S000005",
+      "name": "李四",
+      "phone": null,
+      "created_at": "2026-03-27T11:59:34.164Z",
+      "updated_at": "2026-03-27T11:59:34.164Z"
+    },
+    {
+      "id": 5,
+      "student_no": "S000006",
+      "name": "李六",
+      "phone": null,
+      "created_at": "2026-03-27T12:15:48.767Z",
+      "updated_at": "2026-03-27T12:15:48.767Z"
+    }
+  ],
+  "paperStudents": []
+}

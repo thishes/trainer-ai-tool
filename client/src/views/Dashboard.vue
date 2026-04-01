@@ -23,6 +23,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             <span>考试数据</span>
           </div>
+          <div class="nav-item" :class="{ active: activeTab === 'grading' }" @click="switchTab('grading')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>待评分</span>
+            <span v-if="pendingGradingCount > 0" class="badge">{{ pendingGradingCount }}</span>
+          </div>
         </div>
         <div v-if="user?.role === 'admin'" class="nav-group">
           <div class="nav-group-title">系统管理</div>
@@ -159,7 +164,12 @@
             <tbody>
               <tr v-for="p in papers" :key="p.id">
                 <td>{{ p.id }}</td>
-                <td class="title-cell">{{ p.title }}</td>
+                <td class="title-cell">
+                  <a-badge v-if="papersWithPendingGrading[p.id]" :count="papersWithPendingGrading[p.id]" :max-count="99" :number-style="{backgroundColor: '#f53f3f'}">
+                    <span style="cursor: pointer" @click="switchTab('grading'); $nextTick(() => scrollToPaper(p.id))">{{ p.title }}</span>
+                  </a-badge>
+                  <span v-else>{{ p.title }}</span>
+                </td>
                 <td>{{ p.total_score || 0 }}分</td>
                 <td>{{ p.time_limit }}分钟</td>
                 <td>
@@ -390,7 +400,7 @@
                 <a-option value="single">单选题</a-option>
                 <a-option value="multiple">多选题</a-option>
                 <a-option value="judge">判断题</a-option>
-                <a-option value="essay">问答题</a-option>
+                <a-option value="subjective">问答题</a-option>
               </a-select>
             </a-form-item>
             <a-form-item label="所属类别">
@@ -409,7 +419,7 @@
               <a-input-number v-model="questionForm.score" :min="1" :max="100" />
             </a-form-item>
           </div>
-          <template v-if="questionForm.type !== 'essay'">
+          <template v-if="questionForm.type !== 'subjective'">
             <a-form-item label="选项" class="options-label">
               <div class="options-wrapper">
                 <div class="options-list">
@@ -421,7 +431,7 @@
                     </a-button>
                   </div>
                 </div>
-                <a-button type="dashed" class="add-option-btn" @click="questionForm.options.push({ key: String.fromCharCode(65 + questionForm.options.length), value: '' })" v-if="questionForm.type !== 'essay' && questionForm.options.length < 7">
+                <a-button type="dashed" class="add-option-btn" @click="questionForm.options.push({ key: String.fromCharCode(65 + questionForm.options.length), value: '' })" v-if="questionForm.type !== 'subjective' && questionForm.options.length < 7">
                   <icon-plus />
                   添加选项
                 </a-button>
@@ -665,6 +675,52 @@
       <a-tag size="small" color="arcoblue">v{{ currentVersion }}</a-tag>
     </div>
 
+    <div v-show="activeTab === 'grading'" class="page-view">
+      <div class="page-header">
+        <h1 class="page-title">待评分</h1>
+        <p class="page-desc">对包含问答题的试卷进行手工评分</p>
+      </div>
+      <a-card class="content-card">
+        <div v-if="pendingGradingList.length === 0" style="text-align: center; padding: 60px 0; color: var(--text-secondary)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom: 16px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <p>暂无待评分记录</p>
+        </div>
+        <div v-else>
+          <div v-for="record in pendingGradingList" :key="record.id" class="grading-card" :data-record-id="record.id">
+            <div class="grading-header">
+              <div class="grading-info">
+                <span class="student-name">{{ record.student_name }}</span>
+                <span class="paper-title">{{ record.paper_title }}</span>
+              </div>
+              <div class="grading-meta">
+                <span>提交时间: {{ new Date(record.end_time).toLocaleString() }}</span>
+              </div>
+            </div>
+            <div class="grading-questions">
+              <div v-for="eq in record.essay_questions" :key="eq.question_id" class="grading-item">
+                <div class="grading-question-title">
+                  <strong>{{ eq.title }}</strong>
+                  <span class="max-score">满分: {{ eq.max_score }}分</span>
+                </div>
+                <div class="grading-answer">
+                  <div class="answer-label">考生答案:</div>
+                  <div class="answer-content">{{ eq.user_answer || '(未作答)' }}</div>
+                </div>
+                <div class="grading-score-input">
+                  <a-input-number v-model="eq.currentScore" :min="0" :max="eq.max_score" size="small" style="width: 80px" />
+                  <span class="score-unit">分</span>
+                  <a-input v-model="eq.remark" placeholder="评语(可选)" size="small" style="width: 150px; margin-left: 10px" />
+                </div>
+              </div>
+            </div>
+            <div class="grading-actions">
+              <a-button type="primary" size="small" @click="submitEssayScore(record)">提交评分</a-button>
+            </div>
+          </div>
+        </div>
+      </a-card>
+    </div>
+
     <div v-show="activeTab === 'upgrade'" v-if="user?.role === 'admin'" class="page-view">
       <div class="page-header">
         <h1 class="page-title">平台升级</h1>
@@ -731,7 +787,7 @@
 <script>
 import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Message, Modal } from '@arco-design/web-vue'
+import { Message, Modal, Badge } from '@arco-design/web-vue'
 import { io } from 'socket.io-client'
 import E from 'wangeditor'
 import {
@@ -747,6 +803,7 @@ import {
   getStudents, createStudent, deleteStudent, importStudents,
   getPaperStudents, addPaperStudents, removePaperStudent, exportPaperStudents,
   getCategories, createCategory, deleteCategory,
+  getPendingGrading, gradeEssay,
   checkUpgrade, doUpgrade
 } from '@/api'
 
@@ -807,6 +864,64 @@ export default {
       closeAllPaperMenus()
       activeTab.value = tab
       sidebarOpen.value = false
+      if (tab === 'grading') {
+        loadPendingGrading()
+      }
+    }
+
+    const pendingGradingList = ref([])
+    const pendingGradingCount = ref(0)
+
+    const loadPendingGrading = async () => {
+      try {
+        const allPending = []
+        const pendingMap = {}
+        for (const paper of papers.value) {
+          try {
+            const res = await getPendingGrading(paper.id)
+            if (res.data && res.data.list) {
+              if (res.data.list.length > 0) {
+                pendingMap[paper.id] = res.data.list.length
+              }
+              for (const record of res.data.list) {
+                record.paper_title = paper.title
+                if (!record.essay_questions) record.essay_questions = []
+                for (const eq of record.essay_questions) {
+                  eq.currentScore = 0
+                  eq.remark = ''
+                }
+              }
+              allPending = allPending.concat(res.data.list)
+            }
+          } catch (e) { console.error('加载待评分失败', e) }
+        }
+        pendingGradingList.value = allPending
+        pendingGradingCount.value = allPending.length
+        papersWithPendingGrading.value = pendingMap
+      } catch (e) { console.error('加载待评分列表失败', e) }
+    }
+
+    const scrollToPaper = (paperId) => {
+      const record = pendingGradingList.value.find(r => r.paper_id === paperId)
+      if (record) {
+        nextTick(() => {
+          const el = document.querySelector(`[data-record-id="${record.id}"]`)
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        })
+      }
+    }
+
+    const submitEssayScore = async (record) => {
+      try {
+        const scores = record.essay_questions.map(eq => ({
+          question_id: eq.question_id,
+          score: eq.currentScore || 0,
+          remark: eq.remark || ''
+        }))
+        await gradeEssay({ exam_record_id: record.id, scores })
+        Message.success('评分提交成功')
+        loadPendingGrading()
+      } catch (e) { Message.error('评分提交失败') }
     }
 
     const questions = ref([])
@@ -894,14 +1009,32 @@ export default {
     }
 
     const joinPaperRoom = (paperId) => {
-      if (socket) socket.emit('join-paper', paperId)
+      if (socket) {
+        socket.emit('join-paper', paperId)
+        if (typeof paperId === 'string') {
+          socket.emit('join-paper', parseInt(paperId))
+        } else {
+          const paper = papers.value.find(p => p.id === paperId)
+          if (paper?.key_id) socket.emit('join-paper', paper.key_id)
+        }
+      }
     }
 
     const leavePaperRoom = (paperId) => {
-      if (socket) socket.emit('leave-paper', paperId)
+      if (socket) {
+        socket.emit('leave-paper', paperId)
+        if (typeof paperId === 'string') {
+          socket.emit('leave-paper', parseInt(paperId))
+        } else {
+          const paper = papers.value.find(p => p.id === paperId)
+          if (paper?.key_id) socket.emit('leave-paper', paper.key_id)
+        }
+      }
     }
 
     const publishedPapers = computed(() => papers.value.filter(p => p.status === 'published'))
+
+    const papersWithPendingGrading = ref({})
 
     const filteredQuestions = computed(() => {
       let result = questions.value
@@ -917,7 +1050,7 @@ export default {
 
     const paginatedQuestions = computed(() => {
       const start = (questionPage.value - 1) * questionPageSize.value
-      const end = start + questionPage.value
+      const end = start + questionPageSize.value
       return filteredQuestions.value.slice(start, end)
     })
 
@@ -1593,7 +1726,8 @@ export default {
       openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction,
       showStudentDialog, showImportStudentDialog, studentForm, paperStudents,
       addStudent, removeStudentFromPaper, handleImportStudents, handleExportStudents,
-      showCategoryDialog, newCategoryName, categories, handleAddCategory, handleDeleteCategory
+      showCategoryDialog, newCategoryName, categories, handleAddCategory, handleDeleteCategory,
+      pendingGradingList, pendingGradingCount, submitEssayScore
     }
   }
 }

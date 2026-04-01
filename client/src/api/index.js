@@ -40,13 +40,12 @@ api.interceptors.response.use(
         errorMsg = message || '请求参数错误'
         break
       case 401:
-        // 清除本地存储的 token
+        const wasLoggedIn = localStorage.getItem('loggedIn') === 'true'
         localStorage.removeItem('token')
         localStorage.removeItem('user')
+        localStorage.removeItem('loggedIn')
         errorMsg = message || '登录已过期，请重新登录'
-        // 避免死循环，仅在非登录页面时跳转
-        if (!window.location.pathname.includes('/login')) {
-          // 延迟跳转，让当前请求完成
+        if (!window.location.pathname.includes('/login') && wasLoggedIn) {
           setTimeout(() => {
             window.location.href = '/login'
           }, 500)
@@ -135,6 +134,8 @@ export const submitExam = (data) => api.post('/exam/submit', data)
 export const getExamResult = (examId) => api.get(`/exam/${examId}/result`)
 export const getExamRecords = (paperId) => api.get(`/exam/records/${paperId}`)
 export const getExamStats = (paperId) => api.get(`/exam/stats/${paperId}`)
+export const getPendingGrading = (paperId) => api.get(`/exam/pending-grading/${paperId}`)
+export const gradeEssay = (data) => api.post('/exam/grade-essay', data)
 
 // 公告
 export const getAnnouncements = (params) => api.get('/announcements', { params })
