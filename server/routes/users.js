@@ -118,6 +118,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (phone !== undefined) updateData.phone = phone;
     if (role) updateData.role = role;
     
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: '没有要更新的字段' });
+    }
+    
     db.users.update(parseInt(id), updateData);
     
     res.json({ success: true, message: '更新成功' });

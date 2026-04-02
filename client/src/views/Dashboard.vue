@@ -567,6 +567,9 @@
         <a-form-item label="密码" v-if="!editingUser">
           <a-input-password v-model="userForm.password" />
         </a-form-item>
+        <a-form-item v-else label="重置密码">
+          <a-input-password v-model="userForm.password" placeholder="留空则不修改密码" />
+        </a-form-item>
         <a-form-item label="手机号">
           <a-input v-model="userForm.phone" />
         </a-form-item>
@@ -1006,6 +1009,15 @@ export default {
       socket.on('disconnect', () => {
         console.log('[Socket.io] Disconnected from server')
       })
+
+      socket.on('pending-essay-grade', (data) => {
+        console.log('[Socket.io] Pending essay grade notification:', data)
+        if (data.paper_id) {
+          papersWithPendingGrading.value[data.paper_id] = (papersWithPendingGrading.value[data.paper_id] || 0) + 1
+        }
+        loadStats()
+        Message.info(`收到待评分通知: ${data.student_name} 提交了 ${data.essay_count} 道问答题`)
+      })
     }
 
     const joinPaperRoom = (paperId) => {
@@ -1059,8 +1071,8 @@ export default {
     const loadQuestions = async () => {
       try {
         const res = await getQuestions({ limit: 100 });
-        if (res.data && res.data.list) {
-          questions.value = res.data.list
+        if (res.data) {
+          questions.value = res.data.list || res.data.questions || []
         }
       } catch (e) {
         Message.error('加载题目失败')
@@ -1122,7 +1134,7 @@ export default {
       userLoading.value = true
       try {
         const res = await getUsers({ keyword: userSearch.value })
-        userList.value = res.data.list || []
+        userList.value = res.data.list || res.data.users || []
       } catch (e) {
         console.error(e)
       } finally {
@@ -1309,7 +1321,7 @@ export default {
       try {
         const res = await getPapers({ limit: 100 });
         if (res.data) {
-          const paperList = res.data.papers || res.data.list || [];
+          const paperList = res.data.list || res.data.papers || [];
           papers.value = paperList.map(p => ({ ...p, _showMenu: false }))
         }
       } catch (e) {

@@ -94,6 +94,13 @@ router.get('/:examId/questions', async (req, res) => {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
     }
 
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
+    
+    if (!isOwner && !examRecord.student_name) {
+      return res.status(403).json({ success: false, message: '无权限获取此考试题目' });
+    }
+
     let paper;
     if (examRecord.paper_id) {
       paper = db.papers.findById(examRecord.paper_id);
@@ -104,16 +111,12 @@ router.get('/:examId/questions', async (req, res) => {
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在' });
     }
-    console.log('getExamQuestions paper:', paper);
-    console.log('getExamQuestions paper.id:', paper?.id);
-    console.log('getExamQuestions paper.key_id:', paper?.key_id);
 
     // 获取试卷题目 - 使用key_id系统
     if (!paper.key_id) {
       return res.status(500).json({ success: false, message: '试卷缺少key_id' });
     }
     let paperQuestions = db.paperQuestions.findByPaperKeyId(paper.key_id);
-    console.log('getExamQuestions paperQuestions:', paperQuestions);
 
     // 获取题目详情
     let questions = paperQuestions.map(pq => {
@@ -129,8 +132,6 @@ router.get('/:examId/questions', async (req, res) => {
         user_answer: examRecord.answers ? examRecord.answers[q.id] : null
       };
     }).filter(q => q !== null);
-
-    console.log('getExamQuestions final questions:', questions);
     
     // 如果设置了随机顺序
     if (paper.shuffle) {
@@ -163,6 +164,13 @@ router.post('/save-progress', async (req, res) => {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
     }
     
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
+    
+    if (!isOwner && examRecord.student_name !== req.body.student_name) {
+      return res.status(403).json({ success: false, message: '无权限修改此考试记录' });
+    }
+    
     // 合并答案
     const currentAnswers = examRecord.answers || {};
     const mergedAnswers = { ...currentAnswers, ...answers };
@@ -188,6 +196,13 @@ router.post('/submit', async (req, res) => {
     
     if (examRecord.status === 'submitted') {
       return res.status(400).json({ success: false, message: '试卷已提交' });
+    }
+    
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
+    
+    if (!isOwner && examRecord.student_name !== req.body.student_name) {
+      return res.status(403).json({ success: false, message: '无权限提交此试卷' });
     }
     
     // 获取试卷和题目
@@ -317,6 +332,20 @@ router.post('/submit', async (req, res) => {
         if (paperIdForQuery) {
           io.to(`paper-${paperIdForQuery}`).emit('rank-update', emitData);
         }
+        
+        if (hasEssay && Object.keys(essayAnswers).length > 0) {
+          const pendingNotification = {
+            type: 'pending-essay-grade',
+            paper_id: paperIdForQuery,
+            paper_key_id: paperKeyId,
+            paper_title: paper.title,
+            exam_record_id: examRecord.id,
+            student_name: examRecord.student_name,
+            essay_count: Object.keys(essayAnswers).length,
+            timestamp: new Date().toISOString()
+          };
+          io.emit('pending-essay-grade', pendingNotification);
+        }
       }
     } catch (wsError) {
       console.error('WebSocket通知失败:', wsError);
@@ -389,11 +418,20 @@ router.post('/ai-grade', authenticate, async (req, res) => {
 });
 
 // 获取考试结果
-router.get('/:examId/result', async (req, res) => {
+router.get('/:examId/result', authenticate, async (req, res) => {
   try {
     const examRecord = db.examRecords.findById(req.params.examId);
     if (!examRecord) {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
+    }
+    
+    const isAdmin = req.user.role === 'admin';
+    const isTrainer = req.user.role === 'trainer';
+    const queryName = req.query.student_name || req.body.student_name;
+    const isOwner = examRecord.student_name && examRecord.student_name === queryName;
+    
+    if (!isAdmin && !isTrainer && !isOwner) {
+      return res.status(403).json({ success: false, message: '无权限查看此考试结果' });
     }
     
     const paper = db.papers.findById(examRecord.paper_id);
@@ -433,6 +471,13 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
       status: 'submitted' 
     });
     
+    const isAdmin = req.user.role === 'admin';
+    const safeRecords = records.map(r => {
+      if (isAdmin) return r;
+      const { answers, ...safe } = r;
+      return safe;
+    });
+    
     // 统计数据
     const scores = records.map(r => r.score).filter(s => s !== null);
     const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
@@ -441,7 +486,7 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
     res.json({
       success: true,
       data: {
-        list: records,
+        list: safeRecords,
         total: records.length,
         stats: {
           avg_score: Math.round(avgScore),
@@ -632,10 +677,6 @@ router.get('/stats/:paperId', authenticate, async (req, res) => {
       paper_id: parseInt(paperId),
       status: 'submitted'
     });
-
-    console.log('Stats records:', records);
-    console.log('Stats records[0]:', records[0]);
-    console.log('Stats percentage:', records.length > 0 ? records[0].percentage : 'no records');
 
     // 排名数据（使用百分制分数）
     const ranking = records

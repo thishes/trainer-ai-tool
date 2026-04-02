@@ -8,7 +8,17 @@ const authenticate = require('../middleware/auth');
 
 const upload = multer({
   dest: path.join(__dirname, '../uploads'),
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const allowedExtensions = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传 Excel 文件 (.xlsx, .xls)'), false);
+    }
+  }
 });
 
 router.get('/', authenticate, async (req, res) => {

@@ -138,6 +138,7 @@ export default {
         const res = await login(form.value)
         if (res.data && res.data.user) {
           localStorage.setItem('user', JSON.stringify(res.data.user))
+          localStorage.setItem('token', res.data.token || '')
           localStorage.setItem('loggedIn', 'true')
         }
         Message.success('登录成功')

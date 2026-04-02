@@ -3,7 +3,7 @@
     {
       "id": 4,
       "username": "thishe",
-      "password": "$2a$10$CXHig/JBEiaeqSoeNIy5ceBt5q60fY9Cjn1UnBVl.L9PpwB9esbTG",
+      "password": "$2a$10$.3RzblvkuLc0Mn6bWd0seOKvQAgOEPq7qlOVJhdeZKvfDv5NCGF8.",
       "role": "admin",
       "status": "active",
       "created_at": "2026-03-22T09:18:04.574Z",
@@ -180,6 +180,206 @@
       "status": "published",
       "created_at": "2026-03-30T12:02:52.999Z",
       "updated_at": "2026-03-30T12:02:52.999Z"
+    },
+    {
+      "id": 6,
+      "key_id": "QMND529E7A47D52B",
+      "title": "React主要用于构建什么类型的应用？",
+      "type": "choice",
+      "options": [
+        { "key": "A", "value": "桌面应用" },
+        { "key": "B", "value": "移动应用" },
+        { "key": "C", "value": "用户界面/前端应用" },
+        { "key": "D", "value": "后端服务" }
+      ],
+      "answer": "C",
+      "explanation": "React是Facebook开发的用于构建用户界面的JavaScript库，主要用于前端应用。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 7,
+      "key_id": "QMND52AFA17569F4",
+      "title": "HTML5提供了语义化标签如header、footer、article等",
+      "type": "judge",
+      "options": [
+        { "key": "A", "value": "正确" },
+        { "key": "B", "value": "错误" }
+      ],
+      "answer": "A",
+      "explanation": "HTML5引入了许多语义化标签，使网页结构更清晰。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 8,
+      "key_id": "QMND524C2277E665",
+      "title": "CSS盒子模型由哪些部分组成？",
+      "type": "choice",
+      "options": [
+        { "key": "A", "value": "content、padding" },
+        { "key": "B", "value": "content、padding、border、margin" },
+        { "key": "C", "value": "width、height" },
+        { "key": "D", "value": "display、position" }
+      ],
+      "answer": "B",
+      "explanation": "CSS盒子模型包括content(内容)、padding(内边距)、border(边框)、margin(外边距)四个部分。",
+      "difficulty": "medium",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 9,
+      "key_id": "QMND526882447230",
+      "title": "HTTP状态码404表示资源不存在",
+      "type": "judge",
+      "options": [
+        { "key": "A", "value": "正确" },
+        { "key": "B", "value": "错误" }
+      ],
+      "answer": "A",
+      "explanation": "404 Not Found表示服务器无法找到请求的资源。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 10,
+      "key_id": "QMND52A0C27AF1AC",
+      "title": "RESTful API设计规范中，GET请求用于",
+      "type": "choice",
+      "options": [
+        { "key": "A", "value": "创建资源" },
+        { "key": "B", "value": "更新资源" },
+        { "key": "C", "value": "查询资源" },
+        { "key": "D", "value": "删除资源" }
+      ],
+      "answer": "C",
+      "explanation": "RESTful规范中，GET请求用于查询/获取资源，是幂等的。",
+      "difficulty": "medium",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 11,
+      "key_id": "QMND52581528A0F4",
+      "title": "Git中的merge和rebase都可以用于合并分支",
+      "type": "judge",
+      "options": [
+        { "key": "A", "value": "正确" },
+        { "key": "B", "value": "错误" }
+      ],
+      "answer": "A",
+      "explanation": "merge和rebase都是Git中合并分支的方式，各有优缺点。",
+      "difficulty": "medium",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 12,
+      "key_id": "QMND52F285242ECD",
+      "title": "以下哪个不是关系型数据库？",
+      "type": "choice",
+      "options": [
+        { "key": "A", "value": "MySQL" },
+        { "key": "B", "value": "PostgreSQL" },
+        { "key": "C", "value": "MongoDB" },
+        { "key": "D", "value": "SQLite" }
+      ],
+      "answer": "C",
+      "explanation": "MongoDB是NoSQL文档型数据库，不是关系型数据库。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 13,
+      "key_id": "QMND520917F0C166",
+      "title": "TypeScript是JavaScript的超集，添加了类型系统",
+      "type": "judge",
+      "options": [
+        { "key": "A", "value": "正确" },
+        { "key": "B", "value": "错误" }
+      ],
+      "answer": "A",
+      "explanation": "TypeScript是JavaScript的超集，它添加了静态类型定义和其他高级特性。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 14,
+      "key_id": "QMND52661DFCA65D",
+      "title": "Vue2和Vue3最大的区别是什么？",
+      "type": "choice",
+      "options": [
+        { "key": "A", "value": "模板语法完全不同" },
+        { "key": "B", "value": "响应式系统的重写" },
+        { "key": "C", "value": "移除了组件系统" },
+        { "key": "D", "value": "不再支持Vue Router" }
+      ],
+      "answer": "B",
+      "explanation": "Vue3重写了响应式系统，使用Proxy替代Object.defineProperty。",
+      "difficulty": "medium",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 15,
+      "key_id": "QMND52921F2F4A4",
+      "title": "AJAX技术主要用于实现网页的局部刷新",
+      "type": "judge",
+      "options": [
+        { "key": "A", "value": "正确" },
+        { "key": "B", "value": "错误" }
+      ],
+      "answer": "A",
+      "explanation": "AJAX允许网页在不重新加载整个页面的情况下与服务器交换数据。",
+      "difficulty": "easy",
+      "score": 5,
+      "category_id": 3,
+      "user_id": 4,
+      "status": "published",
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
     }
   ],
   "papers": [
@@ -205,6 +405,23 @@
       "total_score": 30,
       "created_at": "2026-03-30T12:02:53.039Z",
       "updated_at": "2026-03-30T12:02:53.234Z"
+    },
+    {
+      "id": 2,
+      "key_id": "PMND52921F2F4A42",
+      "title": "Web前端开发综合测试",
+      "description": "测试HTML、CSS、JavaScript、Vue、React等前端技术",
+      "time_limit": 45,
+      "shuffle": true,
+      "show_score": true,
+      "show_answer": true,
+      "status": "published",
+      "user_id": 4,
+      "question_ids": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      "question_count": 10,
+      "total_score": 50,
+      "created_at": "2026-04-02T12:00:00.000Z",
+      "updated_at": "2026-04-02T12:00:00.000Z"
     }
   ],
   "paperQuestions": [
@@ -247,6 +464,86 @@
       "question_id": 5,
       "question_key_id": "QMND52DHJ0ABDCCA7",
       "order_num": 5
+    },
+    {
+      "id": 6,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 6,
+      "question_key_id": "QMND529E7A47D52B",
+      "order_num": 1
+    },
+    {
+      "id": 7,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 7,
+      "question_key_id": "QMND52AFA17569F4",
+      "order_num": 2
+    },
+    {
+      "id": 8,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 8,
+      "question_key_id": "QMND524C2277E665",
+      "order_num": 3
+    },
+    {
+      "id": 9,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 9,
+      "question_key_id": "QMND526882447230",
+      "order_num": 4
+    },
+    {
+      "id": 10,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 10,
+      "question_key_id": "QMND52A0C27AF1AC",
+      "order_num": 5
+    },
+    {
+      "id": 11,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 11,
+      "question_key_id": "QMND52581528A0F4",
+      "order_num": 6
+    },
+    {
+      "id": 12,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 12,
+      "question_key_id": "QMND52F285242ECD",
+      "order_num": 7
+    },
+    {
+      "id": 13,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 13,
+      "question_key_id": "QMND520917F0C166",
+      "order_num": 8
+    },
+    {
+      "id": 14,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 14,
+      "question_key_id": "QMND52661DFCA65D",
+      "order_num": 9
+    },
+    {
+      "id": 15,
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "question_id": 15,
+      "question_key_id": "QMND52921F2F4A4",
+      "order_num": 10
     }
   ],
   "examRecords": [],

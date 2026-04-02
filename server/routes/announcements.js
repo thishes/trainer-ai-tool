@@ -26,7 +26,17 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('只允许上传 JPG、PNG、GIF、WebP 格式的图片'), false);
+  }
+};
+
+const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
