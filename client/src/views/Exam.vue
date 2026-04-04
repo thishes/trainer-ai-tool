@@ -272,7 +272,9 @@ export default {
         single: '单选题', 
         multiple: '多选题', 
         judge: '判断题', 
-        subjective: '问答题'
+        subjective: '问答题',
+        essay: '问答题',
+        question: '问答题'
       }
       return map[type] || '未知题型'
     }

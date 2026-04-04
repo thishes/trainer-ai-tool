@@ -190,11 +190,26 @@ router.post('/submit', async (req, res) => {
     // 自动批改客观题
     let totalScore = 0;
     let correctCount = 0;
+    let objectiveScore = 0;  // 客观题得分
+    let objectiveTotal = 0;  // 客观题总分
+    let essayScore = 0;       // 问答题得分
+    let essayTotal = 0;      // 问答题总分
     const results = {};
+    
+    // 判断是否为客观题类型
+    const isObjectiveType = (type) => ['single', 'multiple', 'judge'].includes(type);
+    const isEssayType = (type) => ['subjective', 'essay', 'question'].includes(type);
     
     for (const pq of paperQuestions) {
       const question = db.questions.findById(pq.question_id);
       if (!question) continue;
+      
+      // 累加客观题总分或问答题总分
+      if (isObjectiveType(question.type)) {
+        objectiveTotal += pq.score;
+      } else if (isEssayType(question.type)) {
+        essayTotal += pq.score;
+      }
       
       const userAnswer = answers[question.id];
       let isCorrect = false;
@@ -209,8 +224,8 @@ router.post('/submit', async (req, res) => {
           const userAns = Array.isArray(userAnswer) ? userAnswer.sort() : [userAnswer].sort();
           const correctAns = Array.isArray(question.answer) ? question.answer.sort() : [question.answer].sort();
           isCorrect = JSON.stringify(userAns) === JSON.stringify(correctAns);
-        } else if (question.type === 'subjective') {
-          // 主观题暂不自动批改，分数待定
+        } else if (question.type === 'subjective' || question.type === 'essay' || question.type === 'question') {
+          // 主观题/问答题暂不自动批改，分数待定
           isCorrect = null;
         }
         
@@ -218,6 +233,12 @@ router.post('/submit', async (req, res) => {
           score = pq.score;
           totalScore += score;
           correctCount++;
+          // 累加对应类型的分数
+          if (isObjectiveType(question.type)) {
+            objectiveScore += score;
+          } else if (isEssayType(question.type)) {
+            essayScore += score;
+          }
         }
       }
       
@@ -284,6 +305,12 @@ router.post('/submit', async (req, res) => {
         percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
         correct_count: correctCount,
         total_count: paperQuestions.length,
+        // 客观题得分
+        objective_score: objectiveScore,
+        objective_total: objectiveTotal,
+        // 问答题得分
+        essay_score: essayScore,
+        essay_total: essayTotal,
         start_time: examRecord.start_time,
         end_time: new Date().toISOString(),
         show_score: paper.show_score,

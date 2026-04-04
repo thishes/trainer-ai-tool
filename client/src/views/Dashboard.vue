@@ -1794,7 +1794,7 @@ export default {
       userLoading.value = true
       try {
         const res = await getUsers({ keyword: userSearch.value })
-        userList.value = res.data.list || res.data.users || []
+        userList.value = res.data?.list || res.data?.users || []
       } catch (e) {
         console.error(e)
       } finally {
@@ -1867,7 +1867,7 @@ export default {
     const loadAnnouncements = async () => {
       try {
         const res = await getAnnouncements()
-        announcements.value = res.data || []
+        announcements.value = res.data?.list || res.data || []
       } catch (e) {
         console.error(e)
       }
@@ -2761,7 +2761,8 @@ export default {
   box-shadow: var(--shadow-card);
 }
 
-.data-table { width: 100%; min-width: 800px; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+.data-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; overflow-x: auto; }
+.data-table th, .data-table td { white-space: nowrap; }
 .data-table th {
   background: var(--bg-color);
   font-weight: 500;

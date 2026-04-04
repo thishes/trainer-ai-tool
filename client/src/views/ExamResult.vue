@@ -172,16 +172,16 @@ export default {
       return result.value.objective_score || 0
     })
 
-    // 计算问答题分数
+    // 计算问答题分数（直接使用后端返回的字段）
     const essayScore = computed(() => {
       if (!result.value || result.value.score === null) return 0
-      return (result.value.score || 0) - (result.value.objective_score || 0)
+      return result.value.essay_score || 0
     })
 
-    // 问答题总分
+    // 问答题总分（直接使用后端返回的字段）
     const essayTotal = computed(() => {
       if (!result.value) return 0
-      return (result.value.total_score || 0) - (result.value.objective_total || 0)
+      return result.value.essay_total || 0
     })
 
     // 分数等级样式
