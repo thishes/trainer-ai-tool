@@ -541,12 +541,12 @@
       "allow_all_users": true,
       "user_id": null,
       "status": "published",
-      "total_score": 25,
+      "total_score": 30,
       "start_time": null,
       "end_time": null,
       "created_at": "2026-04-04T12:59:31.110Z",
-      "updated_at": "2026-04-04T14:20:36.333Z",
-      "question_count": 5,
+      "updated_at": "2026-04-04T22:35:19.255Z",
+      "question_count": 6,
       "qrcode_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB1PADUAAAAAklEQVR4AewaftIAAAS8SURBVO3BQY4kyREEQdNA/f/Lyr7ReQkgmV69swMTwR+pWnJSteikatFJ1aKTqkUnVYtOqhadVC06qVp0UrXopGrRSdWik6pFJ1WLTqoWnVQt+uQlIL9JzQ2QJ9RMQJ5QcwPkCTUTkN+k5o2TqkUnVYtOqhZ9skzNJiBPqJmAfBOQSc2k5gbIE2o2Adl0UrXopGrRSdWiT74MyBNqngByo2YCMgG5UTMBmdQ8AWQTkCfUfNNJ1aKTqkUnVYs++cuomYA8oWYC8gSQSc2Nmr/JSdWik6pFJ1WLPvnLALlR84SaCcgEpP7rpGrRSdWik6pFn3yZmn+SmgnIjZobNU8AmdRsUvMnOaladFK16KRq0SfLgPyT1ExAJjUTkBsgk5oJyKTmCSCTmhsgf7KTqkUnVYtOqhZ98pKa+v+puVHzb3JSteikatFJ1SL8kReATGomIJvU3AC5UbMJyI2aGyCTmgnIJjXfdFK16KRq0UnVok9eUvOGmgnIpGYCcqNmAjIBmdRMQJ5QcwPkRs0E5A01TwCZ1LxxUrXopGrRSdWiT14CMqmZ1LwB5EbNBORGzQTkDSCTmhs1b6iZgLyhZtNJ1aKTqkUnVYs+eUnNN6l5Q80EZFIzAZnUTEAmNTdq3lAzAZnUPAFkUrPppGrRSdWik6pF+CMvALlRMwG5UTMBuVHzBpBJzQTkRs0EZFJzA2RS8waQGzXfdFK16KRq0UnVIvyRF4BsUnMD5Ak1m4BsUjMBeUPNBGRSMwGZ1LxxUrXopGrRSdWiT15SMwG5UfMEkEnNJiCTmhs136RmAvJNajadVC06qVp0UrXok5eATGomIBOQGzWTmgnIpOYJIE8AmdRMQCY136RmAnKjZgIyqdl0UrXopGrRSdUi/JEXgNyomYBMaiYgN2omIE+o2QTkCTUTkEnNJiCTmm86qVp0UrXopGrRJ8vUTEAmNU+omYDcqLkBsknNBOQGyKTmBsg3AZnUvHFSteikatFJ1aJPfhmQJ4C8AWRSMwF5A8iNmhsgN2omIJOaCcgTajadVC06qVp0UrXoky9TcwNkUnMD5AbIDZBJzQRkUjMBmdQ8AWRScwNkUjMBmdTcAJnUbDqpWnRSteikatEnfxggN2omIDdqJiA3aiYgTwC5UTMBeQLIE0BugExq3jipWnRSteikahH+yL8YkE1qboDcqLkBcqPmCSCb1LxxUrXopGrRSdWiT14C8pvUTGomIDdqJiBPqPlNQCY1b6j5ppOqRSdVi06qFn2yTM0mIDdAngDyBJBJzQRkUnOjZgJyo+YNNROQSc2mk6pFJ1WLTqoWffJlQJ5Q84aaCciNmhs1bwCZ1NwAeUPNBGRSMwGZ1LxxUrXopGrRSdWiT+p/AHlCzQTkDTVvAHlCzaaTqkUnVYtOqhZ98pdTcwPkDSA3at4A8oSaGyCTmk0nVYtOqhadVC365MvUfJOaJ4BsUjMBmYC8oWYCMqmZgExqftNJ1aKTqkUnVYs+WQbkNwF5Qs0EZFJzA+RGzRtAJjVPqJmATGq+6aRq0UnVopOqRfgjVUtOqhadVC06qVp0UrXopGrRSdWik6pFJ1WLTqoWnVQtOqladFK16KRq0UnVopOqRf8BxmcqM1zgGocAAAAASUVORK5CYII="
     }
   ],
@@ -714,6 +714,15 @@
       "question_id": 13,
       "question_key_id": "QMND520917F0C166",
       "order": 5,
+      "score": 5
+    },
+    {
+      "id": 41,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 6,
+      "question_key_id": "QMND529E7A47D52B",
+      "order": 6,
       "score": 5
     }
   ],
@@ -1668,6 +1677,38 @@
       "objective_score": 20,
       "objective_total": 25,
       "end_time": "2026-04-04T16:11:20.010Z"
+    },
+    {
+      "id": 34,
+      "key_id": "EMNKWVFRR7C0AA330",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "一样",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T22:35:41.847Z",
+      "status": "submitted",
+      "answers": {
+        "6": "国华你发个",
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T22:35:41.847Z",
+      "updated_at": "2026-04-04T22:35:53.766Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "国华你发个",
+          "max_score": 5
+        }
+      },
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T22:35:53.765Z"
     }
   ],
   "scoreRecords": [],
