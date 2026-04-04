@@ -86,7 +86,7 @@ module.exports = {
   // 用户表
   users: {
     findAll: () => db.users,
-    findById: (id) => db.users.find(u => u.id === id),
+    findById: (id) => db.users.find(u => u.id === parseInt(id)),
     findByUsername: (username) => db.users.find(u => u.username === username),
     findByWechatOpenid: (openid) => db.users.find(u => u.wechat_openid === openid),
     findByKeyId: (keyId) => db.users.find(u => u.key_id === keyId),
@@ -97,7 +97,7 @@ module.exports = {
       return user;
     },
     update: (id, data) => {
-      const index = db.users.findIndex(u => u.id === id);
+      const index = db.users.findIndex(u => u.id === parseInt(id));
       if (index !== -1) {
         db.users[index] = { ...db.users[index], ...data, updated_at: new Date().toISOString() };
         writeDB(db);

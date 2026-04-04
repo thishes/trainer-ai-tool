@@ -788,12 +788,17 @@ router.post('/grade-essay', authenticate, async (req, res) => {
     if (!examRecord) {
       return res.status(404).json({ success: false, message: '考试记录不存在' });
     }
-    
-    // 临时跳过权限验证，让评分功能可用
-    // const paper = db.papers.findById(examRecord.paper_id);
-    // if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
-    //   return res.status(403).json({ success: false, message: '无权限' });
-    // }
+
+    // 获取试卷信息
+    const paper = db.papers.findById(examRecord.paper_id);
+    if (!paper) {
+      return res.status(404).json({ success: false, message: '试卷不存在' });
+    }
+
+    // 权限验证
+    if (req.user.role !== "admin" && paper.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: '无权限' });
+    }
 
     if (!db.essayScores || !db.essayScores.upsert) {
       return res.status(500).json({ success: false, message: '评分系统未初始化' });
@@ -865,76 +870,6 @@ router.post('/grade-essay', authenticate, async (req, res) => {
   } catch (error) {
     console.error('评分错误:', error);
     res.status(500).json({ success: false, message: '评分失败' });
-  }
-});
-
-// 获取大屏数据
-router.get('/stats/:paperId', authenticate, async (req, res) => {
-  try {
-    const { paperId } = req.params;
-
-    const paper = db.papers.findById(paperId);
-    if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    const records = db.examRecords.findAll({
-      paper_id: parseInt(paperId),
-      status: 'submitted'
-    });
-
-    // 排名数据（使用百分制分数）
-    const ranking = records
-      .filter(r => r.percentage !== null && r.percentage !== undefined)
-      .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 50)
-      .map((r, i) => ({
-        rank: i + 1,
-        student_name: r.student_name,
-        score: r.percentage,
-        end_time: r.end_time
-      }));
-
-    // 统计（使用百分制分数）
-    const scores = records.map(r => r.percentage || 0);
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-
-    // 及格人数（60分及以上）
-    const passCount = scores.filter(s => s >= 60).length;
-    const passRate = scores.length > 0 ? Math.round((passCount / scores.length) * 100) : 0;
-
-    // 各分数段分布
-    const distribution = [
-      { range: '90-100', count: 0 },
-      { range: '80-89', count: 0 },
-      { range: '70-79', count: 0 },
-      { range: '60-69', count: 0 },
-      { range: '0-59', count: 0 }
-    ];
-
-    scores.forEach(s => {
-      if (s >= 90) distribution[0].count++;
-      else if (s >= 80) distribution[1].count++;
-      else if (s >= 70) distribution[2].count++;
-      else if (s >= 60) distribution[3].count++;
-      else distribution[4].count++;
-    });
-    
-    res.json({
-      success: true,
-      data: {
-        paper_id: paperId,
-        title: paper.title,
-        total_submitted: records.length,
-        avg_score: Math.round(avgScore),
-        pass_rate: passRate,
-        ranking,
-        distribution
-      }
-    });
-  } catch (error) {
-    console.error('获取大屏数据错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
   }
 });
 
