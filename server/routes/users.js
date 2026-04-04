@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const config = require('../config');
+const authenticate = require('../middleware/auth');
 
 const JWT_SECRET = config.JWT_SECRET;
 if (!JWT_SECRET && config.NODE_ENV === 'production') {
@@ -174,6 +175,63 @@ router.delete('/:id', requireAdmin, (req, res) => {
     res.json({ success: true, message: '删除成功' });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// 修改密码
+router.post('/change-password', authenticate, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: '请提供旧密码和新密码' });
+    }
+    
+    // 密码强度验证
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: '新密码长度至少为8位' });
+    }
+    
+    // 检查密码复杂度：至少包含一个大写字母、一个小写字母和一个数字
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasNumber = /\d/.test(newPassword);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '密码必须包含大写字母、小写字母和数字' 
+      });
+    }
+    
+    // 检查密码不能是常见弱密码
+    const weakPasswords = ['12345678', 'password', 'qwerty', 'abc12345', '11111111'];
+    if (weakPasswords.includes(newPassword.toLowerCase())) {
+      return res.status(400).json({ success: false, message: '密码过于简单，请使用更复杂的密码' });
+    }
+    
+    // 检查新密码不能与旧密码相同
+    if (oldPassword === newPassword) {
+      return res.status(400).json({ success: false, message: '新密码不能与旧密码相同' });
+    }
+    
+    const user = db.users.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    
+    const match = await bcrypt.compare(oldPassword, user.password);
+    if (!match) {
+      return res.status(400).json({ success: false, message: '当前密码错误' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    db.users.update(user.id, { password: hashedPassword });
+    
+    res.json({ success: true, message: '密码修改成功' });
+  } catch (e) {
+    console.error('Change password error:', e);
+    res.status(500).json({ success: false, message: '服务器错误' });
   }
 });
 

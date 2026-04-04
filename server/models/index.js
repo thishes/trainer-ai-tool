@@ -1,6 +1,6 @@
 // server/models/index.js - 数据库模型定义
 const { Sequelize, DataTypes } = require('sequelize');
-require('dotenv').config();
+const config = require('../config');
 
 // 创建 Sequelize 实例
 const sequelize = new Sequelize(
@@ -10,13 +10,8 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST || 'localhost',
     dialect: 'mysql',
-    logging: false,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }
+    logging: config.DB_LOGGING ? console.log : false,
+    pool: config.DB_POOL
   }
 );
 
@@ -58,7 +53,14 @@ const User = sequelize.define('User', {
   }
 }, {
   tableName: 'users',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['username'], unique: true },
+    { fields: ['phone'], unique: true },
+    { fields: ['wechat_openid'], unique: true },
+    { fields: ['role', 'status'] },
+    { fields: ['created_at'] }
+  ]
 });
 
 // 题库分类模型
@@ -87,7 +89,12 @@ const Category = sequelize.define('Category', {
   }
 }, {
   tableName: 'categories',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['parent_id'] },
+    { fields: ['user_id'] },
+    { fields: ['name'] }
+  ]
 });
 
 // 题目模型
@@ -143,7 +150,16 @@ const Question = sequelize.define('Question', {
   }
 }, {
   tableName: 'questions',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['category_id'] },
+    { fields: ['type'] },
+    { fields: ['difficulty'] },
+    { fields: ['status'] },
+    { fields: ['user_id', 'category_id', 'status'] },
+    { fields: ['created_at'] }
+  ]
 });
 
 // 试卷模型
@@ -199,7 +215,13 @@ const Paper = sequelize.define('Paper', {
   }
 }, {
   tableName: 'papers',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['status'] },
+    { fields: ['user_id', 'status'] },
+    { fields: ['created_at'] }
+  ]
 });
 
 // 试卷题目关联模型
@@ -227,7 +249,12 @@ const PaperQuestion = sequelize.define('PaperQuestion', {
   }
 }, {
   tableName: 'paper_questions',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['paper_id'] },
+    { fields: ['question_id'] },
+    { fields: ['paper_id', 'order'] }
+  ]
 });
 
 // 考试记录模型
@@ -275,7 +302,14 @@ const ExamRecord = sequelize.define('ExamRecord', {
   }
 }, {
   tableName: 'exam_records',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['paper_id'] },
+    { fields: ['user_id'] },
+    { fields: ['status'] },
+    { fields: ['paper_id', 'status'] },
+    { fields: ['start_time'] }
+  ]
 });
 
 // 积分记录模型
@@ -307,7 +341,13 @@ const ScoreRecord = sequelize.define('ScoreRecord', {
   }
 }, {
   tableName: 'score_records',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['exam_record_id'] },
+    { fields: ['type'] },
+    { fields: ['created_at'] }
+  ]
 });
 
 // 定义关联关系

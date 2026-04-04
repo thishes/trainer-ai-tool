@@ -227,13 +227,24 @@ module.exports = {
       }
       return false;
     },
-    random: (userId, categoryIds, count) => {
+    random: (userId, categoryIds, questionTypes, count) => {
       let pool;
       const catIds = Array.isArray(categoryIds) ? categoryIds : (categoryIds ? [categoryIds] : []);
+      const types = Array.isArray(questionTypes) ? questionTypes : (questionTypes ? [questionTypes] : []);
+      
       if (userId === null) {
-        pool = db.questions.filter(q => catIds.length === 0 || catIds.includes(q.category_id));
+        pool = db.questions.filter(q => {
+          const matchCategory = catIds.length === 0 || catIds.includes(q.category_id);
+          const matchType = types.length === 0 || types.includes(q.type);
+          return matchCategory && matchType;
+        });
       } else {
-        pool = db.questions.filter(q => q.user_id === userId && (catIds.length === 0 || catIds.includes(q.category_id)));
+        pool = db.questions.filter(q => {
+          const matchUser = q.user_id === userId;
+          const matchCategory = catIds.length === 0 || catIds.includes(q.category_id);
+          const matchType = types.length === 0 || types.includes(q.type);
+          return matchUser && matchCategory && matchType;
+        });
       }
       // 洗牌算法
       for (let i = pool.length - 1; i > 0; i--) {
@@ -332,8 +343,15 @@ module.exports = {
       if (filters.paper_key_id) result = result.filter(e => e.paper_key_id === filters.paper_key_id);
       if (filters.paper_id) result = result.filter(e => e.paper_id === filters.paper_id);
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(e => e.user_id === filters.user_id);
-      if (filters.status) result = result.filter(e => e.status === filters.status);
-      return result.sort((a, b) => b.score - a.score);
+      if (filters.status) {
+        // 支持查询多个状态（数组）或单个状态
+        if (Array.isArray(filters.status)) {
+          result = result.filter(e => filters.status.includes(e.status));
+        } else {
+          result = result.filter(e => e.status === filters.status);
+        }
+      }
+      return result.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
     },
     findById: (id) => db.examRecords.find(e => e.id === parseInt(id)),
     create: (data) => {

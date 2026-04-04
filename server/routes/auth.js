@@ -1,4 +1,4 @@
-// server/routes/auth.js - 认证路由 (Redis存储验证码版)
+// server/routes/auth.js - 认证路由 (Redis 存储验证码版)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../db');
 const config = require('../config');
+const authenticate = require('../middleware/auth');
 const { createClient } = require('redis');
 
 const JWT_SECRET = config.JWT_SECRET;
@@ -20,7 +21,7 @@ const getRedisClient = async () => {
     redisClient = createClient({
       socket: { host: '127.0.0.1', port: 6379 }
     });
-    redisClient.on('error', (err) => console.error('Redis错误:', err));
+    redisClient.on('error', (err) => console.error('Redis 错误:', err));
     await redisClient.connect();
   }
   return redisClient;
@@ -49,6 +50,35 @@ const verifyCaptcha = async (captchaId, code) => {
   }
 };
 
+/**
+ * @swagger
+ * /api/auth/captcha:
+ *   get:
+ *     tags: [认证]
+ *     summary: 获取验证码
+ *     description: 获取登录验证码（开发环境直接返回）
+ *     responses:
+ *       200:
+ *         description: 成功的响应
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     captchaId:
+ *                       type: string
+ *                       description: 验证码 ID
+ *                     code:
+ *                       type: string
+ *                       description: 验证码内容（开发环境）
+ *       500:
+ *         description: 服务器错误
+ */
 router.get('/captcha', async (req, res) => {
   try {
     const captchaId = await generateCaptcha();
@@ -61,6 +91,62 @@ router.get('/captcha', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     tags: [认证]
+ *     summary: 用户登录
+ *     description: 用户登录接口，使用用户名密码和验证码获取 JWT Token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *               - captchaId
+ *               - captchaCode
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: 用户名
+ *               password:
+ *                 type: string
+ *                 description: 密码
+ *               captchaId:
+ *                 type: string
+ *                 description: 验证码 ID
+ *               captchaCode:
+ *                 type: string
+ *                 description: 验证码
+ *     responses:
+ *       200:
+ *         description: 登录成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: JWT Token
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: 验证码错误
+ *       401:
+ *         description: 用户名或密码错误
+ *       500:
+ *         description: 服务器错误
+ */
 router.post('/login', async (req, res) => {
   try {
     const { username, password, captchaId, captchaCode } = req.body;
@@ -158,8 +244,15 @@ router.get('/logout', (req, res) => {
   res.json({ success: true });
 });
 
-router.get('/me', (req, res) => {
-  res.json({ success: true, data: { user: req.user } });
+router.get('/me', authenticate, (req, res) => {
+  const user = db.users.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ success: false, message: '用户不存在' });
+  }
+  res.json({ 
+    success: true, 
+    data: { id: user.id, username: user.username, role: user.role, phone: user.phone, avatar: user.avatar }
+  });
 });
 
 module.exports = router;

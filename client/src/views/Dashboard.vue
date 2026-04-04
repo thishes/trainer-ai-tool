@@ -46,8 +46,10 @@
         </div>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-card">
-          <div class="user-avatar">{{ user?.username?.charAt(0).toUpperCase() }}</div>
+        <div class="user-card" @click="$router.push('/profile')" style="cursor: pointer;">
+          <a-avatar :size="36" :style="{ backgroundColor: getAvatarColor() }">
+            {{ user?.username?.charAt(0).toUpperCase() }}
+          </a-avatar>
           <div class="user-info">
             <div class="user-name">{{ user?.username }}</div>
             <div class="user-role">{{ user?.role === 'admin' ? '管理员' : '培训师' }}</div>
@@ -72,153 +74,275 @@
 
     <main class="main-content">
       <div v-show="activeTab === 'questions'" class="page-view">
-        <div class="page-header">
-          <h1 class="page-title">题库管理</h1>
-          <p class="page-desc">管理考试题目，支持单选、多选、判断等题型</p>
-        </div>
-        <div class="toolbar">
-          <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
-          <a-button @click="showImportDialog = true">批量导入</a-button>
-          <a-button @click="showCategoryDialog = true">类别管理</a-button>
-          <a-input v-model="questionSearch" placeholder="搜索题目..." style="width: 180px" @keyup.enter="questionPage = 1" />
-        </div>
-        <a-tabs v-model:active-key="activeCategory" @change="questionPage = 1" style="margin-bottom: 16px">
-          <a-tab-pane key="all" title="全部" />
-          <a-tab-pane v-for="c in categories" :key="String(c.id)" :title="c.name" />
-        </a-tabs>
-        <a-card class="content-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th width="60">ID</th>
-                <th>题目内容</th>
-                <th width="80">类型</th>
-                <th width="80">难度</th>
-                <th width="60">分值</th>
-                <th width="120">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="q in paginatedQuestions" :key="q.id">
-                <td>{{ q.id }}</td>
-                <td class="title-cell">{{ q.title }}</td>
-                <td>
-                  <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
-                  <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
-                  <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
-                  <span v-else class="tag tag-green">问答</span>
-                </td>
-                <td>
-                  <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
-                  <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
-                  <span v-else class="tag tag-red">困难</span>
-                </td>
-                <td>{{ q.score }}</td>
-                <td>
-                  <a-link @click="editQuestion(q)">编辑</a-link>
-                  <a-divider direction="vertical" />
-                  <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="pagination" v-if="totalQuestionPages > 1">
-            <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
-            <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
-              <a-option :value="10">10条</a-option>
-              <a-option :value="15">15条</a-option>
-              <a-option :value="20">20条</a-option>
-              <a-option :value="50">50条</a-option>
-            </a-select>
-            <span class="page-btn" @click="questionPage = 1">首页</span>
-            <span class="page-btn" @click="questionPage > 1 && questionPage--">上一页</span>
-            <span class="page-current">{{ questionPage }} / {{ totalQuestionPages }}</span>
-            <span class="page-btn" @click="questionPage < totalQuestionPages && questionPage++">下一页</span>
-            <span class="page-btn" @click="questionPage = totalQuestionPages">末页</span>
+        <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">题库管理</h1>
+              <p class="page-desc">管理考试题目，支持单选、多选、判断等题型</p>
+            </div>
           </div>
+        </div>
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
+            <a-button @click="showImportDialog = true">批量导入</a-button>
+            <a-button @click="showCategoryDialog = true">类别管理</a-button>
+            <div class="search-wrapper">
+              <a-input v-model="questionSearch" placeholder="搜索题目内容..." style="width: 200px" @keyup.enter="questionPage = 1" allow-clear>
+                <template #prefix><icon-search /></template>
+              </a-input>
+              <a-select v-model="searchType" placeholder="题型" style="width: 100px" @change="questionPage = 1" allow-clear>
+                <a-option value="single">单选</a-option>
+                <a-option value="multiple">多选</a-option>
+                <a-option value="judge">判断</a-option>
+                <a-option value="subjective">问答</a-option>
+              </a-select>
+              <a-select v-model="searchDifficulty" placeholder="难度" style="width: 100px" @change="questionPage = 1" allow-clear>
+                <a-option value="easy">简单</a-option>
+                <a-option value="medium">中等</a-option>
+                <a-option value="hard">困难</a-option>
+              </a-select>
+              <a-button @click="resetSearch" v-if="questionSearch || searchType || searchDifficulty">
+                <template #icon><icon-refresh /></template>
+                重置
+              </a-button>
+            </div>
+          </div>
+        </div>
+        <a-card class="content-card">
+          <a-tabs v-model:active-key="activeCategory" @change="questionPage = 1">
+            <a-tab-pane key="all" title="全部">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th width="60">ID</th>
+                    <th>题目内容</th>
+                    <th width="80">类型</th>
+                    <th width="80">难度</th>
+                    <th width="60">分值</th>
+                    <th width="120">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="q in paginatedQuestions" :key="q.id">
+                    <td>{{ q.id }}</td>
+                    <td class="title-cell">{{ q.title }}</td>
+                    <td>
+                      <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
+                      <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
+                      <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
+                      <span v-else class="tag tag-green">问答</span>
+                    </td>
+                    <td>
+                      <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
+                      <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
+                      <span v-else class="tag tag-red">困难</span>
+                    </td>
+                    <td>{{ q.score }}</td>
+                    <td>
+                      <a-link @click="editQuestion(q)">编辑</a-link>
+                      <a-divider direction="vertical" />
+                      <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="pagination" v-if="totalQuestionPages > 1">
+                <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
+                <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
+                  <a-option :value="10">10 条</a-option>
+                  <a-option :value="15">15 条</a-option>
+                  <a-option :value="20">20 条</a-option>
+                  <a-option :value="50">50 条</a-option>
+                </a-select>
+                <span class="page-btn" @click="questionPage = 1">首页</span>
+                <span class="page-btn" @click="questionPage > 1 && questionPage--">上一页</span>
+                <span class="page-current">{{ questionPage }} / {{ totalQuestionPages }}</span>
+                <span class="page-btn" @click="questionPage < totalQuestionPages && questionPage++">下一页</span>
+                <span class="page-btn" @click="questionPage = totalQuestionPages">末页</span>
+              </div>
+            </a-tab-pane>
+            <a-tab-pane v-for="c in categories" :key="String(c.id)" :title="c.name">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th width="60">ID</th>
+                    <th>题目内容</th>
+                    <th width="80">类型</th>
+                    <th width="80">难度</th>
+                    <th width="60">分值</th>
+                    <th width="120">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="q in paginatedQuestions" :key="q.id">
+                    <td>{{ q.id }}</td>
+                    <td class="title-cell">{{ q.title }}</td>
+                    <td>
+                      <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
+                      <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
+                      <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
+                      <span v-else class="tag tag-green">问答</span>
+                    </td>
+                    <td>
+                      <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
+                      <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
+                      <span v-else class="tag tag-red">困难</span>
+                    </td>
+                    <td>{{ q.score }}</td>
+                    <td>
+                      <a-link @click="editQuestion(q)">编辑</a-link>
+                      <a-divider direction="vertical" />
+                      <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="pagination" v-if="totalQuestionPages > 1">
+                <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
+                <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
+                  <a-option :value="10">10 条</a-option>
+                  <a-option :value="15">15 条</a-option>
+                  <a-option :value="20">20 条</a-option>
+                  <a-option :value="50">50 条</a-option>
+                </a-select>
+                <span class="page-btn" @click="questionPage = 1">首页</span>
+                <span class="page-btn" @click="questionPage > 1 && questionPage--">上一页</span>
+                <span class="page-current">{{ questionPage }} / {{ totalQuestionPages }}</span>
+                <span class="page-btn" @click="questionPage < totalQuestionPages && questionPage++">下一页</span>
+                <span class="page-btn" @click="questionPage = totalQuestionPages">末页</span>
+              </div>
+            </a-tab-pane>
+          </a-tabs>
         </a-card>
       </div>
 
       <div v-show="activeTab === 'papers'" class="page-view">
-        <div class="page-header">
-          <h1 class="page-title">试卷管理</h1>
-          <p class="page-desc">创建和管理考试试卷，支持手动选题和随机组卷</p>
+        <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">试卷管理</h1>
+              <p class="page-desc">创建和管理考试试卷，支持手动选题和随机组卷</p>
+            </div>
+          </div>
         </div>
-        <div class="toolbar">
-          <a-button type="primary" @click="showPaperDialog = true">+ 新建试卷</a-button>
-          <a-button @click="showRandomDialog = true">随机组卷</a-button>
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-button type="primary" @click="showPaperDialog = true">+ 新建试卷</a-button>
+            <a-button @click="showRandomDialog = true">随机组卷</a-button>
+          </div>
         </div>
         <a-card class="content-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th width="60">ID</th>
-                <th>试卷标题</th>
-                <th width="80">总分</th>
-                <th width="80">时限</th>
-                <th width="80">状态</th>
-                <th width="100">考生范围</th>
-                <th width="100">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in papers" :key="p.id">
-                <td>{{ p.id }}</td>
-                <td class="title-cell">
-                  <a-badge v-if="papersWithPendingGrading[p.id]" :count="papersWithPendingGrading[p.id]" :max-count="99" :number-style="{backgroundColor: '#f53f3f'}">
-                    <span style="cursor: pointer" @click="switchTab('grading'); $nextTick(() => scrollToPaper(p.id))">{{ p.title }}</span>
-                  </a-badge>
-                  <span v-else>{{ p.title }}</span>
-                </td>
-                <td>{{ p.total_score || 0 }}分</td>
-                <td>{{ p.time_limit }}分钟</td>
-                <td>
-                  <span v-if="p.status === 'published'" class="tag tag-green">已发布</span>
-                  <span v-else class="tag tag-gray">草稿</span>
-                </td>
-                <td>
-                  <span v-if="p.allow_all_users !== false" class="tag tag-green">开放</span>
-                  <span v-else class="tag tag-orange">指定考生</span>
-                </td>
-                <td>
-                  <div class="action-group">
-                    <a-dropdown trigger="click" @click="togglePaperMenu(p)" :popup-visible="p._showMenu">
-                      <a-button size="mini" type="text">
-                        更多 <icon-down />
-                      </a-button>
-                      <template #content>
-                        <a-doption @click="handlePaperCommand('questions', p); p._showMenu = false">题目管理</a-doption>
-                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('url', p); p._showMenu = false">考试地址</a-doption>
-                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('records', p); p._showMenu = false">查看记录</a-doption>
-                        <a-doption v-if="p.status !== 'published' && p.question_count > 0" @click="handlePaperCommand('publish', p); p._showMenu = false">发布试卷</a-doption>
-                        <a-doption v-if="p.status !== 'published' && (!p.question_count || p.question_count === 0)" disabled>发布试卷（暂无题目）</a-doption>
-                        <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('unpublish', p); p._showMenu = false">取消发布</a-doption>
-                        <a-doption @click="handlePaperCommand('edit', p); p._showMenu = false">编辑试卷</a-doption>
-                        <a-doption danger @click="handlePaperCommand('delete', p); p._showMenu = false">删除试卷</a-doption>
-                      </template>
-                    </a-dropdown>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div style="padding: 16px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th width="60">ID</th>
+                  <th>试卷标题</th>
+                  <th width="80">总分</th>
+                  <th width="80">时限</th>
+                  <th width="80">状态</th>
+                  <th width="100">考生范围</th>
+                  <th width="100">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in paginatedPapers" :key="p.id">
+                  <td>{{ p.id }}</td>
+                  <td class="title-cell">
+                    <a-badge v-if="papersWithPendingGrading && papersWithPendingGrading[p.id]" :count="papersWithPendingGrading[p.id]" :max-count="99" :number-style="{backgroundColor: '#f53f3f'}">
+                      <span style="cursor: pointer" @click="switchTab('grading'); $nextTick(() => scrollToPaper(p.id))">{{ p.title }}</span>
+                    </a-badge>
+                    <span v-else>{{ p.title }}</span>
+                  </td>
+                  <td>{{ p.total_score || 0 }}分</td>
+                  <td>{{ p.time_limit }}分钟</td>
+                  <td>
+                    <span v-if="p.status === 'published'" class="tag tag-green">已发布</span>
+                    <span v-else class="tag tag-gray">草稿</span>
+                  </td>
+                  <td>
+                    <span v-if="p.allow_all_users !== false" class="tag tag-green">开放</span>
+                    <span v-else class="tag tag-orange">指定考生</span>
+                  </td>
+                  <td>
+                    <div class="action-group">
+                      <a-dropdown trigger="click" @click="togglePaperMenu(p)" :popup-visible="p._showMenu">
+                        <a-button size="mini" type="text">
+                          更多 <icon-down />
+                        </a-button>
+                        <template #content>
+                          <a-doption @click="handlePaperCommand('questions', p); p._showMenu = false">题目管理</a-doption>
+                          <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('url', p); p._showMenu = false">考试地址</a-doption>
+                          <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('records', p); p._showMenu = false">查看记录</a-doption>
+                          <a-doption v-if="p.status !== 'published' && p.question_count > 0" @click="handlePaperCommand('publish', p); p._showMenu = false">发布试卷</a-doption>
+                          <a-doption v-if="p.status !== 'published' && (!p.question_count || p.question_count === 0)" disabled>发布试卷（暂无题目）</a-doption>
+                          <a-doption v-if="p.status === 'published'" @click="handlePaperCommand('unpublish', p); p._showMenu = false">取消发布</a-doption>
+                          <a-doption @click="handlePaperCommand('edit', p); p._showMenu = false">编辑试卷</a-doption>
+                          <a-doption danger @click="handlePaperCommand('delete', p); p._showMenu = false">删除试卷</a-doption>
+                        </template>
+                      </a-dropdown>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="papers.length > papersPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #666">共 {{ papers.length }} 条</span>
+              <a-pagination
+                v-model:current="papersPage"
+                :total="papers.length"
+                :page-size="papersPageSize"
+                size="small"
+                @change="papersPage = $event"
+              />
+            </div>
+          </div>
         </a-card>
       </div>
 
       <div v-show="activeTab === 'screen'" class="page-view">
-        <div class="page-header">
-          <h1 class="page-title">考试数据</h1>
-          <p class="page-desc">实时查看考试统计数据和学员排名</p>
+        <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">考试数据</h1>
+              <p class="page-desc">实时查看考试统计数据和学员排名</p>
+            </div>
+          </div>
         </div>
-        <div class="toolbar">
-          <a-select v-model="selectedPaper" placeholder="选择试卷查看数据" style="width: 240px" @change="loadStats" :disabled="publishedPapers.length === 0">
-            <a-option v-for="p in publishedPapers" :key="p.id" :label="p.title" :value="p.id" />
-          </a-select>
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-select v-model="selectedPaper" placeholder="选择试卷查看数据" style="width: 240px" @change="loadStats" :disabled="publishedPapers.length === 0">
+              <a-option v-for="p in publishedPapers" :key="p.id" :label="p.title" :value="p.id" />
+            </a-select>
+          </div>
         </div>
         <div v-if="!selectedPaper" class="empty-state">
           <a-empty description="请选择试卷查看考试数据" />
         </div>
-        <template v-else-if="stats">
+        <template v-else>
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-icon total"><icon-user /></div>
@@ -287,7 +411,7 @@
                     <td align="center">
                       <span class="score-tag" :class="{ high: r.score >= 90, mid: r.score >= 70, low: r.score < 60 }">{{ r.score }}</span>
                     </td>
-                    <td>{{ formatTime(r.end_time) }}</td>
+                    <td>{{ formatDateTime(r.end_time) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -297,13 +421,29 @@
       </div>
 
       <div v-show="activeTab === 'users'" v-if="user?.role === 'admin'" class="page-view">
-        <div class="page-header">
-          <h1 class="page-title">用户管理</h1>
-          <p class="page-desc">管理系统用户和权限</p>
+        <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">用户管理</h1>
+              <p class="page-desc">管理系统用户和权限</p>
+            </div>
+          </div>
         </div>
-        <div class="toolbar">
-          <a-button type="primary" @click="showUserDialog = true; editingUser = null; userForm = { username: '', password: '', phone: '', role: 'trainer' }">+ 新建用户</a-button>
-          <a-input v-model="userSearch" placeholder="搜索用户..." style="width: 180px" @input="loadUsers" />
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-button type="primary" @click="showUserDialog = true; editingUser = null; userForm = { username: '', password: '', phone: '', role: 'trainer' }">+ 新建用户</a-button>
+            <a-input v-model="userSearch" placeholder="搜索用户..." style="width: 180px" @input="loadUsers" allow-clear>
+              <template #prefix><icon-search /></template>
+            </a-input>
+          </div>
         </div>
         <a-card class="content-card">
           <table class="data-table">
@@ -319,7 +459,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in userList" :key="u.id">
+              <tr v-for="u in paginatedUserList" :key="u.id">
                 <td>{{ u.id }}</td>
                 <td>{{ u.username }}</td>
                 <td>{{ u.phone || '-' }}</td>
@@ -340,16 +480,42 @@
               </tr>
             </tbody>
           </table>
+          <div v-if="userList.length > userPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #666">共 {{ userList.length }} 条</span>
+            <a-pagination
+              v-model:current="userPage"
+              :total="userList.length"
+              :page-size="userPageSize"
+              size="small"
+              @change="userPage = $event"
+            />
+          </div>
         </a-card>
       </div>
 
       <div v-show="activeTab === 'announcements'" v-if="user?.role === 'admin'" class="page-view">
-        <div class="page-header">
-          <h1 class="page-title">公告管理</h1>
-          <p class="page-desc">管理新闻公告，支持富文本和图片上传</p>
+        <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">公告管理</h1>
+              <p class="page-desc">管理新闻公告，支持富文本和图片上传</p>
+            </div>
+          </div>
         </div>
-        <div class="toolbar">
-          <a-button type="primary" @click="openAnnouncementDialog()">+ 新建公告</a-button>
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-button type="primary" @click="openAnnouncementDialog()">+ 新建公告</a-button>
+          </div>
         </div>
         <a-card class="content-card">
           <table class="data-table">
@@ -364,7 +530,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="a in announcements" :key="a.id">
+              <tr v-for="a in paginatedAnnouncements" :key="a.id">
                 <td>{{ a.id }}</td>
                 <td class="title-cell">{{ a.title }}</td>
                 <td>
@@ -384,6 +550,108 @@
               </tr>
             </tbody>
           </table>
+          <div v-if="announcements.length > announcementPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #666">共 {{ announcements.length }} 条</span>
+            <a-pagination
+              v-model:current="announcementPage"
+              :total="announcements.length"
+              :page-size="announcementPageSize"
+              size="small"
+              @change="announcementPage = $event"
+            />
+          </div>
+        </a-card>
+      </div>
+
+      <!-- 待评分页面 - 完全参照试卷管理重写 -->
+      <div v-show="activeTab === 'grading'" class="page-view">
+        <div class="page-header-simple">
+          <div class="page-header-content">
+            <div class="page-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </div>
+            <div class="page-header-text">
+              <h1 class="page-title">待评分</h1>
+              <p class="page-desc">对包含问答题的试卷进行手工评分，共 <span class="highlight">{{ pendingGradingCount }}</span> 份待处理</p>
+            </div>
+          </div>
+        </div>
+        <div class="toolbar-standard">
+          <div class="toolbar-left">
+            <a-input v-model="pendingGradingSearch" placeholder="搜索考生姓名" style="width: 240px" @input="filterPendingGrading" allow-clear>
+              <template #prefix><icon-search /></template>
+            </a-input>
+            <a-select v-model="pendingGradingPaperFilter" placeholder="选择试卷" style="width: 200px" @change="filterPendingGrading" allow-clear>
+              <a-option v-for="p in papers" :key="p.id" :value="p.id">{{ p.title }}</a-option>
+            </a-select>
+            <a-button @click="resetPendingGradingFilter" v-if="pendingGradingSearch || pendingGradingPaperFilter">
+              <template #icon><icon-refresh /></template>
+              重置
+            </a-button>
+          </div>
+        </div>
+        <a-card class="content-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="120">考生姓名</th>
+                <th>试卷</th>
+                <th width="100">客观题</th>
+                <th width="100">问答题</th>
+                <th width="160">提交时间</th>
+                <th width="100">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in filteredPendingGradingList" :key="record.id">
+                <td>
+                  <div style="display: flex; align-items: center;">
+                    <a-avatar :size="32" :style="{ backgroundColor: getStudentAvatarColor(record.student_name) }" style="margin-right: 12px">
+                      {{ record.student_name?.charAt(0) }}
+                    </a-avatar>
+                    <span style="color: var(--color-primary); font-weight: 500;">{{ record.student_name }}</span>
+                  </div>
+                </td>
+                <td>{{ record.paper_title }}</td>
+                <td>
+                  <span v-if="record.objective_score !== null && record.objective_total !== null">
+                    {{ record.objective_score }}/{{ record.objective_total }}
+                  </span>
+                  <span v-else>-</span>
+                </td>
+                <td>
+                  <a-tag v-if="record.essay_questions && record.essay_questions.length > 0" color="arcoblue" size="small">
+                    {{ record.essay_questions.length }} 道题
+                  </a-tag>
+                  <span v-else>-</span>
+                </td>
+                <td>
+                  <span style="color: var(--text-secondary); font-size: 13px;">
+                    <icon-clock-circle style="margin-right: 6px; opacity: 0.6; width: 14px; height: 14px;" />
+                    {{ formatDateTime(record.end_time) }}
+                  </span>
+                </td>
+                <td>
+                  <a-button type="primary" size="small" @click="openGradingDrawer(record)">
+                    评阅
+                  </a-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="filteredPendingGradingList.length > 0" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #666">共 {{ filteredPendingGradingList.length }} 条</span>
+            <a-pagination
+              v-model:current="pendingGradingPage"
+              :total="filteredPendingGradingList.length"
+              :page-size="pendingGradingPageSize"
+              size="small"
+              @change="handlePendingGradingPageChange"
+            />
+          </div>
         </a-card>
       </div>
     </main>
@@ -552,6 +820,14 @@
             <a-option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</a-option>
           </a-select>
         </a-form-item>
+        <a-form-item label="题目类型">
+          <a-select v-model="randomForm.question_types" multiple placeholder="选择题目类型（不选则包含所有类型）">
+            <a-option value="single">单选题</a-option>
+            <a-option value="multiple">多选题</a-option>
+            <a-option value="judge">判断题</a-option>
+            <a-option value="subjective">问答题</a-option>
+          </a-select>
+        </a-form-item>
         <a-form-item label="时间限制">
           <a-input-number v-model="randomForm.time_limit" :min="1" :max="300" />
           <span style="margin-left: 8px">分钟</span>
@@ -597,7 +873,12 @@
       <a-empty v-else description="暂无考试地址" />
     </a-modal>
 
-    <a-modal v-model:visible="showRecordsDialog" title="考试记录" :width="800" @cancel="showRecordsDialog = false">
+    <a-modal v-model:visible="showRecordsDialog" title="考试记录" :width="900" @cancel="showRecordsDialog = false">
+      <div v-if="examRecordsStats" style="margin-bottom: 16px; padding: 12px; background: #f5f5f5; border-radius: 4px;">
+        <span style="margin-right: 24px">平均分：<strong>{{ examRecordsStats.avg_score ?? '-' }}</strong></span>
+        <span style="margin-right: 24px">最高分：<strong>{{ examRecordsStats.max_score ?? '-' }}</strong></span>
+        <span>总计：<strong>{{ examRecordsStats.total }}</strong> 人</span>
+      </div>
       <table class="data-table">
         <thead>
           <tr>
@@ -610,22 +891,68 @@
         <tbody>
           <tr v-for="r in examRecords" :key="r.id">
             <td>{{ r.student_name }}</td>
-            <td>{{ r.score ?? '-' }}</td>
+            <td>{{ r.percentage ?? '-' }}%</td>
             <td>
               <span v-if="r.status === 'submitted'" class="tag tag-green">已提交</span>
+              <span v-else-if="r.status === 'graded'" class="tag tag-blue">已评分</span>
               <span v-else class="tag tag-gray">进行中</span>
             </td>
             <td>{{ r.end_time ? new Date(r.end_time).toLocaleString() : '-' }}</td>
           </tr>
         </tbody>
       </table>
+      <div v-if="examRecordsPagination && examRecordsPagination.totalPages > 1" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #666">共 {{ examRecordsPagination.total }} 条</span>
+        <a-pagination
+          v-model:current="examRecordsPage"
+          :total="examRecordsPagination.total"
+          :page-size="examRecordsPagination.pageSize"
+          size="small"
+          @change="handleExamRecordsPageChange"
+        />
+      </div>
     </a-modal>
 
-    <a-modal v-model:visible="showImportDialog" title="批量导入" :width="500" @cancel="showImportDialog = false" :footer="null">
-      <div style="text-align: center; padding: 20px 0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="color: var(--text-secondary); margin-bottom: 16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-        <p>暂不支持批量导入功能</p>
-        <p style="color: var(--text-secondary); font-size: 13px">请使用单条新建题目</p>
+    <a-modal v-model:visible="showImportDialog" title="批量导入题目" :width="600" @cancel="showImportDialog = false" :footer="null">
+      <div style="padding: 20px 0">
+        <a-alert type="info" title="导入说明" style="margin-bottom: 16px">
+          <template #content>
+            <div style="font-size: 13px; line-height: 1.8">
+              <div>1. 下载模板文件，按照格式填写题目内容</div>
+              <div>2. 支持题型：单选题、多选题、判断题、问答题</div>
+              <div>3. 上传 Excel 文件后会自动验证数据格式</div>
+              <div>4. 导入成功后会显示导入结果统计</div>
+            </div>
+          </template>
+        </a-alert>
+        
+        <div style="display: flex; gap: 12px; margin-bottom: 20px">
+          <a-button @click="downloadTemplate">
+            <template #icon><icon-download /></template>
+            下载模板
+          </a-button>
+          <a-upload :custom-request="handleImportQuestions" :show-file-list="false" accept=".xlsx,.xls">
+            <a-button type="primary">
+              <template #icon><icon-upload /></template>
+              选择 Excel 文件
+            </a-button>
+          </a-upload>
+        </div>
+        
+        <div v-if="importResult" :class="['import-result', importResult.success ? 'import-success' : 'import-error']">
+          <a-result :status="importResult.success ? 'success' : 'error'" :title="importResult.title" :sub-title="importResult.subtitle">
+            <template #extra>
+              <a-space>
+                <a-button @click="importResult = null">关闭</a-button>
+                <a-button type="primary" @click="showImportDialog = false; loadQuestions()">查看题库</a-button>
+              </a-space>
+            </template>
+          </a-result>
+        </div>
+        
+        <div v-if="importing" style="text-align: center; padding: 40px 0">
+          <a-spin tip="导入中，请稍候..." size="large" />
+        </div>
       </div>
     </a-modal>
 
@@ -678,56 +1005,96 @@
       <a-tag size="small" color="arcoblue">v{{ currentVersion }}</a-tag>
     </div>
 
-    <div v-show="activeTab === 'grading'" class="page-view">
-      <div class="page-header">
-        <h1 class="page-title">待评分</h1>
-        <p class="page-desc">对包含问答题的试卷进行手工评分</p>
-      </div>
-      <a-card class="content-card">
-        <div v-if="pendingGradingList.length === 0" style="text-align: center; padding: 60px 0; color: var(--text-secondary)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom: 16px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <p>暂无待评分记录</p>
-        </div>
-        <div v-else>
-          <div v-for="record in pendingGradingList" :key="record.id" class="grading-card" :data-record-id="record.id">
-            <div class="grading-header">
-              <div class="grading-info">
-                <span class="student-name">{{ record.student_name }}</span>
-                <span class="paper-title">{{ record.paper_title }}</span>
+    <a-drawer v-model:visible="showGradingDrawer" :title="'评卷 - ' + (currentGradingRecord?.student_name || '') + ' - ' + (currentGradingRecord?.paper_title || '')" :width="800" :footer="false">
+      <div v-if="currentGradingRecord" class="grading-drawer-content">
+        <div class="grading-drawer-header">
+          <div class="header-info">
+            <a-avatar :size="48" :style="{ backgroundColor: '#165DFF' }">
+              {{ currentGradingRecord.student_name?.charAt(0) }}
+            </a-avatar>
+            <div class="header-meta">
+              <div class="meta-row">
+                <span class="meta-label">考生：</span>
+                <span class="meta-value">{{ currentGradingRecord.student_name }}</span>
               </div>
-              <div class="grading-meta">
-                <span>提交时间: {{ new Date(record.end_time).toLocaleString() }}</span>
+              <div class="meta-row">
+                <span class="meta-label">试卷：</span>
+                <span class="meta-value">{{ currentGradingRecord.paper_title }}</span>
               </div>
-            </div>
-            <div class="grading-questions">
-              <div v-for="eq in record.essay_questions" :key="eq.question_id" class="grading-item">
-                <div class="grading-question-title">
-                  <strong>{{ eq.title }}</strong>
-                  <span class="max-score">满分: {{ eq.max_score }}分</span>
-                </div>
-                <div class="grading-answer">
-                  <div class="answer-label">考生答案:</div>
-                  <div class="answer-content">{{ eq.user_answer || '(未作答)' }}</div>
-                </div>
-                <div class="grading-score-input">
-                  <a-input-number v-model="eq.currentScore" :min="0" :max="eq.max_score" size="small" style="width: 80px" />
-                  <span class="score-unit">分</span>
-                  <a-input v-model="eq.remark" placeholder="评语(可选)" size="small" style="width: 150px; margin-left: 10px" />
-                </div>
+              <div class="meta-row">
+                <span class="meta-label">提交时间：</span>
+                <span class="meta-value">{{ formatDateTime(currentGradingRecord.end_time) }}</span>
               </div>
-            </div>
-            <div class="grading-actions">
-              <a-button type="primary" size="small" @click="submitEssayScore(record)">提交评分</a-button>
+              <div class="meta-row">
+                <span class="meta-label">客观题得分：</span>
+                <span class="meta-value score-highlight">
+                  <template v-if="currentGradingRecord.objective_total !== null && currentGradingRecord.objective_total !== 0">
+                    {{ currentGradingRecord.objective_score !== null ? currentGradingRecord.objective_score + '/' + currentGradingRecord.objective_total + '分' : '未评分' }}
+                  </template>
+                  <template v-else>
+                    无客观题
+                  </template>
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </a-card>
-    </div>
+        
+        <a-divider style="margin: 16px 0" />
+        
+        <div class="grading-drawer-body">
+          <div v-if="!currentGradingRecord || !currentGradingRecord.essay_questions || currentGradingRecord.essay_questions.length === 0" style="text-align: center; padding: 40px 0; color: var(--text-secondary)">
+            <p>该考生没有问答题</p>
+          </div>
+          <div v-else>
+            <div v-for="(eq, idx) in currentGradingRecord.essay_questions" :key="eq.question_id" class="grading-drawer-item">
+              <div class="item-header">
+                <div class="item-index">题目 {{ idx + 1 }}</div>
+                <a-tag color="arcoblue">满分 {{ eq.max_score }}分</a-tag>
+              </div>
+              <div class="item-content">
+                <div class="question-title">{{ eq.title }}</div>
+                <div class="answer-section">
+                  <div class="answer-label">
+                    <icon-user /> 考生答案
+                  </div>
+                  <div class="answer-text">{{ eq.user_answer || '(未作答)' }}</div>
+                </div>
+                <div class="score-section">
+                  <a-input-number v-model="eq.currentScore" :min="0" :max="eq.max_score" :step="1" style="width: 120px" placeholder="评分" />
+                  <span class="score-unit">分</span>
+                  <a-input v-model="eq.remark" placeholder="评语 (可选)" style="width: 200px; margin-left: 12px" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grading-drawer-footer">
+          <a-button @click="showGradingDrawer = false" style="margin-right: 8px">取消</a-button>
+          <a-button type="primary" @click="submitEssayScore(currentGradingRecord)" :loading="submittingScore">
+            提交评分
+          </a-button>
+        </div>
+      </div>
+    </a-drawer>
 
     <div v-show="activeTab === 'upgrade'" v-if="user?.role === 'admin'" class="page-view">
-      <div class="page-header">
-        <h1 class="page-title">平台升级</h1>
-        <p class="page-desc">检查并更新系统到最新版本</p>
+      <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
+      <div class="page-header-simple">
+        <div class="page-header-content">
+          <div class="page-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="page-header-text">
+            <h1 class="page-title">平台升级</h1>
+            <p class="page-desc">检查并更新系统到最新版本</p>
+          </div>
+        </div>
       </div>
       <a-card class="content-card">
         <div class="upgrade-info">
@@ -790,12 +1157,13 @@
 <script>
 import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Message, Modal, Badge } from '@arco-design/web-vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { io } from 'socket.io-client'
 import E from 'wangeditor'
 import {
   IconUser, IconDashboard, IconCheckCircle, IconTrophy,
-  IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload
+  IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
+  IconSearch, IconRefresh, IconClockCircle, IconFile, IconEdit
 } from '@arco-design/web-vue/es/icon'
 import {
   getQuestions, createQuestion, updateQuestion, deleteQuestion,
@@ -803,12 +1171,12 @@ import {
   getExamStats, getPaperExamUrl, getExamRecords,
   getUsers, createUser, updateUser, lockUser, deleteUser,
   getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,
-  getStudents, createStudent, deleteStudent, importStudents,
   getPaperStudents, addPaperStudents, removePaperStudent, exportPaperStudents,
   getCategories, createCategory, deleteCategory,
   getPendingGrading, gradeEssay,
   checkUpgrade, doUpgrade
 } from '@/api'
+import { formatDateTime } from '@/utils/date'
 
 export default {
   name: 'Dashboard',
@@ -864,20 +1232,62 @@ export default {
     }
 
     const switchTab = (tab) => {
+      console.log('[DEBUG] switchTab called:', tab)
       closeAllPaperMenus()
       activeTab.value = tab
       sidebarOpen.value = false
       if (tab === 'grading') {
         loadPendingGrading()
+      } else if (tab === 'papers') {
+        console.log('[DEBUG] Papers tab activated, calling loadPapers')
+        loadPapers()
       }
     }
 
     const pendingGradingList = ref([])
-    const pendingGradingCount = ref(0)
+    const showGradingDrawer = ref(false)
+    const currentGradingRecord = ref(null)
+    const submittingScore = ref(false)
+    const pendingGradingSearch = ref('')
+    const pendingGradingPaperFilter = ref(null)
+    const pendingGradingPage = ref(1)
+    const pendingGradingPageSize = ref(10)
+
+    const filteredPendingGradingList = computed(() => {
+      let result = pendingGradingList.value || []
+      if (pendingGradingSearch.value) {
+        const kw = pendingGradingSearch.value.toLowerCase()
+        result = result.filter(r => (r.student_name || '').toLowerCase().includes(kw))
+      }
+      if (pendingGradingPaperFilter.value) {
+        result = result.filter(r => r.paper_id === pendingGradingPaperFilter.value)
+      }
+      // 分页处理
+      const startIndex = (pendingGradingPage.value - 1) * pendingGradingPageSize.value
+      return result.slice(startIndex, startIndex + pendingGradingPageSize.value)
+    })
+
+    const handlePendingGradingPageChange = (page) => {
+      pendingGradingPage.value = page
+    }
+
+    // 待评分数量
+    const pendingGradingCount = computed(() => pendingGradingList.value?.length || 0)
+    
+    // 有待评分的试卷数量（用于 badge 显示）
+    const papersWithPendingGrading = ref({})
+    const pendingGradingColumns = [
+      { title: '考生姓名', dataIndex: 'student_name', slotName: 'student_name', width: 120, align: 'left' },
+      { title: '试卷', dataIndex: 'paper_title', slotName: 'paper_title', width: 200, align: 'left' },
+      { title: '客观题', dataIndex: 'objective_score', slotName: 'objective_score', width: 100, align: 'center' },
+      { title: '问答题', dataIndex: 'essay_count', slotName: 'essay_count', width: 100, align: 'center' },
+      { title: '提交时间', dataIndex: 'end_time', slotName: 'end_time', width: 160, align: 'left' },
+      { title: '操作', slotName: 'action', width: 100, align: 'left' }
+    ]
 
     const loadPendingGrading = async () => {
       try {
-        const allPending = []
+        let allPending = []
         const pendingMap = {}
         for (const paper of papers.value) {
           try {
@@ -889,9 +1299,19 @@ export default {
               for (const record of res.data.list) {
                 record.paper_title = paper.title
                 if (!record.essay_questions) record.essay_questions = []
+                // 从题库中获取问答题的满分分数
                 for (const eq of record.essay_questions) {
                   eq.currentScore = 0
                   eq.remark = ''
+                  // 如果没有 max_score，从题库中查找
+                  if (!eq.max_score) {
+                    const question = questions.value.find(q => q.id === eq.question_id)
+                    if (question && question.score) {
+                      eq.max_score = question.score
+                    } else {
+                      eq.max_score = 0 // 默认值
+                    }
+                  }
                 }
               }
               allPending = allPending.concat(res.data.list)
@@ -899,7 +1319,6 @@ export default {
           } catch (e) { console.error('加载待评分失败', e) }
         }
         pendingGradingList.value = allPending
-        pendingGradingCount.value = allPending.length
         papersWithPendingGrading.value = pendingMap
       } catch (e) { console.error('加载待评分列表失败', e) }
     }
@@ -921,14 +1340,96 @@ export default {
           score: eq.currentScore || 0,
           remark: eq.remark || ''
         }))
+        
+        // 调试：打印 Token 信息
+        const cookieToken = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+        const localStorageToken = localStorage.getItem('token');
+        const token = cookieToken || localStorageToken;
+        
+        console.log('=== 提交评分 ===');
+        console.log('Cookie Token:', cookieToken ? '有' : '无');
+        console.log('LocalStorage Token:', localStorageToken ? '有' : '无');
+        
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            console.log('Token 中的用户信息:', payload);
+            console.log('角色:', payload.role);
+            console.log('用户 ID:', payload.id);
+            console.log('Token 过期时间:', new Date(payload.exp * 1000).toLocaleString());
+          } catch (e) {
+            console.log('Token 解析失败:', e.message);
+          }
+        } else {
+          console.log('未找到 Token!');
+        }
+        
         await gradeEssay({ exam_record_id: record.id, scores })
         Message.success('评分提交成功')
+        showGradingDrawer.value = false
         loadPendingGrading()
-      } catch (e) { Message.error('评分提交失败') }
+      } catch (e) { 
+        const errorMsg = e.response?.data?.message || e.message || '评分提交失败'
+        Message.error(errorMsg)
+        console.error('评分提交失败详情:', e.response?.data)
+        // 如果是 403，打印详细用户信息帮助调试
+        if (e.response?.status === 403) {
+          const token = localStorage.getItem('token');
+          if (token) {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            console.error('403 错误详情:');
+            console.error('Token 中的角色:', payload.role);
+            console.error('Token 中的用户 ID:', payload.id);
+            console.error('Token 签发时间:', new Date(payload.iat * 1000).toLocaleString());
+            console.error('Token 过期时间:', new Date(payload.exp * 1000).toLocaleString());
+          }
+        }
+      }
+    }
+    
+    const openGradingDrawer = (record) => {
+      // 深拷贝记录，避免直接修改原数据
+      const recordCopy = JSON.parse(JSON.stringify(record))
+      
+      // 初始化管理员评分和评语字段
+      if (recordCopy.essay_questions && recordCopy.essay_questions.length > 0) {
+        recordCopy.essay_questions.forEach(eq => {
+          // 如果已经有评分则保留，否则初始化为 0
+          if (eq.admin_score === undefined || eq.admin_score === null) {
+            eq.currentScore = 0
+          } else {
+            eq.currentScore = eq.admin_score
+          }
+          // 初始化评语
+          eq.remark = eq.remark || ''
+        })
+      }
+      
+      currentGradingRecord.value = recordCopy
+      showGradingDrawer.value = true
+    }
+    
+    const filterPendingGrading = () => {
+      // 筛选逻辑已经在 computed 中实现
+    }
+    
+    const resetPendingGradingFilter = () => {
+      pendingGradingSearch.value = ''
+      pendingGradingPaperFilter.value = null
+    }
+
+    // 生成考生头像颜色（基于姓名）
+    const studentAvatarColors = ['#165DFF', '#00B42A', '#F77234', '#F53F3F', '#722ED1', '#3370FF', '#00B96B', '#FF7D00']
+    const getStudentAvatarColor = (name) => {
+      if (!name) return '#165DFF'
+      const index = name.charCodeAt(0) % studentAvatarColors.length
+      return studentAvatarColors[index]
     }
 
     const questions = ref([])
     const questionSearch = ref('')
+    const searchType = ref('')
+    const searchDifficulty = ref('')
     const activeCategory = ref('all')
     const questionPage = ref(1)
     const questionPageSize = ref(15)
@@ -942,12 +1443,18 @@ export default {
       title: '', type: 'single', difficulty: 'medium', score: 10,
       options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: '', category_id: null
     })
+    
+    // 批量导入相关
+    const importing = ref(false)
+    const importResult = ref(null)
 
     const papers = ref([])
+    const papersPage = ref(1)
+    const papersPageSize = ref(10)
     const showPaperDialog = ref(false)
     const showRandomDialog = ref(false)
     const editingPaper = ref(null)
-    const randomForm = ref({ title: '', count: 10, time_limit: 60, category_ids: [] })
+    const randomForm = ref({ title: '', count: 10, time_limit: 60, category_ids: [], question_types: [] })
     const paperForm = ref({ title: '', description: '', time_limit: 60, shuffle: false, show_score: true, show_answer: true, access_code: '', ip_limit: 0, allow_all_users: true, start_time: null, end_time: null })
     const selectedQuestionIds = ref([])
     const selectedQuestions = ref([])
@@ -972,6 +1479,10 @@ export default {
 
     const showRecordsDialog = ref(false)
     const examRecords = ref([])
+    const examRecordsStats = ref(null)
+    const examRecordsPagination = ref(null)
+    const examRecordsPage = ref(1)
+    const examRecordsCurrentPaperId = ref(null)
 
     // Socket.io 实时更新
     let socket = null
@@ -979,20 +1490,15 @@ export default {
     const newEntryKey = ref(0)
 
     const initSocket = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
-      const wsUrl = protocol + window.location.hostname
+      const wsUrl = window.location.origin
       socket = io(wsUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
-
-      socket.on('connect', () => {
-        console.log('[Socket.io] Connected to server')
-      })
 
       socket.on('rank-update', (data) => {
         if (data.paper_id === selectedPaper.value) {
           const prevRanking = stats.value.ranking || []
           stats.value = {
             ...stats.value,
-            ranking: data.ranking,
+            ranking: Array.isArray(data.ranking) ? data.ranking : [],
             total_submitted: data.total_submitted
           }
           if (data.newEntry) {
@@ -1007,11 +1513,9 @@ export default {
       })
 
       socket.on('disconnect', () => {
-        console.log('[Socket.io] Disconnected from server')
       })
 
       socket.on('pending-essay-grade', (data) => {
-        console.log('[Socket.io] Pending essay grade notification:', data)
         if (data.paper_id) {
           papersWithPendingGrading.value[data.paper_id] = (papersWithPendingGrading.value[data.paper_id] || 0) + 1
         }
@@ -1044,18 +1548,31 @@ export default {
       }
     }
 
-    const publishedPapers = computed(() => papers.value.filter(p => p.status === 'published'))
+    const publishedPapers = computed(() => (papers.value || []).filter(p => p.status === 'published'))
 
-    const papersWithPendingGrading = ref({})
+    const paginatedPapers = computed(() => {
+      const startIndex = (papersPage.value - 1) * papersPageSize.value
+      return (papers.value || []).slice(startIndex, startIndex + papersPageSize.value)
+    })
 
     const filteredQuestions = computed(() => {
-      let result = questions.value
+      let result = questions.value || []
+      // 按类别筛选
       if (activeCategory.value !== 'all') {
         result = result.filter(q => String(q.category_id) === activeCategory.value)
       }
+      // 按搜索关键词筛选
       if (questionSearch.value) {
         const kw = questionSearch.value.toLowerCase()
         result = result.filter(q => q.title.toLowerCase().includes(kw))
+      }
+      // 按题型筛选
+      if (searchType.value) {
+        result = result.filter(q => q.type === searchType.value)
+      }
+      // 按难度筛选
+      if (searchDifficulty.value) {
+        result = result.filter(q => q.difficulty === searchDifficulty.value)
       }
       return result
     })
@@ -1063,10 +1580,10 @@ export default {
     const paginatedQuestions = computed(() => {
       const start = (questionPage.value - 1) * questionPageSize.value
       const end = start + questionPageSize.value
-      return filteredQuestions.value.slice(start, end)
+      return (filteredQuestions.value || []).slice(start, end)
     })
 
-    const totalQuestionPages = computed(() => Math.ceil(filteredQuestions.value.length / questionPageSize.value) || 1)
+    const totalQuestionPages = computed(() => Math.ceil((filteredQuestions.value || []).length / questionPageSize.value) || 1)
 
     const loadQuestions = async () => {
       try {
@@ -1076,6 +1593,139 @@ export default {
         }
       } catch (e) {
         Message.error('加载题目失败')
+      }
+    }
+    
+    const resetSearch = () => {
+      questionSearch.value = ''
+      searchType.value = ''
+      searchDifficulty.value = ''
+      questionPage.value = 1
+    }
+    
+    // 批量导入相关方法
+    const downloadTemplate = () => {
+      const XLSX = require('xlsx')
+      const ws_data = [
+        ['题目内容', '题型', '选项 A', '选项 B', '选项 C', '选项 D', '正确答案', '难度', '分值', '答案解析', '类别名称'],
+        ['示例：JavaScript 是什么类型的编程语言？', 'single', '编译型', '解释型', '混合型', '以上都不是', 'B', 'medium', '10', 'JavaScript 是一种解释型语言', '技术类'],
+        ['示例：以下哪些是前端框架？', 'multiple', 'Vue', 'Django', 'React', 'Flask', 'AC', 'easy', '15', 'Vue 和 React 是前端框架', '技术类'],
+        ['示例：地球是圆的', 'judge', '', '', '', '', 'true', 'easy', '5', '', '常识类'],
+        ['示例：请简述 HTTP 和 HTTPS 的区别', 'subjective', '', '', '', '', '', 'medium', '20', 'HTTPS 在 HTTP 基础上增加了 SSL/TLS 加密层', '技术类']
+      ]
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(ws_data)
+      XLSX.utils.book_append_sheet(wb, ws, '题目模板')
+      XLSX.writeFile(wb, '题目导入模板.xlsx')
+    }
+    
+    const handleImportQuestions = async (fileObj) => {
+      importing.value = true
+      importResult.value = null
+      
+      try {
+        const file = fileObj.file
+        const XLSX = require('xlsx')
+        const data = new FileReader().readAsArrayBuffer(file)
+        
+        await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const data = new Uint8Array(e.target.result)
+              const workbook = XLSX.read(data, { type: 'array' })
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+              const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+              
+              // 跳过第一行（标题行）
+              const questionsData = jsonData.slice(1).filter(row => row[0] && row[0].toString().trim())
+              
+              if (questionsData.length === 0) {
+                throw new Error('Excel 中没有有效的题目数据')
+              }
+              
+              // 转换数据格式
+              const questionsToImport = questionsData.map((row, index) => {
+                const typeMap = { 'single': 'single', 'multiple': 'multiple', 'judge': 'judge', 'true/false': 'judge', 'subjective': 'subjective' }
+                const difficultyMap = { 'easy': 'easy', 'medium': 'medium', 'hard': 'hard', '简单': 'easy', '中等': 'medium', '困难': 'hard' }
+                
+                let options = []
+                if (row[1] === 'single' || row[1] === 'multiple') {
+                  options = [
+                    { key: 'A', value: row[2] || '' },
+                    { key: 'B', value: row[3] || '' },
+                    { key: 'C', value: row[4] || '' },
+                    { key: 'D', value: row[5] || '' }
+                  ].filter(opt => opt.value)
+                }
+                
+                let answer = row[6] || ''
+                if (row[1] === 'judge') {
+                  answer = (answer === 'true' || answer === '正确' || answer === 'T') ? 'true' : 'false'
+                }
+                
+                return {
+                  title: row[0]?.toString() || '',
+                  type: typeMap[row[1]?.toString().toLowerCase()] || 'single',
+                  options: options,
+                  answer: answer,
+                  difficulty: difficultyMap[row[7]?.toString().toLowerCase()] || 'medium',
+                  score: parseInt(row[8]) || 10,
+                  explanation: row[9] || '',
+                  category_name: row[10]?.toString() || ''
+                }
+              })
+              
+              resolve(questionsToImport)
+            } catch (e) {
+              reject(e)
+            }
+          }
+          reader.onerror = reject
+          reader.readAsArrayBuffer(file)
+        }).then(async (questionsToImport) => {
+          // 批量导入 API 调用
+          let successCount = 0
+          let failCount = 0
+          const errors = []
+          
+          for (const q of questionsToImport) {
+            try {
+              const data = {
+                title: q.title,
+                type: q.type,
+                options: q.options,
+                answer: q.answer,
+                difficulty: q.difficulty,
+                score: q.score,
+                explanation: q.explanation,
+                status: 'draft'
+              }
+              
+              await createQuestion(data)
+              successCount++
+            } catch (e) {
+              failCount++
+              errors.push(`题目"${q.title.substring(0, 20)}..."导入失败：${e.message}`)
+            }
+          }
+          
+          importResult.value = {
+            success: successCount > 0,
+            title: successCount > 0 ? `成功导入${successCount}道题目` : '导入失败',
+            subtitle: failCount > 0 ? `失败${failCount}道` + (errors.length > 0 ? `\n${errors.slice(0, 3).join('\n')}` : '') : '所有题目已成功导入到题库'
+          }
+        })
+      } catch (e) {
+        console.error('导入失败:', e)
+        importResult.value = {
+          success: false,
+          title: '导入失败',
+          subtitle: e.message || '文件解析失败，请检查文件格式是否正确'
+        }
+      } finally {
+        importing.value = false
+        fileObj.onSuccess && fileObj.onSuccess()
       }
     }
 
@@ -1116,6 +1766,8 @@ export default {
     }
 
     const userList = ref([])
+    const userPage = ref(1)
+    const userPageSize = ref(10)
     const userLoading = ref(false)
     const userSearch = ref('')
     const showUserDialog = ref(false)
@@ -1123,6 +1775,14 @@ export default {
     const userForm = ref({ username: '', password: '', phone: '', role: 'trainer' })
 
     const announcements = ref([])
+    const announcementPage = ref(1)
+    const announcementPageSize = ref(10)
+
+    const paginatedAnnouncements = computed(() => {
+      const startIndex = (announcementPage.value - 1) * announcementPageSize.value
+      return (announcements.value || []).slice(startIndex, startIndex + announcementPageSize.value)
+    })
+
     const showAnnouncementDialog = ref(false)
     const editingAnnouncement = ref(null)
     const announcementForm = ref({ title: '', content: '', type: 'notice', status: 'published' })
@@ -1141,6 +1801,11 @@ export default {
         userLoading.value = false
       }
     }
+
+    const paginatedUserList = computed(() => {
+      const startIndex = (userPage.value - 1) * userPageSize.value
+      return (userList.value || []).slice(startIndex, startIndex + userPageSize.value)
+    })
 
     const editUser = (row) => {
       editingUser.value = row
@@ -1325,6 +1990,7 @@ export default {
           papers.value = paperList.map(p => ({ ...p, _showMenu: false }))
         }
       } catch (e) {
+        console.error('加载试卷失败:', e)
         Message.error('加载试卷失败')
       }
     }
@@ -1348,16 +2014,12 @@ export default {
           leavePaperRoom(stats.value.paper_id)
         }
         const res = await getExamStats(selectedPaper.value)
-        console.log('loadStats response:', res)
-        console.log('loadStats res.data:', res.data)
-        console.log('loadStats ranking:', res.data?.ranking)
         if (res.data) {
           stats.value = {
             ...res.data,
             paper_id: selectedPaper.value,
             ranking: Array.isArray(res.data.ranking) ? res.data.ranking : []
           }
-          console.log('stats.value.ranking:', stats.value.ranking)
           joinPaperRoom(selectedPaper.value)
         }
       } catch (e) { console.error(e) }
@@ -1604,10 +2266,8 @@ export default {
       if (!row.allow_all_users) {
         try {
           const res = await getPaperStudents(row.id)
-          console.log('考生列表 API 返回:', res.data)
           const mapped = res.data.map(ps => ps.student).filter(s => s)
           paperStudents.value = [...mapped]
-          console.log('处理后 paperStudents:', paperStudents.value)
         } catch (e) {
           console.error('获取考生列表失败:', e)
           paperStudents.value = []
@@ -1659,10 +2319,32 @@ export default {
     }
 
     const viewExamRecords = async (id) => {
+      examRecordsCurrentPaperId.value = id
+      examRecordsPage.value = 1
       try {
-        const res = await getExamRecords(id)
-        examRecords.value = res.data.list
+        const res = await getExamRecords(id, { page: 1, pageSize: 10 })
+        examRecords.value = res.data.list || []
+        examRecordsStats.value = res.data.stats
+        examRecordsPagination.value = {
+          total: res.data.total,
+          pageSize: res.data.pageSize,
+          totalPages: res.data.totalPages
+        }
         showRecordsDialog.value = true
+      } catch (e) { Message.error('获取成绩失败') }
+    }
+
+    const handleExamRecordsPageChange = async (page) => {
+      if (!examRecordsCurrentPaperId.value) return
+      examRecordsPage.value = page
+      try {
+        const res = await getExamRecords(examRecordsCurrentPaperId.value, { page, pageSize: 10 })
+        examRecords.value = res.data.list || []
+        examRecordsPagination.value = {
+          total: res.data.total,
+          pageSize: res.data.pageSize,
+          totalPages: res.data.totalPages
+        }
       } catch (e) { Message.error('获取成绩失败') }
     }
 
@@ -1686,20 +2368,23 @@ export default {
       return colors[range] || '#8c8c8c'
     }
 
-    const formatTime = (timeString) => {
-      if (!timeString) return '-'
-      return new Date(timeString).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    const getAvatarColor = () => {
+      const colors = ['#165DFF', '#0FC6C2', '#F53F3F', '#F7BA1E', '#722ED1', '#00B42A']
+      const index = user.value?.username?.charCodeAt(0) % colors.length || 0
+      return colors[index]
     }
 
-    onMounted(() => {
+    onMounted(async () => {
       loadQuestions()
       loadCategories()
-      loadPapers()
+      await loadPapers() // 等待 papers 加载完成
       if (user.value.role === 'admin') {
         loadUsers()
         loadAnnouncements()
       }
       initSocket()
+      // 加载待评分数据（用于侧边栏徽章）
+      loadPendingGrading()
     })
 
     watch(() => showAnnouncementDialog.value, (val) => {
@@ -1723,14 +2408,15 @@ export default {
       user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
       showQuestionDialog, showImportDialog,
       editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
-      randomForm, paperForm, selectedPaper, stats, publishedPapers,
+      randomForm, paperForm, selectedPaper, stats, publishedPapers, paginatedPapers,
       showExamUrlDialog, examUrlData,
-      showRecordsDialog, examRecords,
+      showRecordsDialog, examRecords, examRecordsStats, examRecordsPagination, examRecordsPage,
+      handleExamRecordsPageChange,
       loadQuestions, loadPapers, loadStats, saveQuestion, editQuestion, deleteQuestion: deleteQuestionAction,
       publishPaper: publishPaperAction, deletePaper: deletePaperAction,
       createRandomPaperAction, createNewPaper, logout: handleLogout, viewExamUrl, copyUrl, viewExamRecords, editPaperAction, handlePaperCommand,
       togglePaperMenu, closeAllPaperMenus,
-      getDistBgColor, formatTime,
+      getDistBgColor, formatDateTime, getAvatarColor, getStudentAvatarColor,
       IconUser, IconDashboard, IconCheckCircle, IconTrophy,
       IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
       newEntryAnimation, newEntryKey,
@@ -1739,7 +2425,23 @@ export default {
       showStudentDialog, showImportStudentDialog, studentForm, paperStudents,
       addStudent, removeStudentFromPaper, handleImportStudents, handleExportStudents,
       showCategoryDialog, newCategoryName, categories, handleAddCategory, handleDeleteCategory,
-      pendingGradingList, pendingGradingCount, submitEssayScore
+      pendingGradingList, pendingGradingCount, submitEssayScore,
+      editingPaper, papersWithPendingGrading,
+      // 待评分抽屉
+      showGradingDrawer, currentGradingRecord, submittingScore,
+      pendingGradingSearch, pendingGradingPaperFilter, filteredPendingGradingList,
+      pendingGradingPage, handlePendingGradingPageChange,
+      pendingGradingColumns, openGradingDrawer, filterPendingGrading, resetPendingGradingFilter, getStudentAvatarColor,
+      // 批量导入
+      importing, importResult, downloadTemplate, handleImportQuestions,
+      // 高级搜索
+      searchType, searchDifficulty, resetSearch,
+      // 试卷相关
+      scrollToPaper,
+      // 图标组件
+      IconUser, IconDashboard, IconCheckCircle, IconTrophy,
+      IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
+      IconSearch, IconRefresh, IconClockCircle, IconFile, IconEdit
     }
   }
 }
@@ -1752,6 +2454,19 @@ export default {
   background: var(--bg-color);
 }
 
+.wizard-steps {
+  margin-bottom: 24px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--color-text-3);
+  margin-top: 4px;
+}
+
+.selected-row {
+  background: rgba(22, 93, 255, 0.05);
+}
 .sidebar {
   width: 220px;
   background: var(--bg-color-white);
@@ -1880,37 +2595,105 @@ export default {
 .main-content {
   flex: 1;
   margin-left: 220px;
-  padding: 24px 32px;
+  padding: 24px;
   min-height: 100vh;
+  max-width: 100%;
 }
 
-.page-view { animation: fadeIn 0.2s ease; }
+.page-view {
+  animation: fadeIn 0.2s ease;
+  max-width: 1400px;
+  margin: 0 auto;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.page-header { margin-bottom: 24px; }
+/* 页面头部 - 简洁清晰 - 强制刷新 v3 */
+.page-header-simple {
+  margin-bottom: 16px !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  max-width: 100% !important;
+}
+
+.page-header-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.page-header-icon {
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #e8f3ff !important;
+  color: var(--color-primary) !important;
+  border-radius: var(--radius-base) !important;
+  flex-shrink: 0 !important;
+}
+
+.page-header-icon svg {
+  width: 24px !important;
+  height: 24px !important;
+}
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
+  margin: 0 0 8px 0 !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
 }
 
 .page-desc {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
+  margin: 0 !important;
+  font-size: 14px !important;
+  color: var(--text-secondary) !important;
 }
 
-.toolbar {
+.page-header .highlight {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* 工具栏 - 统一样式 */
+.toolbar,
+.toolbar-standard {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.toolbar-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .pagination {
@@ -1935,7 +2718,42 @@ export default {
 }
 .page-btn:hover { color: var(--primary); background: var(--primary-light); }
 
-.content-card { border-radius: var(--radius-lg); }
+.content-card {
+  border-radius: var(--radius-lg);
+  width: 100%;
+}
+
+.content-card :deep(.arco-card-body) {
+  padding: 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.content-card :deep(.arco-tabs-content) {
+  padding: 16px;
+  margin-top: 0;
+}
+
+.content-card :deep(.arco-tabs-nav) {
+  margin-bottom: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.content-card :deep(.arco-tabs-content-wrapper) {
+  margin-top: 0;
+}
+
+.content-card :deep(.arco-tabs-nav-tab) {
+  max-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.content-card :deep(.arco-tabs-nav-tab-list) {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
 
 :deep(.arco-card) {
   border-radius: var(--radius-lg);
@@ -1943,7 +2761,7 @@ export default {
   box-shadow: var(--shadow-card);
 }
 
-.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table { width: 100%; min-width: 800px; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
 .data-table th {
   background: var(--bg-color);
   font-weight: 500;
@@ -2071,6 +2889,19 @@ export default {
 }
 
 .score-tag.high { background: #fff1f0; color: #f53f3f; }
+
+/* 批量导入样式 */
+.import-result {
+  margin-top: 20px;
+}
+
+.import-success :deep(.arco-result-title) {
+  color: #00b42a;
+}
+
+.import-error :deep(.arco-result-title) {
+  color: #f53f3f;
+}
 .score-tag.mid { background: #fff7e6; color: #fa8c16; }
 .score-tag.low { background: #f5f5f5; color: #8c8c8c; }
 
@@ -2197,5 +3028,266 @@ export default {
 .rich-editor-content img {
   max-width: 100%;
   height: auto;
+}
+
+/* 待评分表格样式 */
+.student-name-link {
+  color: var(--color-primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.paper-title-text {
+  color: var(--text-primary);
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.score-badge-empty {
+  background: var(--bg-color);
+  color: var(--text-secondary);
+}
+
+/* ===== 待评分页面样式 - 遵循 Arco Design 原则 ===== */
+
+/* 空状态 - 使用 Arco Empty 组件样式 */
+.empty-state-standard {
+  padding: 60px 0;
+  background: #fff;
+  border-radius: 8px;
+}
+
+/* 表格样式 - 简洁清晰 */
+.grading-table-standard {
+  background: #fff;
+  border-radius: var(--radius-base);
+}
+
+.grading-table-standard :deep(.arco-table-td) {
+  padding: 14px;
+  border-bottom-color: var(--border-color-light);
+}
+
+.grading-table-standard :deep(.arco-table-th) {
+  padding: 14px;
+  background: var(--bg-color-light);
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom-color: var(--border-color-light);
+}
+
+.grading-table-standard :deep(.arco-table-row:hover) {
+  background: var(--bg-color-hover);
+  cursor: pointer;
+}
+
+/* 学生单元格 */
+.student-cell-standard {
+  display: flex;
+  align-items: center;
+}
+
+.student-name-standard {
+  color: var(--color-primary);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* 试卷标题 */
+.paper-title-standard {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+/* 分数单元格 */
+.score-cell-standard {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-value-standard {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.score-total-standard {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.score-dash-standard {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* 时间单元格 */
+.time-cell-standard {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.no-essay-standard {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* 评卷抽屉样式 */
+.grading-drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.grading-drawer-header {
+  background: linear-gradient(135deg, var(--bg-color-light) 0%, var(--bg-color-white) 100%);
+  padding: 20px;
+  border-radius: var(--radius-base);
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color-light);
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-meta {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.meta-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  min-width: 70px;
+}
+
+.meta-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.score-highlight {
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.grading-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.grading-drawer-item {
+  background: var(--bg-color-white);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-base);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.grading-drawer-item:last-child {
+  margin-bottom: 0;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.item-index {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.question-title {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  padding: 16px;
+  background: var(--bg-color-light);
+  border-radius: var(--radius-base);
+  border-left: 3px solid var(--color-primary);
+}
+
+.answer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.answer-text {
+  padding: 14px;
+  background: var(--bg-color);
+  border-radius: var(--radius-base);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  min-height: 60px;
+  white-space: pre-wrap;
+  border: 1px solid var(--border-color-light);
+}
+
+.score-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.score-unit {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.grading-drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border-color);
 }
 </style>

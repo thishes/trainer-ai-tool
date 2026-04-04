@@ -3,11 +3,12 @@
     {
       "id": 4,
       "username": "thishe",
-      "password": "$2a$10$.3RzblvkuLc0Mn6bWd0seOKvQAgOEPq7qlOVJhdeZKvfDv5NCGF8.",
+      "password": "$2a$10$iVURXtC6kY9yJYt5bZaX7OsR6B3bMtbrP6.Ro6ieU6ny.yNo/Cq3W",
       "role": "admin",
       "status": "active",
       "created_at": "2026-03-22T09:18:04.574Z",
-      "key_id": "Umnd4n0560875de87"
+      "key_id": "Umnd4n0560875de87",
+      "updated_at": "2026-04-04T04:22:46.850Z"
     }
   ],
   "categories": [
@@ -44,7 +45,7 @@
       "id": 1,
       "key_id": "QMND52DHG82DEF93D",
       "title": "JavaScript是什么类型的语言？",
-      "type": "choice",
+      "type": "subjective",
       "options": [
         {
           "key": "A",
@@ -71,7 +72,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-03-30T12:02:52.997Z",
-      "updated_at": "2026-03-30T12:02:52.999Z"
+      "updated_at": "2026-04-04T06:12:00.627Z"
     },
     {
       "id": 2,
@@ -102,7 +103,7 @@
       "id": 3,
       "key_id": "QMND52DHJ5CEDC597",
       "title": "以下哪个不是JavaScript的数据类型？",
-      "type": "choice",
+      "type": "subjective",
       "options": [
         {
           "key": "A",
@@ -129,7 +130,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-03-30T12:02:52.999Z",
-      "updated_at": "2026-03-30T12:02:52.999Z"
+      "updated_at": "2026-04-04T06:11:54.069Z"
     },
     {
       "id": 4,
@@ -185,12 +186,24 @@
       "id": 6,
       "key_id": "QMND529E7A47D52B",
       "title": "React主要用于构建什么类型的应用？",
-      "type": "choice",
+      "type": "subjective",
       "options": [
-        { "key": "A", "value": "桌面应用" },
-        { "key": "B", "value": "移动应用" },
-        { "key": "C", "value": "用户界面/前端应用" },
-        { "key": "D", "value": "后端服务" }
+        {
+          "key": "A",
+          "value": "桌面应用"
+        },
+        {
+          "key": "B",
+          "value": "移动应用"
+        },
+        {
+          "key": "C",
+          "value": "用户界面/前端应用"
+        },
+        {
+          "key": "D",
+          "value": "后端服务"
+        }
       ],
       "answer": "C",
       "explanation": "React是Facebook开发的用于构建用户界面的JavaScript库，主要用于前端应用。",
@@ -200,7 +213,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
+      "updated_at": "2026-04-04T06:11:08.803Z"
     },
     {
       "id": 7,
@@ -208,8 +221,14 @@
       "title": "HTML5提供了语义化标签如header、footer、article等",
       "type": "judge",
       "options": [
-        { "key": "A", "value": "正确" },
-        { "key": "B", "value": "错误" }
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
       ],
       "answer": "A",
       "explanation": "HTML5引入了许多语义化标签，使网页结构更清晰。",
@@ -225,14 +244,28 @@
       "id": 8,
       "key_id": "QMND524C2277E665",
       "title": "CSS盒子模型由哪些部分组成？",
-      "type": "choice",
+      "type": "multiple",
       "options": [
-        { "key": "A", "value": "content、padding" },
-        { "key": "B", "value": "content、padding、border、margin" },
-        { "key": "C", "value": "width、height" },
-        { "key": "D", "value": "display、position" }
+        {
+          "key": "A",
+          "value": "content、padding"
+        },
+        {
+          "key": "B",
+          "value": "content、padding、border、margin"
+        },
+        {
+          "key": "C",
+          "value": "width、height"
+        },
+        {
+          "key": "D",
+          "value": "display、position"
+        }
       ],
-      "answer": "B",
+      "answer": [
+        "B"
+      ],
       "explanation": "CSS盒子模型包括content(内容)、padding(内边距)、border(边框)、margin(外边距)四个部分。",
       "difficulty": "medium",
       "score": 5,
@@ -240,7 +273,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
+      "updated_at": "2026-04-04T06:11:16.230Z"
     },
     {
       "id": 9,
@@ -248,8 +281,14 @@
       "title": "HTTP状态码404表示资源不存在",
       "type": "judge",
       "options": [
-        { "key": "A", "value": "正确" },
-        { "key": "B", "value": "错误" }
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
       ],
       "answer": "A",
       "explanation": "404 Not Found表示服务器无法找到请求的资源。",
@@ -265,12 +304,24 @@
       "id": 10,
       "key_id": "QMND52A0C27AF1AC",
       "title": "RESTful API设计规范中，GET请求用于",
-      "type": "choice",
+      "type": "single",
       "options": [
-        { "key": "A", "value": "创建资源" },
-        { "key": "B", "value": "更新资源" },
-        { "key": "C", "value": "查询资源" },
-        { "key": "D", "value": "删除资源" }
+        {
+          "key": "A",
+          "value": "创建资源"
+        },
+        {
+          "key": "B",
+          "value": "更新资源"
+        },
+        {
+          "key": "C",
+          "value": "查询资源"
+        },
+        {
+          "key": "D",
+          "value": "删除资源"
+        }
       ],
       "answer": "C",
       "explanation": "RESTful规范中，GET请求用于查询/获取资源，是幂等的。",
@@ -280,7 +331,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
+      "updated_at": "2026-04-04T06:11:34.736Z"
     },
     {
       "id": 11,
@@ -288,8 +339,14 @@
       "title": "Git中的merge和rebase都可以用于合并分支",
       "type": "judge",
       "options": [
-        { "key": "A", "value": "正确" },
-        { "key": "B", "value": "错误" }
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
       ],
       "answer": "A",
       "explanation": "merge和rebase都是Git中合并分支的方式，各有优缺点。",
@@ -305,12 +362,24 @@
       "id": 12,
       "key_id": "QMND52F285242ECD",
       "title": "以下哪个不是关系型数据库？",
-      "type": "choice",
+      "type": "subjective",
       "options": [
-        { "key": "A", "value": "MySQL" },
-        { "key": "B", "value": "PostgreSQL" },
-        { "key": "C", "value": "MongoDB" },
-        { "key": "D", "value": "SQLite" }
+        {
+          "key": "A",
+          "value": "MySQL"
+        },
+        {
+          "key": "B",
+          "value": "PostgreSQL"
+        },
+        {
+          "key": "C",
+          "value": "MongoDB"
+        },
+        {
+          "key": "D",
+          "value": "SQLite"
+        }
       ],
       "answer": "C",
       "explanation": "MongoDB是NoSQL文档型数据库，不是关系型数据库。",
@@ -320,7 +389,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
+      "updated_at": "2026-04-04T06:11:42.016Z"
     },
     {
       "id": 13,
@@ -328,8 +397,14 @@
       "title": "TypeScript是JavaScript的超集，添加了类型系统",
       "type": "judge",
       "options": [
-        { "key": "A", "value": "正确" },
-        { "key": "B", "value": "错误" }
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
       ],
       "answer": "A",
       "explanation": "TypeScript是JavaScript的超集，它添加了静态类型定义和其他高级特性。",
@@ -345,12 +420,24 @@
       "id": 14,
       "key_id": "QMND52661DFCA65D",
       "title": "Vue2和Vue3最大的区别是什么？",
-      "type": "choice",
+      "type": "subjective",
       "options": [
-        { "key": "A", "value": "模板语法完全不同" },
-        { "key": "B", "value": "响应式系统的重写" },
-        { "key": "C", "value": "移除了组件系统" },
-        { "key": "D", "value": "不再支持Vue Router" }
+        {
+          "key": "A",
+          "value": "模板语法完全不同"
+        },
+        {
+          "key": "B",
+          "value": "响应式系统的重写"
+        },
+        {
+          "key": "C",
+          "value": "移除了组件系统"
+        },
+        {
+          "key": "D",
+          "value": "不再支持Vue Router"
+        }
       ],
       "answer": "B",
       "explanation": "Vue3重写了响应式系统，使用Proxy替代Object.defineProperty。",
@@ -360,7 +447,7 @@
       "user_id": 4,
       "status": "published",
       "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
+      "updated_at": "2026-04-04T06:11:47.800Z"
     },
     {
       "id": 15,
@@ -368,8 +455,14 @@
       "title": "AJAX技术主要用于实现网页的局部刷新",
       "type": "judge",
       "options": [
-        { "key": "A", "value": "正确" },
-        { "key": "B", "value": "错误" }
+        {
+          "key": "A",
+          "value": "正确"
+        },
+        {
+          "key": "B",
+          "value": "错误"
+        }
       ],
       "answer": "A",
       "explanation": "AJAX允许网页在不重新加载整个页面的情况下与服务器交换数据。",
@@ -417,11 +510,44 @@
       "show_answer": true,
       "status": "published",
       "user_id": 4,
-      "question_ids": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      "question_ids": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
       "question_count": 10,
       "total_score": 50,
       "created_at": "2026-04-02T12:00:00.000Z",
       "updated_at": "2026-04-02T12:00:00.000Z"
+    },
+    {
+      "id": 5,
+      "key_id": "PMNKCAGTI6FAA56C1",
+      "title": "真实试卷",
+      "description": "测试用",
+      "time_limit": 60,
+      "shuffle": false,
+      "show_score": true,
+      "show_answer": true,
+      "access_code": null,
+      "ip_limit": 0,
+      "allow_all_users": true,
+      "user_id": null,
+      "status": "published",
+      "total_score": 25,
+      "start_time": null,
+      "end_time": null,
+      "created_at": "2026-04-04T12:59:31.110Z",
+      "updated_at": "2026-04-04T14:20:36.333Z",
+      "question_count": 5,
+      "qrcode_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB1PADUAAAAAklEQVR4AewaftIAAAS8SURBVO3BQY4kyREEQdNA/f/Lyr7ReQkgmV69swMTwR+pWnJSteikatFJ1aKTqkUnVYtOqhadVC06qVp0UrXopGrRSdWik6pFJ1WLTqoWnVQt+uQlIL9JzQ2QJ9RMQJ5QcwPkCTUTkN+k5o2TqkUnVYtOqhZ9skzNJiBPqJmAfBOQSc2k5gbIE2o2Adl0UrXopGrRSdWiT74MyBNqngByo2YCMgG5UTMBmdQ8AWQTkCfUfNNJ1aKTqkUnVYs++cuomYA8oWYC8gSQSc2Nmr/JSdWik6pFJ1WLPvnLALlR84SaCcgEpP7rpGrRSdWik6pFn3yZmn+SmgnIjZobNU8AmdRsUvMnOaladFK16KRq0SfLgPyT1ExAJjUTkBsgk5oJyKTmCSCTmhsgf7KTqkUnVYtOqhZ98pKa+v+puVHzb3JSteikatFJ1SL8kReATGomIJvU3AC5UbMJyI2aGyCTmgnIJjXfdFK16KRq0UnVok9eUvOGmgnIpGYCcqNmAjIBmdRMQJ5QcwPkRs0E5A01TwCZ1LxxUrXopGrRSdWiT14CMqmZ1LwB5EbNBORGzQTkDSCTmhs1b6iZgLyhZtNJ1aKTqkUnVYs+eUnNN6l5Q80EZFIzAZnUTEAmNTdq3lAzAZnUPAFkUrPppGrRSdWik6pF+CMvALlRMwG5UTMBuVHzBpBJzQTkRs0EZFJzA2RS8waQGzXfdFK16KRq0UnVIvyRF4BsUnMD5Ak1m4BsUjMBeUPNBGRSMwGZ1LxxUrXopGrRSdWiT15SMwG5UfMEkEnNJiCTmhs136RmAvJNajadVC06qVp0UrXok5eATGomIBOQGzWTmgnIpOYJIE8AmdRMQCY136RmAnKjZgIyqdl0UrXopGrRSdUi/JEXgNyomYBMaiYgN2omIE+o2QTkCTUTkEnNJiCTmm86qVp0UrXopGrRJ8vUTEAmNU+omYDcqLkBsknNBOQGyKTmBsg3AZnUvHFSteikatFJ1aJPfhmQJ4C8AWRSMwF5A8iNmhsgN2omIJOaCcgTajadVC06qVp0UrXoky9TcwNkUnMD5AbIDZBJzQRkUjMBmdQ8AWRScwNkUjMBmdTcAJnUbDqpWnRSteikatEnfxggN2omIDdqJiA3aiYgTwC5UTMBeQLIE0BugExq3jipWnRSteikahH+yL8YkE1qboDcqLkBcqPmCSCb1LxxUrXopGrRSdWiT14C8pvUTGomIDdqJiBPqPlNQCY1b6j5ppOqRSdVi06qFn2yTM0mIDdAngDyBJBJzQRkUnOjZgJyo+YNNROQSc2mk6pFJ1WLTqoWffJlQJ5Q84aaCciNmhs1bwCZ1NwAeUPNBGRSMwGZ1LxxUrXopGrRSdWiT+p/AHlCzQTkDTVvAHlCzaaTqkUnVYtOqhZ98pdTcwPkDSA3at4A8oSaGyCTmk0nVYtOqhadVC365MvUfJOaJ4BsUjMBmYC8oWYCMqmZgExqftNJ1aKTqkUnVYs+WQbkNwF5Qs0EZFJzA+RGzRtAJjVPqJmATGq+6aRq0UnVopOqRfgjVUtOqhadVC06qVp0UrXopGrRSdWik6pFJ1WLTqoWnVQtOqladFK16KRq0UnVopOqRf8BxmcqM1zgGocAAAAASUVORK5CYII="
     }
   ],
   "paperQuestions": [
@@ -544,9 +670,980 @@
       "question_id": 15,
       "question_key_id": "QMND52921F2F4A4",
       "order_num": 10
+    },
+    {
+      "id": 36,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 7,
+      "question_key_id": "QMND52AFA17569F4",
+      "order": 1,
+      "score": 5
+    },
+    {
+      "id": 37,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 9,
+      "question_key_id": "QMND526882447230",
+      "order": 2,
+      "score": 5
+    },
+    {
+      "id": 38,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 10,
+      "question_key_id": "QMND52A0C27AF1AC",
+      "order": 3,
+      "score": 5
+    },
+    {
+      "id": 39,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 11,
+      "question_key_id": "QMND52581528A0F4",
+      "order": 4,
+      "score": 5
+    },
+    {
+      "id": 40,
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "question_id": 13,
+      "question_key_id": "QMND520917F0C166",
+      "order": 5,
+      "score": 5
     }
   ],
-  "examRecords": [],
+  "examRecords": [
+    {
+      "id": 1,
+      "key_id": "EMNJX79FY420A6FD4",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T05:57:07.342Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "11": "true",
+        "13": "true",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T05:57:07.342Z",
+      "updated_at": "2026-04-04T05:59:02.390Z",
+      "essay_answers": null,
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T05:58:36.329Z"
+    },
+    {
+      "id": 2,
+      "key_id": "EMNJXAM3O30F4A7CC",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T05:59:43.716Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T05:59:43.716Z",
+      "updated_at": "2026-04-04T05:59:43.716Z"
+    },
+    {
+      "id": 3,
+      "key_id": "EMNJXARAL975FDAC2",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T05:59:50.445Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T05:59:50.445Z",
+      "updated_at": "2026-04-04T06:01:10.956Z"
+    },
+    {
+      "id": 4,
+      "key_id": "EMNJXCZSG76102C57",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:01:34.768Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "11": "true",
+        "13": "true",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:01:34.769Z",
+      "updated_at": "2026-04-04T06:02:11.148Z",
+      "essay_answers": null,
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:02:11.148Z"
+    },
+    {
+      "id": 5,
+      "key_id": "EMNJXFRM38B90F0C7",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:03:44.139Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T06:03:44.139Z",
+      "updated_at": "2026-04-04T06:06:14.182Z"
+    },
+    {
+      "id": 6,
+      "key_id": "EMNJXJ55E17BEDBFC",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:06:21.650Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T06:06:21.650Z",
+      "updated_at": "2026-04-04T06:06:21.650Z"
+    },
+    {
+      "id": 7,
+      "key_id": "EMNJXJM3308ACF4B9",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:06:43.599Z",
+      "status": "in_progress",
+      "answers": {
+        "9": "true",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:06:43.599Z",
+      "updated_at": "2026-04-04T06:07:43.647Z"
+    },
+    {
+      "id": 8,
+      "key_id": "EMNJXLS2SC668312C",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:08:24.676Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T06:08:24.676Z",
+      "updated_at": "2026-04-04T06:10:24.709Z"
+    },
+    {
+      "id": 9,
+      "key_id": "EMNJXOP6O16DAB13B",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:10:40.896Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T06:10:40.896Z",
+      "updated_at": "2026-04-04T06:11:19.576Z"
+    },
+    {
+      "id": 10,
+      "key_id": "EMNJXQIZ2468969C6",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "出处",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:12:06.158Z",
+      "status": "submitted",
+      "answers": {
+        "6": "史蒂夫",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "飒短发",
+        "13": "true",
+        "14": "啊时代峰",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:12:06.158Z",
+      "updated_at": "2026-04-04T06:12:45.241Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "史蒂夫"
+        },
+        "12": {
+          "user_answer": "飒短发"
+        },
+        "14": {
+          "user_answer": "啊时代峰"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:12:45.241Z"
+    },
+    {
+      "id": 11,
+      "key_id": "EMNJXWSWM8E5D23F3",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "解决",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:16:58.966Z",
+      "status": "submitted",
+      "answers": {
+        "6": "快结婚 ",
+        "7": "true",
+        "8": [
+          "B"
+        ],
+        "9": "true",
+        "10": "B",
+        "11": "true",
+        "12": "快结婚 ",
+        "13": "true",
+        "14": "计划 ",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:16:58.966Z",
+      "updated_at": "2026-04-04T06:17:20.583Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "快结婚 "
+        },
+        "12": {
+          "user_answer": "快结婚 "
+        },
+        "14": {
+          "user_answer": "计划 "
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:17:20.583Z"
+    },
+    {
+      "id": 12,
+      "key_id": "EMNJY3N2AF049E1F7",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "vv",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:22:17.986Z",
+      "status": "submitted",
+      "answers": {
+        "6": "版本",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "vv",
+        "13": "true",
+        "14": "哥哥",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:22:17.986Z",
+      "updated_at": "2026-04-04T06:22:38.404Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "版本"
+        },
+        "12": {
+          "user_answer": "vv"
+        },
+        "14": {
+          "user_answer": "哥哥"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:22:38.404Z"
+    },
+    {
+      "id": 13,
+      "key_id": "EMNJY5J8N0AF77274",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "密码",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:23:46.343Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T06:23:46.343Z",
+      "updated_at": "2026-04-04T06:24:16.391Z"
+    },
+    {
+      "id": 14,
+      "key_id": "EMNJY6SC5FA5B9625",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "解决饭",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:24:44.789Z",
+      "status": "submitted",
+      "answers": {
+        "6": "啊时代峰",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "飒短发的",
+        "13": "true",
+        "14": "啊时代峰",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:24:44.789Z",
+      "updated_at": "2026-04-04T06:25:02.965Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "啊时代峰"
+        },
+        "12": {
+          "user_answer": "飒短发的"
+        },
+        "14": {
+          "user_answer": "啊时代峰"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:25:02.965Z"
+    },
+    {
+      "id": 15,
+      "key_id": "EMNJYSMXPD17916B4",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "看看",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T06:41:44.220Z",
+      "status": "submitted",
+      "answers": {
+        "6": "史蒂夫",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "和儿童",
+        "13": "true",
+        "14": "统一",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T06:41:44.221Z",
+      "updated_at": "2026-04-04T06:42:04.609Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "史蒂夫"
+        },
+        "12": {
+          "user_answer": "和儿童"
+        },
+        "14": {
+          "user_answer": "统一"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T06:42:04.609Z"
+    },
+    {
+      "id": 16,
+      "key_id": "EMNK0KEVQB8B4C8E8",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "和",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T07:31:19.766Z",
+      "status": "submitted",
+      "answers": {
+        "6": "大丰市地方",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "阿斯顿发送到",
+        "13": "true",
+        "14": "阿斯顿发送到",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T07:31:19.766Z",
+      "updated_at": "2026-04-04T07:32:13.266Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "大丰市地方"
+        },
+        "12": {
+          "user_answer": "阿斯顿发送到"
+        },
+        "14": {
+          "user_answer": "阿斯顿发送到"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T07:32:13.266Z"
+    },
+    {
+      "id": 17,
+      "key_id": "EMNK0WZSR3BD1F9BD",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "他天天",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T07:41:06.747Z",
+      "status": "submitted",
+      "answers": {
+        "6": "阿福",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "是打算高峰",
+        "13": "true",
+        "14": "啊发送到发",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T07:41:06.748Z",
+      "updated_at": "2026-04-04T07:41:25.371Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "阿福"
+        },
+        "12": {
+          "user_answer": "是打算高峰"
+        },
+        "14": {
+          "user_answer": "啊发送到发"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T07:41:25.371Z"
+    },
+    {
+      "id": 18,
+      "key_id": "EMNK13G3Q275B4A1F",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "哈哈",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T07:46:07.814Z",
+      "status": "submitted",
+      "answers": {
+        "6": "发发",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "啊发送到发",
+        "13": "true",
+        "14": "阿斯顿发大水",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T07:46:07.814Z",
+      "updated_at": "2026-04-04T07:46:25.691Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "发发"
+        },
+        "12": {
+          "user_answer": "啊发送到发"
+        },
+        "14": {
+          "user_answer": "阿斯顿发大水"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T07:46:25.691Z"
+    },
+    {
+      "id": 19,
+      "key_id": "EMNK2DFZ998828149",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "四个",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T08:21:53.829Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T08:21:53.829Z",
+      "updated_at": "2026-04-04T08:34:49.247Z"
+    },
+    {
+      "id": 20,
+      "key_id": "EMNK8UVTH12943F95",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "啊时代峰",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T11:23:25.205Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-04T11:23:25.205Z",
+      "updated_at": "2026-04-04T11:23:25.205Z"
+    },
+    {
+      "id": 21,
+      "key_id": "EMNK8V2ELAC6E7F87",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "阿道夫",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-04T11:23:33.741Z",
+      "status": "submitted",
+      "answers": {
+        "13": "true"
+      },
+      "created_at": "2026-04-04T11:23:33.741Z",
+      "updated_at": "2026-04-04T11:23:45.480Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": ""
+        },
+        "12": {
+          "user_answer": ""
+        },
+        "14": {
+          "user_answer": ""
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T11:23:45.480Z"
+    },
+    {
+      "id": 22,
+      "key_id": "EMNK9G6XA805CBA96",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "adsf",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T11:39:59.373Z",
+      "status": "submitted",
+      "answers": {
+        "6": "sadfsdf",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "adsfad",
+        "13": "true",
+        "14": "asfasdf",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T11:39:59.374Z",
+      "updated_at": "2026-04-04T11:40:18.401Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "sadfsdf"
+        },
+        "12": {
+          "user_answer": "adsfad"
+        },
+        "14": {
+          "user_answer": "asfasdf"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T11:40:18.401Z"
+    },
+    {
+      "id": 23,
+      "key_id": "EMNK9V4U66E57ECE4",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "他天天",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T11:51:36.510Z",
+      "status": "submitted",
+      "answers": {
+        "6": "是发送到发",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "是的发送到发",
+        "13": "true",
+        "14": "阿斯顿发",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T11:51:36.510Z",
+      "updated_at": "2026-04-04T11:51:54.424Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "是发送到发"
+        },
+        "12": {
+          "user_answer": "是的发送到发"
+        },
+        "14": {
+          "user_answer": "阿斯顿发"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T11:51:54.424Z"
+    },
+    {
+      "id": 24,
+      "key_id": "EMNKEQJSR7E118242",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "音乐",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:08:00.699Z",
+      "status": "submitted",
+      "answers": {
+        "6": "撒的服务费",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "啊发送大",
+        "13": "true",
+        "14": "大法师地方",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T14:08:00.709Z",
+      "updated_at": "2026-04-04T14:08:20.587Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "撒的服务费"
+        },
+        "12": {
+          "user_answer": "啊发送大"
+        },
+        "14": {
+          "user_answer": "大法师地方"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T14:08:20.587Z"
+    },
+    {
+      "id": 25,
+      "key_id": "EMNKF7184816530EC",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "上官方法",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:20:49.780Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T14:20:49.780Z",
+      "updated_at": "2026-04-04T14:20:58.750Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T14:20:58.749Z"
+    },
+    {
+      "id": 26,
+      "key_id": "EMNKF9RGR0A8E96AF",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "他天天",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:22:57.099Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T14:22:57.099Z",
+      "updated_at": "2026-04-04T14:23:05.887Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T14:23:05.887Z"
+    },
+    {
+      "id": 27,
+      "key_id": "EMNKFMOMU5ABCD063",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "依依呀",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:32:59.958Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T14:32:59.959Z",
+      "updated_at": "2026-04-04T14:33:08.384Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T14:33:08.384Z"
+    },
+    {
+      "id": 28,
+      "key_id": "EMNKFSTN2007303DE",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "大地方",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:37:46.382Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T14:37:46.382Z",
+      "updated_at": "2026-04-04T14:37:55.592Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T14:37:55.592Z"
+    },
+    {
+      "id": 29,
+      "key_id": "EMNKFWJI3D44CE4B0",
+      "paper_id": 2,
+      "paper_key_id": "PMND52921F2F4A42",
+      "user_id": null,
+      "student_name": "1024",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:40:39.867Z",
+      "status": "submitted",
+      "answers": {
+        "6": "史蒂夫",
+        "7": "true",
+        "8": [
+          "A"
+        ],
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "12": "阿斯顿发送到",
+        "13": "true",
+        "14": "asides",
+        "15": "true"
+      },
+      "created_at": "2026-04-04T14:40:39.867Z",
+      "updated_at": "2026-04-04T14:40:58.940Z",
+      "essay_answers": {
+        "6": {
+          "user_answer": "史蒂夫"
+        },
+        "12": {
+          "user_answer": "阿斯顿发送到"
+        },
+        "14": {
+          "user_answer": "asides"
+        }
+      },
+      "score": null,
+      "percentage": 0,
+      "objective_score": null,
+      "objective_total": null,
+      "end_time": "2026-04-04T14:40:58.940Z"
+    },
+    {
+      "id": 30,
+      "key_id": "EMNKG8RH8FEB9ED51",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "5555",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T14:50:10.076Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T14:50:10.076Z",
+      "updated_at": "2026-04-04T14:50:18.401Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T14:50:18.401Z"
+    },
+    {
+      "id": 31,
+      "key_id": "EMNKGZTFV8ECE425E",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "uuu",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T15:11:12.331Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T15:11:12.331Z",
+      "updated_at": "2026-04-04T15:11:20.973Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T15:11:20.973Z"
+    },
+    {
+      "id": 32,
+      "key_id": "EMNKHBTXK63F7AC90",
+      "paper_id": 5,
+      "paper_key_id": "PMNKCAGTI6FAA56C1",
+      "user_id": null,
+      "student_name": "铁塔",
+      "ip_address": "::1",
+      "start_time": "2026-04-04T15:20:32.840Z",
+      "status": "graded",
+      "answers": {
+        "7": "true",
+        "9": "true",
+        "10": "A",
+        "11": "true",
+        "13": "true"
+      },
+      "created_at": "2026-04-04T15:20:32.840Z",
+      "updated_at": "2026-04-04T15:20:40.862Z",
+      "essay_answers": null,
+      "score": 20,
+      "percentage": 80,
+      "objective_score": 20,
+      "objective_total": 25,
+      "end_time": "2026-04-04T15:20:40.862Z"
+    }
+  ],
   "scoreRecords": [],
   "announcements": [
     {

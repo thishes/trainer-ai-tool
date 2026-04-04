@@ -3,9 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const jwt = require('jsonwebtoken');
 const db = require('../db');
 const config = require('../config');
+const authenticate = require('../middleware/auth');
+const sharp = require('sharp');
 
 const JWT_SECRET = config.JWT_SECRET;
 if (!JWT_SECRET && config.NODE_ENV === 'production') {
@@ -18,12 +19,12 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: async (req, file, cb) => {
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: async (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + '.webp');
   }
 });
 
@@ -38,34 +39,37 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
-const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ success: false, message: '未登录' });
-  }
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ success: false, message: 'token格式错误' });
-  }
+const processImage = async (file) => {
+  const webpFilename = file.filename;
+  const originalPath = file.path;
+  const webpPath = path.join(uploadDir, webpFilename);
+  
   try {
-    const decoded = jwt.verify(parts[1], JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ success: false, message: 'token无效' });
+    await sharp(originalPath)
+      .webp({ quality: 80 })
+      .toFile(webpPath);
+    
+    fs.unlinkSync(originalPath);
+    
+    return webpFilename;
+  } catch (err) {
+    console.error('图片转换失败:', err);
+    return file.filename;
   }
 };
 
 const handleUpload = [
   authenticate,
-  (req, res) => {
+  async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: '无权限' });
     }
     if (!req.file) {
       return res.status(400).json({ success: false, message: '请选择图片文件' });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
+    
+    const webpFilename = await processImage(req.file);
+    const fileUrl = `/uploads/${webpFilename}`;
     res.json({ success: true, url: fileUrl });
   }
 ];
@@ -76,7 +80,7 @@ router.get('/', async (req, res) => {
   try {
     const { status, type } = req.query;
     const announcements = db.announcements.findAll({ status, type });
-    res.json({ success: true, data: announcements });
+    res.json({ success: true, data: { list: announcements, total: announcements.length } });
   } catch (error) {
     console.error('获取公告错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });

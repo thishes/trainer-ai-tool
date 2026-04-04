@@ -1,13 +1,21 @@
-// server/index.js - 服务入口 (安全加固版)
+// server/index.js - 服务入口
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
+
+console.log('正在启动后端服务...');
+
 require('dotenv').config();
 
 const config = require('./config');
+console.log('配置加载完成');
+
 const app = express();
 const server = http.createServer(app);
+
+console.log('Express 应用已创建');
+
 const io = require('socket.io')(server, {
   cors: {
     origin: config.ALLOWED_ORIGINS,
@@ -21,6 +29,8 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const BASE_URL = process.env.BASE_URL || `http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`;
 app.locals.BASE_URL = BASE_URL;
+
+console.log('Socket.IO 已初始化');
 
 // ============================================
 // 安全加固: 安全响应头
@@ -169,6 +179,7 @@ const paperRoutes = require('./routes/papers');
 const examRoutes = require('./routes/exam');
 const announcementRoutes = require('./routes/announcements');
 const studentRoutes = require('./routes/students');
+// const apiDocsRoutes = require('./routes/api-docs'); // 临时注释
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -176,6 +187,7 @@ app.use('/api/papers', paperRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/students', studentRoutes);
+// app.use('/api', apiDocsRoutes); // 临时注释
 
 // 分类路由
 const categoryRoutes = require('./routes/categories');
@@ -188,8 +200,45 @@ app.use('/api/users', require('./routes/users'));
 
 // 全局错误处理中间件
 app.use((err, req, res, next) => {
-  console.error('服务器错误:', err);
-  res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' });
+  // 记录详细错误日志
+  console.error('=== 服务器错误 ===');
+  console.error('时间:', new Date().toISOString());
+  console.error('路径:', req.originalUrl || req.url);
+  console.error('方法:', req.method);
+  console.error('用户 ID:', req.user?.id || '未认证');
+  console.error('错误:', err.message);
+  console.error('堆栈:', err.stack);
+  
+  // 根据错误类型返回不同的响应
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ 
+      success: false, 
+      message: '数据验证失败',
+      details: err.errors?.map(e => e.message) || []
+    });
+  }
+  
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({ 
+      success: false, 
+      message: '认证失败，请重新登录'
+    });
+  }
+  
+  if (err.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({ 
+      success: false, 
+      message: '数据已存在，请勿重复提交'
+    });
+  }
+  
+  // 默认错误响应 - 生产环境不暴露敏感信息
+  const isDev = process.env.NODE_ENV === 'development' || config.DEBUG;
+  res.status(500).json({ 
+    success: false, 
+    message: isDev ? err.message : '服务器内部错误，请稍后重试',
+    ...(isDev && { stack: err.stack })
+  });
 });
 
 // SPA fallback

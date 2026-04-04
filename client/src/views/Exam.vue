@@ -77,15 +77,15 @@
         <a-card class="question-card">
           <template #header>
             <div class="question-header">
-              <a-tag color="arcoblue">第 {{ currentIndex + 1 }} 题</a-tag>
-              <a-tag>{{ questionTypeName(currentQuestion.type) }}</a-tag>
-              <a-tag color="green">{{ currentQuestion.score }}分</a-tag>
+              <a-tag color="arcoblue" size="large">第 {{ currentIndex + 1 }} 题</a-tag>
+              <a-tag size="large">{{ questionTypeName(currentQuestion.type) }}</a-tag>
+              <a-tag color="green" size="large">{{ currentQuestion.score || 0 }}分</a-tag>
             </div>
           </template>
 
           <div class="question-title">{{ currentQuestion.title }}</div>
 
-          <div v-if="currentQuestion.type === 'single'" class="options">
+          <div v-if="currentQuestion.type === 'single' || currentQuestion.type === 'choice'" class="options">
             <div
               v-for="(option, index) in currentQuestion.options"
               :key="index"
@@ -130,8 +130,14 @@
             </div>
           </div>
 
-          <div v-if="currentQuestion.type === 'subjective'" class="subjective-answer">
-            <a-textarea v-model="answers[currentQuestion.id]" placeholder="请输入你的答案..." :rows="6" />
+          <div v-if="currentQuestion.type === 'subjective' || currentQuestion.type === 'essay' || currentQuestion.type === 'question'" class="subjective-answer">
+            <div class="answer-instruction">请在下方输入你的答案：</div>
+            <a-textarea 
+              v-model="answers[currentQuestion.id]" 
+              placeholder="请输入你的答案..." 
+              :rows="8"
+              class="answer-textarea"
+            />
           </div>
         </a-card>
 
@@ -195,6 +201,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import DOMPurify from 'dompurify'
 import { getPaperPublic, startExamApi, getExamQuestions, saveProgress, submitExam as submitExamApi, getAnnouncements } from '@/api'
+import { formatDateTime } from '@/utils/date'
 
 export default {
   name: 'ExamPage',
@@ -223,12 +230,6 @@ export default {
     let timer = null
     let countdownTimer = null
     const countdownTime = ref(0)
-
-    const formatDateTime = (datetime) => {
-      if (!datetime) return '-'
-      const date = new Date(datetime)
-      return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-    }
 
     const formatCountdown = (seconds) => {
       const d = Math.floor(seconds / 86400)
@@ -267,8 +268,16 @@ export default {
     const unansweredCount = computed(() => questions.value.length - answeredCount.value)
 
     const questionTypeName = (type) => {
-      const map = { single: '单选题', multiple: '多选题', judge: '判断题', subjective: '问答题' }
-      return map[type] || type
+      const map = { 
+        single: '单选题', 
+        choice: '单选题',  // 兼容旧数据
+        multiple: '多选题', 
+        judge: '判断题', 
+        subjective: '问答题',
+        essay: '问答题',
+        question: '问答题'
+      }
+      return map[type] || '未知题型'
     }
 
     const formatTime = (seconds) => {
@@ -340,9 +349,6 @@ export default {
         examInfo.value = startRes.data
 
         const questionsRes = await getExamQuestions(examId.value)
-        console.log('questionsRes:', questionsRes)
-        console.log('questionsRes.data:', questionsRes.data)
-        console.log('questionsRes.data.questions:', questionsRes.data?.questions)
         questions.value = questionsRes.data.questions || []
 
         if (questionsRes.data.answers) {
@@ -601,6 +607,41 @@ export default {
 .options.judge .option-item {
   flex: 1;
   justify-content: center;
+}
+.subjective-answer {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-color);
+  border-radius: var(--radius-base);
+}
+.answer-instruction {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.answer-textarea {
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.6;
+  border-color: var(--border-color);
+  transition: all 0.3s;
+}
+.answer-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+}
+.question-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.question-header .arco-tag {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 16px;
+  border-radius: var(--radius-base);
 }
 .exam-container {
   max-width: 800px;

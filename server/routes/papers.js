@@ -421,7 +421,7 @@ router.get('/:id/exam-url', async (req, res) => {
 // 随机抽题组卷
 router.post('/random', authenticate, async (req, res) => {
   try {
-    const { title, category_ids, count, time_limit, shuffle, show_score, show_answer } = req.body;
+    const { title, category_ids, question_types, count, time_limit, shuffle, show_score, show_answer } = req.body;
 
     // 随机抽取题目
     // admin可以抽所有用户的题目，普通用户只能抽自己的
@@ -429,6 +429,7 @@ router.post('/random', authenticate, async (req, res) => {
     const questions = db.questions.random(
       userId,
       category_ids || [],
+      question_types || [],
       count
     );
 

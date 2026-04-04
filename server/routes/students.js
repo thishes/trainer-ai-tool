@@ -27,7 +27,7 @@ router.get('/', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
     const students = db.students.findAll();
-    res.json({ success: true, data: students });
+    res.json({ success: true, data: { list: students, total: students.length } });
   } catch (error) {
     console.error('获取考生列表错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
@@ -188,7 +188,7 @@ router.get('/paper/:paperId', authenticate, async (req, res) => {
     }
 
     const paperStudents = db.paperStudents.findByPaperId(req.params.paperId);
-    res.json({ success: true, data: paperStudents });
+    res.json({ success: true, data: { list: paperStudents, total: paperStudents.length } });
   } catch (error) {
     console.error('获取试卷考生错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
