@@ -175,6 +175,11 @@ module.exports = {
   
   // 题目表
   questions: {
+    // 标准化题型：将旧类型 'choice' 转换为 'single'
+    normalizeType: (type) => {
+      if (type === 'choice') return 'single';
+      return type;
+    },
     findAll: (filters = {}) => {
       let result = [...db.questions];
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(q => q.user_id === filters.user_id);
@@ -187,7 +192,16 @@ module.exports = {
     findById: (id) => db.questions.find(q => q.id === parseInt(id)),
     create: (data) => {
       const { key_id, ...rest } = data;
-      const question = { id: getNextId('questions'), key_id: generateKeyId('Q'), ...rest, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      // 标准化题型
+      const normalizedType = db.questions.normalizeType(rest.type);
+      const question = { 
+        id: getNextId('questions'), 
+        key_id: generateKeyId('Q'), 
+        ...rest, 
+        type: normalizedType,
+        created_at: new Date().toISOString(), 
+        updated_at: new Date().toISOString() 
+      };
       db.questions.push(question);
       writeDB(db);
       return question;
@@ -207,7 +221,12 @@ module.exports = {
     update: (id, data) => {
       const index = db.questions.findIndex(q => q.id === parseInt(id));
       if (index !== -1) {
-        db.questions[index] = { ...db.questions[index], ...data, updated_at: new Date().toISOString() };
+        // 如果更新包含类型，进行标准化
+        const updateData = { ...data };
+        if (updateData.type) {
+          updateData.type = db.questions.normalizeType(updateData.type);
+        }
+        db.questions[index] = { ...db.questions[index], ...updateData, updated_at: new Date().toISOString() };
         writeDB(db);
         return db.questions[index];
       }
@@ -230,7 +249,10 @@ module.exports = {
     random: (userId, categoryIds, questionTypes, count) => {
       let pool;
       const catIds = Array.isArray(categoryIds) ? categoryIds : (categoryIds ? [categoryIds] : []);
-      const types = Array.isArray(questionTypes) ? questionTypes : (questionTypes ? [questionTypes] : []);
+      // 向后兼容：如果 questionTypes 未提供，则使用空数组（表示所有类型）
+      const types = questionTypes 
+        ? (Array.isArray(questionTypes) ? questionTypes : [questionTypes])
+        : [];
       
       if (userId === null) {
         pool = db.questions.filter(q => {

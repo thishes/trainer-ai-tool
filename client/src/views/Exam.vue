@@ -85,7 +85,7 @@
 
           <div class="question-title">{{ currentQuestion.title }}</div>
 
-          <div v-if="currentQuestion.type === 'single' || currentQuestion.type === 'choice'" class="options">
+          <div v-if="currentQuestion.type === 'single'" class="options">
             <div
               v-for="(option, index) in currentQuestion.options"
               :key="index"
@@ -270,12 +270,9 @@ export default {
     const questionTypeName = (type) => {
       const map = { 
         single: '单选题', 
-        choice: '单选题',  // 兼容旧数据
         multiple: '多选题', 
         judge: '判断题', 
-        subjective: '问答题',
-        essay: '问答题',
-        question: '问答题'
+        subjective: '问答题'
       }
       return map[type] || '未知题型'
     }
