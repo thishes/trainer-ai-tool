@@ -809,7 +809,9 @@ router.post('/grade-essay', authenticate, async (req, res) => {
     console.log('[评分权限] 用户ID:', currentUserId, '角色:', req.user.role, '试卷OwnerID:', paperOwnerId, 'isAdmin:', isAdmin, 'isOwner:', isOwner);
     
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: '无权限访问此试卷的评分', debug: { userId: currentUserId, role: req.user.role, paperOwnerId, isAdmin, isOwner } });
+      const debugInfo = { userId: currentUserId, role: req.user.role, paperOwnerId, isAdmin, isOwner, paperUserId: paper.user_id };
+      console.log('[评分权限拒绝]', debugInfo);
+      return res.status(403).json({ success: false, message: '无权限访问此试卷的评分', debug: debugInfo });
     }
 
     if (!db.essayScores || !db.essayScores.upsert) {
