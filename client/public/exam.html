@@ -2,34 +2,124 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>在线考试</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/logo-optimized.png">
+    
     <link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
     <script src="https://unpkg.com/vue@3"></script>
     <script src="https://unpkg.com/element-plus"></script>
     <style>
-        * { margin: 0; padding: 0; }
-        body { background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; font-family: sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, #667eea, #764ba2); 
+            min-height: 100vh; 
+            padding: 20px; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
         .container { max-width: 800px; margin: 0 auto; }
-        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .card { 
+            background: white; 
+            border-radius: 12px; 
+            padding: 30px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
+        }
         h1 { margin-bottom: 20px; }
         .info { background: #f5f7fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 6px; 
+            font-size: 16px; 
+        }
         input:focus { border-color: #409eff; outline: none; }
-        .btn { background: #409eff; color: white; border: none; padding: 14px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px; }
+        .btn { 
+            background: #409eff; 
+            color: white; 
+            border: none; 
+            padding: 14px 30px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 5px; 
+        }
         .btn:hover { background: #66b1ff; }
         .btn:disabled { background: #ccc; cursor: not-allowed; }
         .q { margin: 30px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; }
-        .opt { display: block; padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; }
+        .opt { 
+            display: block; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border: 2px solid #ddd; 
+            border-radius: 6px; 
+            cursor: pointer; 
+        }
         .opt:hover { border-color: #409eff; }
         .opt.sel { border-color: #409eff; background: #ecf5ff; }
         .t { font-size: 24px; font-weight: bold; text-align: right; }
         .t.w { color: #f56c6c; }
+        
+        /* 骨架屏样式 */
+        .skeleton-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .skeleton-header {
+            height: 32px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            animation: shimmer 1.5s infinite;
+        }
+        .skeleton-line {
+            height: 16px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            animation: shimmer 1.5s infinite;
+        }
+        .skeleton-line.short { width: 60%; }
+        .skeleton-line.medium { width: 80%; }
+        .skeleton-button {
+            height: 48px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 6px;
+            animation: shimmer 1.5s infinite;
+            margin-top: 20px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .loading-text {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
 <div id="app">
     <div class="container">
-        <div class="card" v-if="!started">
+        <!-- 骨架屏 - 加载时显示 -->
+        <div class="card" v-if="!p.title && !started && !r">
+            <div class="skeleton-container">
+                <div class="skeleton-header"></div>
+                <div class="skeleton-line medium"></div>
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-button"></div>
+            </div>
+            <div class="loading-text">正在加载考试信息...</div>
+        </div>
+        
+        <div class="card" v-if="!started && p.title && !r">
             <h1>{{ p.title || '加载中...' }}</h1>
             <div class="info" v-if="p.title">
                 <p>时间: {{ p.time_limit }}分钟</p>
@@ -41,7 +131,7 @@
                 <button class="btn" @click="start" :disabled="!name">开始考试</button>
             </div>
         </div>
-        <div class="card" v-else>
+        <div class="card" v-if="started && !r">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <h2>{{ p.title }}</h2>
                 <div class="t" :class="{w:t<60}">{{ Math.floor(t/60) }}:{{ (t%60).toString().padStart(2,'0') }}</div>
