@@ -2391,7 +2391,7 @@ export default {
       loadQuestions()
       loadCategories()
       await loadPapers() // 等待 papers 加载完成
-      if (user.value.role === 'admin') {
+      if (user.value?.role === 'admin') {
         loadUsers()
         loadAnnouncements()
       }
