@@ -11,7 +11,10 @@
     <link rel="dns-prefetch" href="https://kb.thishe.com">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/logo-optimized.png">
+    <link rel="icon" type="image/png" href="/assets/images/logo-626f427e.png">
+    
+    <!-- 预加载关键资源 -->
+    <link rel="modulepreload" href="data:application/javascript;base64,Ly8gY2xpZW50L3NyYy9tYWluLmpzCmltcG9ydCB7IGNyZWF0ZUFwcCB9IGZyb20gJ3Z1ZScKaW1wb3J0IEFwcCBmcm9tICcuL0FwcC52dWUnCmltcG9ydCByb3V0ZXIgZnJvbSAnLi9yb3V0ZXInCmltcG9ydCBBcmNvVnVlIGZyb20gJ0BhcmNvLWRlc2lnbi93ZWItdnVlJwppbXBvcnQgJ0BhcmNvLWRlc2lnbi93ZWItdnVlL2Rpc3QvYXJjby5jc3MnCmltcG9ydCAnLi9zdHlsZXMvdmFyaWFibGVzLmNzcycKCmNvbnN0IGFwcCA9IGNyZWF0ZUFwcChBcHApCgphcHAudXNlKHJvdXRlcikKYXBwLnVzZShBcmNvVnVlKQoKYXBwLm1vdW50KCcjYXBwJykKCi8vIOagh+iusCBWdWUg5bey5Yqg6L2977yM6ZqQ6JeP6aqo5p625bGPCmRvY3VtZW50LmJvZHkuY2xhc3NMaXN0LmFkZCgndnVlLWxvYWRlZCcpCgovLyDnlJ/kuqfnjq/looPmgKfog73nm5HmjqcgLSDlu7bov5/liqDovb0KaWYgKHByb2Nlc3MuZW52Lk5PREVfRU5WID09PSAncHJvZHVjdGlvbicpIHsKICBzZXRUaW1lb3V0KCgpID0+IHsKICAgIGltcG9ydCgnLi91dGlscy9wZXJmb3JtYW5jZScpLnRoZW4oKHsgcGVyZm9ybWFuY2VNb25pdG9yIH0pID0+IHsKICAgICAgcGVyZm9ybWFuY2VNb25pdG9yLmluaXQoKQogICAgfSkuY2F0Y2goKCkgPT4ge30pCiAgfSwgMTAwMCkKfQo=">
     
     <!-- 内联关键 CSS -->
     <style>
@@ -29,12 +32,12 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #165DFF 0%, #0d47a1 100%);
       }
       .skeleton-header {
         height: 60px;
         background: rgba(255,255,255,0.1);
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
       }
       .skeleton-content {
         flex: 1;
@@ -43,20 +46,58 @@
         justify-content: center;
       }
       .skeleton-card {
-        width: 400px;
-        height: 300px;
-        background: rgba(255,255,255,0.2);
-        border-radius: 8px;
-        animation: pulse 1.5s ease-in-out infinite;
+        width: 380px;
+        padding: 40px 32px;
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
       }
-      @keyframes pulse {
+      .skeleton-logo {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #165DFF 0%, #0d47a1 100%);
+        border-radius: 14px;
+        margin: 0 auto 20px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-title {
+        height: 28px;
+        background: #e5e6eb;
+        border-radius: 4px;
+        margin: 0 auto 10px;
+        width: 60%;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-subtitle {
+        height: 16px;
+        background: #e5e6eb;
+        border-radius: 4px;
+        margin: 0 auto 28px;
+        width: 40%;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-input {
+        height: 44px;
+        background: #f2f3f5;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-button {
+        height: 44px;
+        background: #165DFF;
+        border-radius: 8px;
+        margin-top: 8px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      @keyframes shimmer {
         0%, 100% { opacity: 0.6; }
         50% { opacity: 1; }
       }
       .loading-text {
-        color: white;
+        color: rgba(255,255,255,0.8);
         text-align: center;
-        margin-top: 20px;
+        margin-top: 16px;
         font-size: 14px;
       }
       /* 隐藏骨架屏当 Vue 加载完成 */
@@ -64,14 +105,12 @@
         display: none;
       }
     </style>
-    <script type="module" crossorigin src="/assets/main-fadbe3bb.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/utils-964b1fbc.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-af1ff662.js">
-    <link rel="modulepreload" crossorigin href="/assets/ui-vendor-f8d41e65.js">
-    <link rel="modulepreload" crossorigin href="/assets/vue-core-963b1475.js">
-    <link rel="modulepreload" crossorigin href="/assets/view-dashboard-2cf8ac2f.js">
-    <link rel="stylesheet" href="/assets/css/vue-core-42ade957.css">
-    <link rel="stylesheet" href="/assets/css/ui-vendor-660de5a4.css">
+    <script type="module" crossorigin src="/assets/main-1b3f3a41.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/utils-3b3ef197.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-90e79321.js">
+    <link rel="modulepreload" crossorigin href="/assets/vue-core-2093f17e.js">
+    <link rel="modulepreload" crossorigin href="/assets/view-dashboard-297898b0.js">
+    <link rel="stylesheet" href="/assets/css/vue-core-83b553ce.css">
     <link rel="stylesheet" href="/assets/css/view-dashboard-865cea7c.css">
     <link rel="stylesheet" href="/assets/css/index-92b1d583.css">
   </head>
@@ -82,8 +121,15 @@
         <div class="skeleton-header"></div>
         <div class="skeleton-content">
           <div>
-            <div class="skeleton-card"></div>
-            <div class="loading-text">正在加载...</div>
+            <div class="skeleton-card">
+              <div class="skeleton-logo"></div>
+              <div class="skeleton-title"></div>
+              <div class="skeleton-subtitle"></div>
+              <div class="skeleton-input"></div>
+              <div class="skeleton-input"></div>
+              <div class="skeleton-button"></div>
+            </div>
+            <div class="loading-text">正在加载应用...</div>
           </div>
         </div>
       </div>
