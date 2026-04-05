@@ -1,11 +1,20 @@
 <template>
   <div class="login-container">
     <div class="login-box">
-      <div class="login-icon">
-        <img src="/logo.png" alt="logo" style="width: 40px; height: 40px; object-fit: contain;" />
-      </div>
-      <h1>培训师小助手</h1>
-      <p class="login-subtitle">登录感受教学数字化</p>
+      <a-skeleton :animation="true" v-if="pageLoading">
+        <div style="text-align: center; padding: 40px 0;">
+          <a-skeleton-shape style="width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 20px;" />
+          <a-skeleton-shape style="width: 200px; height: 32px; margin: 0 auto 10px;" />
+          <a-skeleton-shape style="width: 150px; height: 20px; margin: 0 auto;" />
+        </div>
+      </a-skeleton>
+      <template v-else>
+        <div class="login-icon">
+          <img src="/logo.png" alt="logo" style="width: 40px; height: 40px; object-fit: contain;" />
+        </div>
+        <h1>培训师小助手</h1>
+        <p class="login-subtitle">登录感受教学数字化</p>
+      </template>
       <a-form :model="form" @submit="handleLogin">
         <a-form-item>
           <a-input v-model="form.username" placeholder="用户名" size="large">
@@ -94,6 +103,7 @@ export default {
   setup() {
     const router = useRouter()
     const loading = ref(false)
+    const pageLoading = ref(true)
     const showRegister = ref(false)
     const form = ref({ username: '', password: '', captchaCode: '', captchaId: '' })
     const registerForm = ref({ username: '', password: '', phone: '', captchaCode: '', captchaId: '' })
@@ -184,10 +194,12 @@ export default {
     onMounted(() => {
       refreshCaptcha()
       refreshRegisterCaptcha()
+      pageLoading.value = false
     })
 
     return {
       loading,
+      pageLoading,
       showRegister,
       form,
       registerForm,
