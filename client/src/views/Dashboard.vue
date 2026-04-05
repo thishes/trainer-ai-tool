@@ -1338,14 +1338,18 @@ export default {
         // 检查是否有0分，如果有则确认
         const hasZeroScore = record.essay_questions.some(eq => eq.currentScore === 0);
         if (hasZeroScore) {
+          // 使用 Modal.confirm 确认框
           const confirmed = await new Promise(resolve => {
-            Message.warning({
+            Modal.confirm({
+              title: '确认提交',
               content: '有题目得分为0分，确定要提交吗？',
-              duration: 8000
+              okText: '确定提交',
+              cancelText: '取消',
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false)
             });
-            // 这里简化处理，直接提交（用户确认了）
-            resolve(true);
           });
+          if (!confirmed) return; // 用户取消
         }
         
         const scores = record.essay_questions.map(eq => ({
