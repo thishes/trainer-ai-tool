@@ -63,7 +63,7 @@
       </a-form>
     </div>
     <div class="login-footer">
-      <span>培训师小助手 v1.0</span>
+      <span>培训师小助手 v1.0.2</span>
       <span class="divider">|</span>
       <span>&copy; 2026 Thishe. All Rights Reserved.</span>
     </div>

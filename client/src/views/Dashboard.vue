@@ -1185,7 +1185,7 @@ export default {
     const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
     const activeTab = ref('questions')
     const sidebarOpen = ref(false)
-    const currentVersion = ref('1.0.1')
+    const currentVersion = ref('1.0.2')
     const upgradeInfo = ref({})
     const checkingUpgrade = ref(false)
     const upgrading = ref(false)
