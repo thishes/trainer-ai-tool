@@ -62,8 +62,8 @@ export default defineConfig({
             if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
               return 'vue-core'
             }
-            // UI 组件库 - 合并到一起避免循环依赖
-            if (id.includes('element-plus') || id.includes('@arco-design')) {
+            // UI 组件库
+            if (id.includes('@arco-design')) {
               return 'ui-vendor'
             }
             // 工具库
@@ -139,8 +139,7 @@ export default defineConfig({
       'vue',
       'vue-router',
       '@arco-design/web-vue',
-      'axios',
-      'element-plus'
+      'axios'
     ],
     exclude: ['lodash-es']
   },

@@ -6,15 +6,15 @@
     <title>在线考试</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/logo-optimized.png">
+    <link rel="icon" type="image/png" href="/logo.png">
     
-    <link href="https://unpkg.com/element-plus/dist/index.css" rel="stylesheet">
-    <script src="https://unpkg.com/vue@3"></script>
-    <script src="https://unpkg.com/element-plus"></script>
+    <!-- 仅使用 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            background: linear-gradient(135deg, #667eea, #764ba2); 
+            background: linear-gradient(135deg, #165DFF, #0d47a1); 
             min-height: 100vh; 
             padding: 20px; 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -26,41 +26,98 @@
             padding: 30px; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
         }
-        h1 { margin-bottom: 20px; }
-        .info { background: #f5f7fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        h1 { margin-bottom: 20px; color: #1a1a1a; }
+        h2 { color: #1a1a1a; }
+        h3 { color: #333; margin-bottom: 15px; }
+        .info { 
+            background: #f5f7fa; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+        }
+        .info p { margin: 8px 0; color: #666; }
+        
+        /* 输入框样式 */
         input { 
             width: 100%; 
-            padding: 12px; 
-            border: 2px solid #ddd; 
-            border-radius: 6px; 
+            padding: 12px 16px; 
+            border: 2px solid #e5e6eb; 
+            border-radius: 8px; 
             font-size: 16px; 
+            transition: all 0.2s;
         }
-        input:focus { border-color: #409eff; outline: none; }
+        input:focus { 
+            border-color: #165DFF; 
+            outline: none; 
+            box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.1);
+        }
+        
+        /* 按钮样式 - Arco Design 风格 */
         .btn { 
-            background: #409eff; 
+            background: #165DFF; 
             color: white; 
             border: none; 
             padding: 14px 30px; 
-            border-radius: 6px; 
+            border-radius: 8px; 
             cursor: pointer; 
             font-size: 16px; 
             margin: 5px; 
+            transition: all 0.2s;
+            font-weight: 500;
         }
-        .btn:hover { background: #66b1ff; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
-        .q { margin: 30px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+        .btn:hover { 
+            background: #1a65ff; 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(22, 93, 255, 0.3);
+        }
+        .btn:disabled { 
+            background: #ccc; 
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-success {
+            background: #00B42A;
+        }
+        .btn-success:hover {
+            background: #23c343;
+            box-shadow: 0 4px 12px rgba(0, 180, 42, 0.3);
+        }
+        
+        /* 题目样式 */
+        .q { 
+            margin: 30px 0; 
+            padding: 20px; 
+            background: #f7f8fa; 
+            border-radius: 8px; 
+        }
         .opt { 
             display: block; 
-            padding: 12px; 
+            padding: 12px 16px; 
             margin: 8px 0; 
-            border: 2px solid #ddd; 
-            border-radius: 6px; 
+            border: 2px solid #e5e6eb; 
+            border-radius: 8px; 
             cursor: pointer; 
+            transition: all 0.2s;
         }
-        .opt:hover { border-color: #409eff; }
-        .opt.sel { border-color: #409eff; background: #ecf5ff; }
-        .t { font-size: 24px; font-weight: bold; text-align: right; }
-        .t.w { color: #f56c6c; }
+        .opt:hover { 
+            border-color: #165DFF; 
+            background: #f0f4ff;
+        }
+        .opt.sel { 
+            border-color: #165DFF; 
+            background: #e8f0ff; 
+        }
+        
+        /* 计时器 */
+        .t { 
+            font-size: 24px; 
+            font-weight: bold; 
+            text-align: right; 
+            color: #333;
+            font-family: 'Monaco', monospace;
+        }
+        .t.w { color: #f53f3f; }
         
         /* 骨架屏样式 */
         .skeleton-container {
@@ -88,7 +145,7 @@
             height: 48px;
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
             background-size: 200% 100%;
-            border-radius: 6px;
+            border-radius: 8px;
             animation: shimmer 1.5s infinite;
             margin-top: 20px;
         }
@@ -101,6 +158,20 @@
             color: #666;
             margin-top: 20px;
             font-size: 14px;
+        }
+        
+        /* 结果页面 */
+        .result-score {
+            font-size: 48px;
+            text-align: center;
+            margin: 30px 0;
+            color: #165DFF;
+            font-weight: bold;
+        }
+        .result-info {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -119,11 +190,12 @@
             <div class="loading-text">正在加载考试信息...</div>
         </div>
         
+        <!-- 开始页面 -->
         <div class="card" v-if="!started && p.title && !r">
             <h1>{{ p.title || '加载中...' }}</h1>
             <div class="info" v-if="p.title">
-                <p>时间: {{ p.time_limit }}分钟</p>
-                <p>总分: {{ p.total_score }}分</p>
+                <p><strong>时间:</strong> {{ p.time_limit }}分钟</p>
+                <p><strong>总分:</strong> {{ p.total_score }}分</p>
             </div>
             <div v-if="p.title">
                 <input v-model="name" placeholder="请输入姓名" @keyup.enter="start">
@@ -131,6 +203,8 @@
                 <button class="btn" @click="start" :disabled="!name">开始考试</button>
             </div>
         </div>
+        
+        <!-- 考试页面 -->
         <div class="card" v-if="started && !r">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <h2>{{ p.title }}</h2>
@@ -146,20 +220,26 @@
             <div style="margin-top:20px;">
                 <button class="btn" @click="i>0?i--:0">上一题</button>
                 <button class="btn" @click="i<cs.length-1?i++:i" v-if="i<cs.length-1">下一题</button>
-                <button class="btn" style="background:#67c23a" @click="show=1" v-else>交卷</button>
+                <button class="btn btn-success" @click="show=1" v-else>交卷</button>
             </div>
         </div>
+        
+        <!-- 确认交卷 -->
         <div class="card" v-if="show" style="margin-top:20px;">
             <h3>确认交卷</h3>
             <p>已答: {{ Object.keys(as).length }} / {{ cs.length }}</p>
             <button class="btn" @click="show=0">再检查</button>
-            <button class="btn" style="background:#67c23a" @click="submit">确认</button>
+            <button class="btn btn-success" @click="submit">确认</button>
         </div>
+        
+        <!-- 结果页面 -->
         <div class="card" v-if="r">
             <h1>考试成绩</h1>
-            <p style="font-size:32px;text-align:center;margin:30px 0;">得分: <b style="color:#409eff">{{ r.score }}</b> 分</p>
-            <p style="text-align:center;">正确: {{ r.correct_count }}/{{ r.total_count }}</p>
-            <p style="text-align:center;margin-top:20px;"><button class="btn" onclick="location.reload()">再来一次</button></p>
+            <div class="result-score">{{ r.score }}分</div>
+            <p class="result-info">正确: {{ r.correct_count }}/{{ r.total_count }}</p>
+            <p style="text-align:center;margin-top:30px;">
+                <button class="btn" onclick="location.reload()">再来一次</button>
+            </p>
         </div>
     </div>
 </div>
@@ -205,7 +285,7 @@ createApp({
         
         return {p,started,cs,i,q,as,t,name,start,show,submit,r};
     }
-}).use(ElementPlus).mount('#app');
+}).mount('#app');
 </script>
 </body>
 </html>
