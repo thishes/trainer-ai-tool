@@ -795,9 +795,14 @@ router.post('/grade-essay', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, message: '试卷不存在' });
     }
 
-    // 权限验证
-    if (req.user.role !== "admin" && paper.user_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
+    // 权限验证（统一类型比较）
+    const currentUserId = String(req.user.id);
+    const paperOwnerId = String(paper.user_id);
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = paperOwnerId === currentUserId;
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: '无权限访问此试卷的评分' });
     }
 
     if (!db.essayScores || !db.essayScores.upsert) {

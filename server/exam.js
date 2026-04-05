@@ -305,6 +305,8 @@ router.post('/submit', async (req, res) => {
         percentage: paper.total_score > 0 ? Math.round((totalScore / paper.total_score) * 100) : 0,
         correct_count: correctCount,
         total_count: paperQuestions.length,
+        wrong_count: paperQuestions.length - correctCount,
+        duration: Math.round((new Date(examRecord.start_time).getTime() - new Date(examRecord.start_time).getTime()) / 1000) || Math.floor((new Date().getTime() - new Date(examRecord.start_time).getTime()) / 1000),
         // 客观题得分
         objective_score: objectiveScore,
         objective_total: objectiveTotal,
