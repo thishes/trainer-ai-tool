@@ -700,7 +700,12 @@ router.get('/pending-grading/:paperId', authenticate, async (req, res) => {
     }
     
     // 管理员或试卷所有者才能访问
-    if (req.user.role !== 'admin' && String(paper.user_id) !== String(req.user.id)) {
+    const currentUserId = String(req.user.id);
+    const paperOwnerId = String(paper.user_id || '');
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = paperOwnerId && paperOwnerId === currentUserId;
+    
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
