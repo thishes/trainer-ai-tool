@@ -2798,7 +2798,7 @@ export default {
 }
 .data-table tbody tr:hover { background: var(--bg-color-hover); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table .title-cell { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-table .title-cell { max-width: 224px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .action-group { display: flex; gap: 8px; align-items: center; }
 
