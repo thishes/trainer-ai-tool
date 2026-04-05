@@ -16,7 +16,10 @@ export default defineConfig({
       ext: '.gz',
       threshold: 1024,
       deleteOriginFile: false,
-      distDir: 'dist'
+      filter: (file) => {
+        // 不压缩已经压缩的图片
+        return !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
+      }
     }),
     // Brotli 压缩（更好的压缩率）
     viteCompression({
@@ -24,7 +27,9 @@ export default defineConfig({
       ext: '.br',
       threshold: 1024,
       deleteOriginFile: false,
-      distDir: 'dist'
+      filter: (file) => {
+        return !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
+      }
     })
   ],
   resolve: {
@@ -37,36 +42,58 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        // 生产环境移除 console，开发环境保留
-        drop_console: process.env.NODE_ENV === 'production',
-        drop_debugger: process.env.NODE_ENV === 'production',
-        pure_funcs: process.env.NODE_ENV === 'production' ? ['console.assert'] : []
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.assert', 'console.log', 'console.warn']
+      },
+      mangle: {
+        safari10: true
       }
     },
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      },
       output: {
-        // 更细粒度的代码分割
+        // 优化代码分割策略
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Vue 相关库
-            if (id.includes('vue') || id.includes('vue-router')) {
-              return 'vue-vendor'
+            // Vue 核心库 - 最高优先级
+            if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
+              return 'vue-core'
             }
-            // Arco Design
-            if (id.includes('@arco-design')) {
-              return 'arco-vendor'
+            // UI 组件库 - 合并到一起避免循环依赖
+            if (id.includes('element-plus') || id.includes('@arco-design')) {
+              return 'ui-vendor'
             }
-            // Element Plus
-            if (id.includes('element-plus')) {
-              return 'element-vendor'
+            // 工具库
+            if (id.includes('lodash') || id.includes('dayjs') || id.includes('moment')) {
+              return 'utils'
             }
-            // 其他大型库
-            if (id.includes('lodash') || id.includes('dayjs')) {
-              return 'utils-vendor'
-            }
-            // 默认第三方库
+            // 其他第三方库
             return 'vendor'
           }
+          // 按路由分割业务代码
+          if (id.includes('/src/views/')) {
+            const match = id.match(/\/src\/views\/([^/]+)\.vue/)
+            if (match) {
+              return `view-${match[1].toLowerCase()}`
+            }
+          }
+        },
+        // 优化 chunk 文件名
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name.split('.')
+          const ext = info[info.length - 1]
+          if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(assetInfo.name)) {
+            return 'assets/images/[name]-[hash][extname]'
+          }
+          if (/\.css$/i.test(assetInfo.name)) {
+            return 'assets/css/[name]-[hash][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
         }
       }
     },
@@ -74,20 +101,16 @@ export default defineConfig({
     cssCodeSplit: true,
     // 禁用 sourcemap 以减小体积
     sourcemap: false,
-    // 包体积警告阈值 (kB)
-    chunkSizeWarningLimit: 500,
+    // 包体积警告阈值
+    chunkSizeWarningLimit: 1000,
     // 构建输出目录
     outDir: 'dist',
     // 静态资源目录
     assetsDir: 'assets',
-    // 静态资源内联阈值 (bytes)
-    assetsInlineLimit: 4096,
+    // 静态资源内联阈值 - 增大小文件内联限制
+    assetsInlineLimit: 8192,
     // 预加载主要依赖
-    rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'index.html')
-      }
-    }
+    cssTarget: 'chrome61'
   },
   server: {
     port: 8080,
@@ -96,7 +119,6 @@ export default defineConfig({
       clientFiles: [
         './src/main.js',
         './src/App.vue',
-        './src/views/Dashboard.vue',
         './src/views/Login.vue'
       ]
     },
@@ -117,8 +139,18 @@ export default defineConfig({
       'vue',
       'vue-router',
       '@arco-design/web-vue',
-      'axios'
+      'axios',
+      'element-plus'
     ],
     exclude: ['lodash-es']
+  },
+  // 实验性功能：预构建缓存
+  experimental: {
+    renderBuiltUrl(filename, { hostType }) {
+      if (hostType === 'js') {
+        return { js: `/${filename}` }
+      }
+      return `/${filename}`
+    }
   }
 })

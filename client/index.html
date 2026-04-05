@@ -3,13 +3,92 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="培训师AI测试工具 - 专为培训场景设计的AI测试工具">
     <title>培训师小助手</title>
-    <link rel="icon" type="image/png" href="/logo.png">
-    <script type="module" crossorigin src="/assets/main-23c2227e.js"></script>
-    <link rel="stylesheet" href="/assets/index-5bd25620.css">
+    
+    <!-- 预连接关键域名 -->
+    <link rel="preconnect" href="https://kb.thishe.com" crossorigin>
+    <link rel="dns-prefetch" href="https://kb.thishe.com">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/logo-optimized.png">
+    
+    <!-- 内联关键 CSS -->
+    <style>
+      /* 骨架屏样式 - 首屏显示 */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+      #app {
+        height: 100%;
+      }
+      .app-skeleton {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      .skeleton-header {
+        height: 60px;
+        background: rgba(255,255,255,0.1);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .skeleton-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .skeleton-card {
+        width: 400px;
+        height: 300px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 8px;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      .loading-text {
+        color: white;
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+      }
+      /* 隐藏骨架屏当 Vue 加载完成 */
+      .vue-loaded .app-skeleton {
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- 骨架屏 - 首屏显示直到 Vue 加载完成 -->
+      <div class="app-skeleton">
+        <div class="skeleton-header"></div>
+        <div class="skeleton-content">
+          <div>
+            <div class="skeleton-card"></div>
+            <div class="loading-text">正在加载...</div>
+          </div>
+        </div>
+      </div>
+    </div>
     
+    <script>
+      // 性能监控
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var timing = performance.timing;
+          var pageLoadTime = timing.loadEventEnd - timing.navigationStart;
+          console.log('页面加载时间: ' + pageLoadTime + 'ms');
+        }, 0);
+      });
+    </script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
