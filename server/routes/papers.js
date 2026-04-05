@@ -186,7 +186,7 @@ router.post('/', authenticate, async (req, res) => {
       access_code: access_code || null,
       ip_limit: ip_limit || 0,
       allow_all_users: allow_all_users !== false,
-      user_id: (req.user.role === "admin" ? null : req.user.id),
+      user_id: req.user.id,
       status: 'draft',
       total_score: 0,
       start_time: start_time || null,
