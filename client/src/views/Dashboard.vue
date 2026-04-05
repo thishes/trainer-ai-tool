@@ -2744,14 +2744,15 @@ export default {
 }
 
 .content-card :deep(.arco-tabs-content) {
-  padding: 16px;
+  padding: 12px;
   margin-top: 0;
 }
 
 .content-card :deep(.arco-tabs-nav) {
   margin-bottom: 0;
+  padding: 0 16px;
   max-width: 100%;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .content-card :deep(.arco-tabs-content-wrapper) {
@@ -2775,8 +2776,8 @@ export default {
   box-shadow: var(--shadow-card);
 }
 
-.data-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; overflow-x: auto; }
-.data-table th, .data-table td { white-space: nowrap; }
+.data-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+.data-table th, .data-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .data-table th {
   background: var(--bg-color);
   font-weight: 500;
