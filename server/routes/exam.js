@@ -802,9 +802,9 @@ router.post('/grade-essay', authenticate, async (req, res) => {
 
     // 权限验证（统一类型比较）
     const currentUserId = String(req.user.id);
-    const paperOwnerId = String(paper.user_id);
+    const paperOwnerId = String(paper.user_id || '');
     const isAdmin = req.user.role === 'admin';
-    const isOwner = paperOwnerId === currentUserId;
+    const isOwner = paperOwnerId && paperOwnerId === currentUserId;
     
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, message: '无权限访问此试卷的评分' });
