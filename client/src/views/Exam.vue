@@ -75,13 +75,13 @@
 
       <div class="exam-content">
         <a-card class="question-card">
-          <template #header>
-            <div class="question-header">
-              <a-tag color="arcoblue" size="large">第 {{ currentIndex + 1 }} 题</a-tag>
-              <a-tag size="large">{{ questionTypeName(currentQuestion.type) }}</a-tag>
-              <a-tag color="green" size="large">{{ currentQuestion.score || 0 }}分</a-tag>
-            </div>
-          </template>
+          <div class="question-header">
+            <a-tag color="arcoblue" size="large">第 {{ currentIndex + 1 }} 题</a-tag>
+            <a-tag size="large">{{ questionTypeName(currentQuestion.type) }}</a-tag>
+            <a-tag color="green" size="large">{{ currentQuestion.score || 0 }}分</a-tag>
+          </div>
+
+          <a-divider style="margin: 12px 0" />
 
           <div class="question-title">{{ currentQuestion.title }}</div>
 
@@ -247,7 +247,8 @@ export default {
     const loadAnnouncements = async () => {
       try {
         const res = await getAnnouncements({ status: 'published' })
-        announcements.value = (res.data || []).map(a => ({
+        const list = res.data?.list || res.data || []
+        announcements.value = (Array.isArray(list) ? list : []).map(a => ({
           ...a,
           content: DOMPurify.sanitize(a.content || '', { USE_PROFILES: { html: true } })
         }))

@@ -147,9 +147,10 @@
                     </td>
                     <td>{{ q.score }}</td>
                     <td>
-                      <a-link @click="editQuestion(q)">编辑</a-link>
-                      <a-divider direction="vertical" />
-                      <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
+                      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                        <a-link @click="editQuestion(q)">编辑</a-link>
+                        <a-button type="text" status="danger" size="small" @click="deleteQuestion(q.id)">删除</a-button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -198,9 +199,10 @@
                     </td>
                     <td>{{ q.score }}</td>
                     <td>
-                      <a-link @click="editQuestion(q)">编辑</a-link>
-                      <a-divider direction="vertical" />
-                      <a-link status="danger" @click="deleteQuestion(q.id)">删除</a-link>
+                      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                        <a-link @click="editQuestion(q)">编辑</a-link>
+                        <a-button type="text" status="danger" size="small" @click="deleteQuestion(q.id)">删除</a-button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -301,15 +303,18 @@
                 </tr>
               </tbody>
             </table>
-            <div v-if="papers.length > papersPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
-              <span style="color: #666">共 {{ papers.length }} 条</span>
-              <a-pagination
-                v-model:current="papersPage"
-                :total="papers.length"
-                :page-size="papersPageSize"
-                size="small"
-                @change="papersPage = $event"
-              />
+            <div v-if="papers.length > papersPageSize" class="pagination">
+              <a-select v-model="papersPageSize" style="width: 80px" @change="papersPage = 1">
+                <a-option :value="8">8 条</a-option>
+                <a-option :value="10">10 条</a-option>
+                <a-option :value="15">15 条</a-option>
+                <a-option :value="20">20 条</a-option>
+              </a-select>
+              <span class="page-btn" @click="papersPage = 1">首页</span>
+              <span class="page-btn" @click="papersPage > 1 && papersPage--">上一页</span>
+              <span class="page-current">{{ papersPage }} / {{ Math.ceil(papers.length / papersPageSize) }}</span>
+              <span class="page-btn" @click="papersPage < Math.ceil(papers.length / papersPageSize) && papersPage++">下一页</span>
+              <span class="page-btn" @click="papersPage = Math.ceil(papers.length / papersPageSize)">末页</span>
             </div>
           </div>
         </a-card>
@@ -455,7 +460,7 @@
                 <th width="100">角色</th>
                 <th width="80">状态</th>
                 <th width="160">创建时间</th>
-                <th width="150">操作</th>
+                <th width="180">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -471,24 +476,27 @@
                 </td>
                 <td>{{ u.created_at ? new Date(u.created_at).toLocaleString() : '-' }}</td>
                 <td>
-                  <a-link @click="editUser(u)">编辑</a-link>
-                  <a-divider direction="vertical" />
-                  <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
-                  <a-divider direction="vertical" />
-                  <a-link status="danger" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-link>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                    <a-link @click="editUser(u)">编辑</a-link>
+                    <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
+                    <a-button type="text" status="danger" size="small" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div v-if="userList.length > userPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #666">共 {{ userList.length }} 条</span>
-            <a-pagination
-              v-model:current="userPage"
-              :total="userList.length"
-              :page-size="userPageSize"
-              size="small"
-              @change="userPage = $event"
-            />
+          <div v-if="userList.length > userPageSize" class="pagination">
+            <a-select v-model="userPageSize" style="width: 80px" @change="userPage = 1">
+              <a-option :value="8">8 条</a-option>
+              <a-option :value="10">10 条</a-option>
+              <a-option :value="15">15 条</a-option>
+              <a-option :value="20">20 条</a-option>
+            </a-select>
+            <span class="page-btn" @click="userPage = 1">首页</span>
+            <span class="page-btn" @click="userPage > 1 && userPage--">上一页</span>
+            <span class="page-current">{{ userPage }} / {{ Math.ceil(userList.length / userPageSize) }}</span>
+            <span class="page-btn" @click="userPage < Math.ceil(userList.length / userPageSize) && userPage++">下一页</span>
+            <span class="page-btn" @click="userPage = Math.ceil(userList.length / userPageSize)">末页</span>
           </div>
         </a-card>
       </div>
@@ -543,22 +551,26 @@
                 </td>
                 <td>{{ a.created_at ? new Date(a.created_at).toLocaleString() : '-' }}</td>
                 <td>
-                  <a-link @click="openAnnouncementDialog(a)">编辑</a-link>
-                  <a-divider direction="vertical" />
-                  <a-link status="danger" @click="deleteAnnouncementAction(a.id)">删除</a-link>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                    <a-link @click="openAnnouncementDialog(a)">编辑</a-link>
+                    <a-button type="text" status="danger" size="small" @click="deleteAnnouncementAction(a.id)">删除</a-button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div v-if="announcements.length > announcementPageSize" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #666">共 {{ announcements.length }} 条</span>
-            <a-pagination
-              v-model:current="announcementPage"
-              :total="announcements.length"
-              :page-size="announcementPageSize"
-              size="small"
-              @change="announcementPage = $event"
-            />
+          <div v-if="announcements.length > announcementPageSize" class="pagination">
+            <a-select v-model="announcementPageSize" style="width: 80px" @change="announcementPage = 1">
+              <a-option :value="8">8 条</a-option>
+              <a-option :value="10">10 条</a-option>
+              <a-option :value="15">15 条</a-option>
+              <a-option :value="20">20 条</a-option>
+            </a-select>
+            <span class="page-btn" @click="announcementPage = 1">首页</span>
+            <span class="page-btn" @click="announcementPage > 1 && announcementPage--">上一页</span>
+            <span class="page-current">{{ announcementPage }} / {{ Math.ceil(announcements.length / announcementPageSize) }}</span>
+            <span class="page-btn" @click="announcementPage < Math.ceil(announcements.length / announcementPageSize) && announcementPage++">下一页</span>
+            <span class="page-btn" @click="announcementPage = Math.ceil(announcements.length / announcementPageSize)">末页</span>
           </div>
         </a-card>
       </div>
@@ -642,15 +654,18 @@
               </tr>
             </tbody>
           </table>
-          <div v-if="filteredPendingGradingList.length > 0" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #666">共 {{ filteredPendingGradingList.length }} 条</span>
-            <a-pagination
-              v-model:current="pendingGradingPage"
-              :total="filteredPendingGradingList.length"
-              :page-size="pendingGradingPageSize"
-              size="small"
-              @change="handlePendingGradingPageChange"
-            />
+          <div v-if="filteredPendingGradingList.length > 0" class="pagination">
+            <a-select v-model="pendingGradingPageSize" style="width: 80px" @change="pendingGradingPage = 1">
+              <a-option :value="8">8 条</a-option>
+              <a-option :value="10">10 条</a-option>
+              <a-option :value="15">15 条</a-option>
+              <a-option :value="20">20 条</a-option>
+            </a-select>
+            <span class="page-btn" @click="pendingGradingPage = 1">首页</span>
+            <span class="page-btn" @click="pendingGradingPage > 1 && pendingGradingPage--">上一页</span>
+            <span class="page-current">{{ pendingGradingPage }} / {{ Math.ceil(filteredPendingGradingList.length / pendingGradingPageSize) }}</span>
+            <span class="page-btn" @click="pendingGradingPage < Math.ceil(filteredPendingGradingList.length / pendingGradingPageSize) && pendingGradingPage++">下一页</span>
+            <span class="page-btn" @click="pendingGradingPage = Math.ceil(filteredPendingGradingList.length / pendingGradingPageSize)">末页</span>
           </div>
         </a-card>
       </div>
@@ -1257,7 +1272,7 @@ export default {
     const pendingGradingSearch = ref('')
     const pendingGradingPaperFilter = ref(null)
     const pendingGradingPage = ref(1)
-    const pendingGradingPageSize = ref(10)
+    const pendingGradingPageSize = ref(8)
 
     const filteredPendingGradingList = computed(() => {
       let result = pendingGradingList.value || []
@@ -1387,14 +1402,23 @@ export default {
           console.log('未找到 Token!');
         }
         
-        await gradeEssay({ exam_record_id: record.id, scores })
+        const totalEssayScore = scores.reduce((sum, s) => sum + s.score, 0)
+        const response = await gradeEssay({ exam_record_id: record.id, scores })
         Message.success('评分提交成功')
+
+        if (currentGradingRecord.value && currentGradingRecord.value.id === record.id) {
+          currentGradingRecord.value.essay_score = totalEssayScore
+          currentGradingRecord.value.graded = true
+        }
+
         showGradingDrawer.value = false
         loadPendingGrading()
-      } catch (e) { 
+      } catch (e) {
         const errorMsg = e.response?.data?.message || e.message || '评分提交失败'
         Message.error(errorMsg)
-        console.error('评分提交失败详情:', e.response?.data)
+        console.error('评分提交失败详情:', e)
+        console.error('e.response:', e.response)
+        console.error('e.response?.data:', e.response?.data)
         // 如果是 403，打印详细用户信息帮助调试
         if (e.response?.status === 403) {
           const token = localStorage.getItem('token');
@@ -1455,7 +1479,7 @@ export default {
     const searchDifficulty = ref('')
     const activeCategory = ref('all')
     const questionPage = ref(1)
-    const questionPageSize = ref(15)
+    const questionPageSize = ref(8)
     const showQuestionDialog = ref(false)
     const showImportDialog = ref(false)
     const showCategoryDialog = ref(false)
@@ -1473,7 +1497,7 @@ export default {
 
     const papers = ref([])
     const papersPage = ref(1)
-    const papersPageSize = ref(10)
+    const papersPageSize = ref(8)
     const showPaperDialog = ref(false)
     const showRandomDialog = ref(false)
     const editingPaper = ref(null)
@@ -1513,7 +1537,7 @@ export default {
     const newEntryKey = ref(0)
 
     const initSocket = () => {
-      const wsUrl = window.location.origin
+      const wsUrl = 'http://localhost:3000'
       socket = io(wsUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
 
       socket.on('rank-update', (data) => {
@@ -1790,7 +1814,7 @@ export default {
 
     const userList = ref([])
     const userPage = ref(1)
-    const userPageSize = ref(10)
+    const userPageSize = ref(8)
     const userLoading = ref(false)
     const userSearch = ref('')
     const showUserDialog = ref(false)
@@ -1799,7 +1823,7 @@ export default {
 
     const announcements = ref([])
     const announcementPage = ref(1)
-    const announcementPageSize = ref(10)
+    const announcementPageSize = ref(8)
 
     const paginatedAnnouncements = computed(() => {
       const startIndex = (announcementPage.value - 1) * announcementPageSize.value
@@ -2430,7 +2454,7 @@ export default {
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
       user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
       showQuestionDialog, showImportDialog,
-      editingQuestion, questionForm, papers, papersPageSize, showPaperDialog, showRandomDialog,
+      editingQuestion, questionForm, papers, papersPage, papersPageSize, showPaperDialog, showRandomDialog,
       randomForm, paperForm, selectedPaper, stats, publishedPapers, paginatedPapers,
       showExamUrlDialog, examUrlData,
       showRecordsDialog, examRecords, examRecordsStats, examRecordsPagination, examRecordsPage,
@@ -2453,7 +2477,7 @@ export default {
       // 待评分抽屉
       showGradingDrawer, currentGradingRecord, submittingScore,
       pendingGradingSearch, pendingGradingPaperFilter, filteredPendingGradingList,
-      pendingGradingPage, handlePendingGradingPageChange,
+      pendingGradingPage, pendingGradingPageSize, handlePendingGradingPageChange,
       pendingGradingColumns, openGradingDrawer, filterPendingGrading, resetPendingGradingFilter, getStudentAvatarColor,
       // 批量导入
       importing, importResult, downloadTemplate, handleImportQuestions,
@@ -2475,6 +2499,10 @@ export default {
   display: flex;
   min-height: 100vh;
   background: var(--bg-color);
+}
+
+:deep(.arco-btn-text) {
+  white-space: nowrap;
 }
 
 .wizard-steps {
@@ -2621,6 +2649,8 @@ export default {
   padding: 24px;
   min-height: 100vh;
   max-width: 100%;
+  padding-bottom: 80px;
+  box-sizing: border-box;
 }
 
 .page-view {
@@ -3014,11 +3044,12 @@ export default {
   left: 220px;
   right: 0;
   text-align: center;
-  padding: 16px;
+  padding: 12px 16px;
   color: var(--text-secondary);
   font-size: 13px;
   background: var(--bg-color);
   border-top: 1px solid var(--border-color-light);
+  z-index: 1;
 }
 
 .rich-editor-wrapper {

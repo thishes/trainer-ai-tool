@@ -20,17 +20,6 @@
       "status": "active",
       "created_at": "2026-04-05T00:41:56.598Z",
       "updated_at": "2026-04-05T00:41:56.598Z"
-    },
-    {
-      "id": 6,
-      "key_id": "UMNN0C36QE422FC15",
-      "username": "地方",
-      "password": "$2a$10$fMGAAX8ipsA.lLuHCkSm8uR.VJpd6UfMd.pEzSGnf0MBv3W5ey3Ym",
-      "phone": "",
-      "role": "trainer",
-      "status": "active",
-      "created_at": "2026-04-06T09:48:09.890Z",
-      "updated_at": "2026-04-06T09:48:09.890Z"
     }
   ],
   "categories": [
@@ -518,11 +507,12 @@
       "show_answer": true,
       "allow_all_users": true,
       "user_id": 4,
-      "status": "draft",
+      "status": "published",
       "total_score": 30,
       "created_at": "2026-04-06T09:47:57.052Z",
-      "updated_at": "2026-04-06T09:47:57.114Z",
-      "question_count": 5
+      "updated_at": "2026-04-06T11:07:45.112Z",
+      "question_count": 5,
+      "qrcode_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB1PADUAAAAAklEQVR4AewaftIAAATnSURBVO3BQY4jRxAEwfAC//9l1xzzVECjk6NdKczwR6qWnFQtOqladFK16KRq0UnVopOqRSdVi06qFp1ULTqpWnRSteikatFJ1aKTqkUnVYs+eQnIb1LzBJAbNROQSc0NkEnNBORGzQ2Q36TmjZOqRSdVi06qFn2yTM0mIDdAbtQ8oWYC8gSQJ4BMam7UbAKy6aRq0UnVopOqRZ98GZAn1DyhZgIyAblRMwG5UTMBmdTcAJnUvAHkCTXfdFK16KRq0UnVok/+Z9RMQJ4AMqm5ATKp+S87qVp0UrXopGrRJ385IJOaJ9TcAJnU3ACZ1ExAbtT8zU6qFp1ULTqpWvTJl6n5JjWbgExqvknNG2r+JCdVi06qFp1ULfpkGZDfBGRSMwGZ1ExAJjUTkEnNBGRSMwGZ1ExAJjU3QP5kJ1WLTqoWnVQtwh/5HwHyhpoJyI2aCcik5r/kpGrRSdWik6pF+CMvAJnUTEAmNROQSc0EZFJzA2RScwNkUjMBuVEzAZnUfBOQSc0NkEnNppOqRSdVi06qFn2yDMik5kbNBGRScwPkBsjfBMiNmknNBGRSM6mZgExq3jipWnRSteikahH+yCIgk5oJyKTmBsgbam6A3Kh5A8ikZgIyqXkCyKRmAvKEmjdOqhadVC06qVqEP7IIyBtqNgF5Qs0NkEnNBOQJNROQSc0NkBs1E5BJzaaTqkUnVYtOqhZ98ocBcqNmAnKjZpOaCciNmjeATGomNROQJ4BMat44qVp0UrXopGrRJ79MzRtAJjVvALlRMwG5UfMnATKpmYBsOqladFK16KRq0ScvAZnUvAHkRs0NkEnNBGRScwPkm4DcqJmA3Ki5AfJNJ1WLTqoWnVQt+uQlNTdAbtRMat5Q8waQGzUTkAnIE2pugNyomYBMam7UbDqpWnRSteikahH+yCIgT6iZgNyoeQLIpOYJIDdqJiA3am6A3Kh5A8iNmjdOqhadVC06qVr0yS9TMwG5UfOGmgnIjZo31LyhZgLyBpBJzQRk00nVopOqRSdViz55Ccik5gbIE0AmNROQN9RMQCY1TwCZ1GwCMqmZgExqJiDfdFK16KRq0UnVok9eUjMBmdTcqJmATGomIDdqboDcqLkBMqm5ATKp+ZOo2XRSteikatFJ1SL8kReATGomIJOaJ4DcqPk3AXlCzQRkk5p/00nVopOqRSdViz55Sc2NmjfU3ACZ1ExAJjU3QCY1E5BvUvMEkBsgT6h546Rq0UnVopOqRZ+8BOQ3qZnUTEAmNU+omYA8oWYCMgF5Asik5gbIpGYC8k0nVYtOqhadVC36ZJmaTUDeAHKjZgJyo2YCMgHZpOYJNU+o2XRSteikatFJ1aJPvgzIE2qeAHKjZgJyo2YCMgGZ1NwAmdRMQCYgf7OTqkUnVYtOqhZ98pdTcwPkBsikZpOaCciNmhsgTwCZ1HzTSdWik6pFJ1WLPvnLAXlCzQRkAnKj5gbIpGZScwNkUvNNQCY1b5xULTqpWnRSteiTL1PzTWpugNyomYDcAJnUTGqeADKpuVEzAblRMwGZ1Gw6qVp0UrXopGrRJ8uA/CYg36TmBsikZhOQGzVvAJnUvHFSteikatFJ1SL8kaolJ1WLTqoWnVQtOqladFK16KRq0UnVopOqRSdVi06qFp1ULTqpWnRSteikatFJ1aJ/AFpXTzKP1fwhAAAAAElFTkSuQmCC"
     }
   ],
   "paperQuestions": [
@@ -572,7 +562,262 @@
       "score": 5
     }
   ],
-  "examRecords": [],
+  "examRecords": [
+    {
+      "id": 1,
+      "key_id": "EMNN36QRV713A6A5B",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "史蒂夫个",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:07:59.371Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:07:59.371Z",
+      "updated_at": "2026-04-06T11:13:48.974Z"
+    },
+    {
+      "id": 2,
+      "key_id": "EMNN3GDCK1A940A23",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "uuu",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:15:28.532Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:15:28.532Z",
+      "updated_at": "2026-04-06T11:15:28.532Z"
+    },
+    {
+      "id": 3,
+      "key_id": "EMNN3HCNB2B157420",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "uu",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:16:14.279Z",
+      "status": "graded",
+      "answers": {
+        "1": "啊的说法",
+        "2": "true",
+        "3": "是大法师地方v",
+        "11": "true",
+        "12": "阿斯顿发"
+      },
+      "created_at": "2026-04-06T11:16:14.279Z",
+      "updated_at": "2026-04-06T12:22:02.257Z",
+      "essay_answers": {
+        "1": {
+          "user_answer": "啊的说法",
+          "max_score": 5
+        },
+        "3": {
+          "user_answer": "是大法师地方v",
+          "max_score": 10
+        },
+        "12": {
+          "user_answer": "阿斯顿发",
+          "max_score": 5
+        }
+      },
+      "score": 10,
+      "percentage": 33,
+      "objective_score": 10,
+      "objective_total": 10,
+      "end_time": "2026-04-06T11:16:27.429Z"
+    },
+    {
+      "id": 4,
+      "key_id": "EMNN3JU3X4387E385",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "版本",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:18:10.221Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:18:10.222Z",
+      "updated_at": "2026-04-06T11:18:10.222Z"
+    },
+    {
+      "id": 5,
+      "key_id": "EMNN3KEY83EAFE7F5",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "ii",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:18:37.232Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:18:37.232Z",
+      "updated_at": "2026-04-06T11:39:59.189Z"
+    },
+    {
+      "id": 6,
+      "key_id": "EMNN3KYS0B92ABDFA",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "哦哦",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:19:02.928Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:19:02.928Z",
+      "updated_at": "2026-04-06T11:35:20.033Z"
+    },
+    {
+      "id": 7,
+      "key_id": "EMNN46DQK37879BFD",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "uu",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:35:42.092Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:35:42.092Z",
+      "updated_at": "2026-04-06T11:36:12.151Z"
+    },
+    {
+      "id": 8,
+      "key_id": "EMNN4CUF66CD1C50A",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "ttt",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:40:43.650Z",
+      "status": "in_progress",
+      "answers": {},
+      "created_at": "2026-04-06T11:40:43.650Z",
+      "updated_at": "2026-04-06T11:40:43.650Z"
+    },
+    {
+      "id": 9,
+      "key_id": "EMNN4D8G2F68EB1D6",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "ttt",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T11:41:01.826Z",
+      "status": "graded",
+      "answers": {
+        "1": "asdfdf",
+        "2": "true",
+        "3": "dsaf",
+        "11": "true",
+        "12": "sdfdsf"
+      },
+      "created_at": "2026-04-06T11:41:01.826Z",
+      "updated_at": "2026-04-06T12:22:41.116Z",
+      "essay_answers": {
+        "1": {
+          "user_answer": "asdfdf",
+          "max_score": 5
+        },
+        "3": {
+          "user_answer": "dsaf",
+          "max_score": 10
+        },
+        "12": {
+          "user_answer": "sdfdsf",
+          "max_score": 5
+        }
+      },
+      "score": 25,
+      "percentage": 83,
+      "objective_score": 10,
+      "objective_total": 10,
+      "end_time": "2026-04-06T11:41:12.331Z"
+    },
+    {
+      "id": 10,
+      "key_id": "EMNN5K77298F10C81",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "iii",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T12:14:26.414Z",
+      "status": "graded",
+      "answers": {
+        "1": "阿斯顿发发",
+        "2": "true",
+        "3": "哇发的",
+        "11": "true",
+        "12": "飒短发"
+      },
+      "created_at": "2026-04-06T12:14:26.414Z",
+      "updated_at": "2026-04-06T12:23:00.019Z",
+      "essay_answers": {
+        "1": {
+          "user_answer": "阿斯顿发发",
+          "max_score": 5
+        },
+        "3": {
+          "user_answer": "哇发的",
+          "max_score": 10
+        },
+        "12": {
+          "user_answer": "飒短发",
+          "max_score": 5
+        }
+      },
+      "score": 18,
+      "percentage": 60,
+      "objective_score": 10,
+      "objective_total": 10,
+      "end_time": "2026-04-06T12:14:38.619Z"
+    },
+    {
+      "id": 11,
+      "key_id": "EMNN5WOBKD269A178",
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "user_id": null,
+      "student_name": "测试的家伙",
+      "ip_address": "127.0.0.1",
+      "start_time": "2026-04-06T12:24:08.480Z",
+      "status": "graded",
+      "answers": {
+        "1": "发地方",
+        "2": "true",
+        "3": "是大法师",
+        "11": "true",
+        "12": "是大法师"
+      },
+      "created_at": "2026-04-06T12:24:08.480Z",
+      "updated_at": "2026-04-06T12:26:06.835Z",
+      "essay_answers": {
+        "1": {
+          "user_answer": "发地方",
+          "max_score": 5
+        },
+        "3": {
+          "user_answer": "是大法师",
+          "max_score": 10
+        },
+        "12": {
+          "user_answer": "是大法师",
+          "max_score": 5
+        }
+      },
+      "score": 10,
+      "percentage": 33,
+      "objective_score": 10,
+      "objective_total": 10,
+      "end_time": "2026-04-06T12:24:19.975Z"
+    }
+  ],
   "scoreRecords": [],
   "announcements": [
     {
@@ -643,5 +888,151 @@
       "updated_at": "2026-03-27T12:15:48.767Z"
     }
   ],
-  "paperStudents": []
+  "paperStudents": [],
+  "essayScores": [
+    {
+      "id": null,
+      "exam_record_id": 3,
+      "question_id": 1,
+      "score": 0,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:02.161Z",
+      "created_at": "2026-04-06T12:22:02.161Z",
+      "updated_at": "2026-04-06T12:22:02.161Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 3,
+      "question_id": 3,
+      "score": 0,
+      "max_score": 10,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:02.208Z",
+      "created_at": "2026-04-06T12:22:02.208Z",
+      "updated_at": "2026-04-06T12:22:02.208Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 3,
+      "question_id": 12,
+      "score": 0,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:02.230Z",
+      "created_at": "2026-04-06T12:22:02.230Z",
+      "updated_at": "2026-04-06T12:22:02.230Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 9,
+      "question_id": 1,
+      "score": 5,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:41.011Z",
+      "created_at": "2026-04-06T12:22:41.011Z",
+      "updated_at": "2026-04-06T12:22:41.011Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 9,
+      "question_id": 3,
+      "score": 5,
+      "max_score": 10,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:41.053Z",
+      "created_at": "2026-04-06T12:22:41.053Z",
+      "updated_at": "2026-04-06T12:22:41.053Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 9,
+      "question_id": 12,
+      "score": 5,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:41.077Z",
+      "created_at": "2026-04-06T12:22:41.077Z",
+      "updated_at": "2026-04-06T12:22:41.077Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 10,
+      "question_id": 1,
+      "score": 2,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:59.915Z",
+      "created_at": "2026-04-06T12:22:59.915Z",
+      "updated_at": "2026-04-06T12:22:59.915Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 10,
+      "question_id": 3,
+      "score": 3,
+      "max_score": 10,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:59.956Z",
+      "created_at": "2026-04-06T12:22:59.956Z",
+      "updated_at": "2026-04-06T12:22:59.956Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 10,
+      "question_id": 12,
+      "score": 3,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:22:59.980Z",
+      "created_at": "2026-04-06T12:22:59.980Z",
+      "updated_at": "2026-04-06T12:22:59.980Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 11,
+      "question_id": 1,
+      "score": 0,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:26:06.736Z",
+      "created_at": "2026-04-06T12:26:06.736Z",
+      "updated_at": "2026-04-06T12:26:06.736Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 11,
+      "question_id": 3,
+      "score": 0,
+      "max_score": 10,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:26:06.779Z",
+      "created_at": "2026-04-06T12:26:06.779Z",
+      "updated_at": "2026-04-06T12:26:06.779Z"
+    },
+    {
+      "id": null,
+      "exam_record_id": 11,
+      "question_id": 12,
+      "score": 0,
+      "max_score": 5,
+      "remark": "",
+      "graded_by": 4,
+      "graded_at": "2026-04-06T12:26:06.803Z",
+      "created_at": "2026-04-06T12:26:06.803Z",
+      "updated_at": "2026-04-06T12:26:06.803Z"
+    }
+  ]
 }

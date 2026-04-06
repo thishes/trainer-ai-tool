@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import fs from 'fs'
+import yaml from 'js-yaml'
 import { vitePluginForArco } from '@arco-plugins/vite-vue'
 import viteCompression from 'vite-plugin-compression'
+
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
 
 export default defineConfig({
   plugins: [
@@ -113,7 +117,7 @@ export default defineConfig({
     cssTarget: 'chrome61'
   },
   server: {
-    port: 8080,
+    port: 3001,
     // 预加载模块请求
     warmup: {
       clientFiles: [

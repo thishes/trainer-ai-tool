@@ -63,7 +63,7 @@
       </a-form>
     </div>
     <div class="login-footer">
-      <span>培训师小助手 v1.0.2</span>
+      <span>培训师小助手 v{{ APP_VERSION }}</span>
       <span class="divider">|</span>
       <span>&copy; 2026 Thishe. All Rights Reserved.</span>
     </div>
@@ -97,6 +97,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { login, register, getCaptcha } from '@/api'
+import { APP_VERSION } from '@/version'
 
 export default {
   name: 'Login',
@@ -205,6 +206,7 @@ export default {
       registerForm,
       handleLogin,
       handleRegister,
+      APP_VERSION,
       captchaDisplay,
       registerCaptchaDisplay,
       refreshCaptcha,
@@ -340,6 +342,20 @@ export default {
 
 :deep(.arco-form-item) {
   margin-bottom: 18px;
+}
+
+:deep(.arco-row) {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+:deep(.arco-form-item-label-col) {
+  display: none;
+}
+
+:deep(.arco-col-19) {
+  flex: 0 0 100%;
+  max-width: 100%;
 }
 
 :deep(.arco-input-wrapper) {
