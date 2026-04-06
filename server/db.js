@@ -79,6 +79,12 @@ function generateKeyId(prefix = '') {
 const db = readDB();
 initCounters(db);
 
+// 标准化题型辅助函数
+const normalizeQuestionType = (type) => {
+  if (type === 'choice') return 'single';
+  return type;
+};
+
 // 导出工具函数
 module.exports = {
   db,
@@ -193,7 +199,7 @@ module.exports = {
     create: (data) => {
       const { key_id, ...rest } = data;
       // 标准化题型
-      const normalizedType = db.questions.normalizeType(rest.type);
+      const normalizedType = normalizeQuestionType(rest.type);
       const question = { 
         id: getNextId('questions'), 
         key_id: generateKeyId('Q'), 
@@ -224,7 +230,7 @@ module.exports = {
         // 如果更新包含类型，进行标准化
         const updateData = { ...data };
         if (updateData.type) {
-          updateData.type = db.questions.normalizeType(updateData.type);
+          updateData.type = normalizeQuestionType(updateData.type);
         }
         db.questions[index] = { ...db.questions[index], ...updateData, updated_at: new Date().toISOString() };
         writeDB(db);

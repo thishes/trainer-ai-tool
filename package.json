@@ -1,6 +1,6 @@
 {
   "name": "trainer-ai-tool",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "培训师AI测试工具 - 专为培训场景设计的AI测试工具",
   "main": "server/index.js",
   "scripts": {

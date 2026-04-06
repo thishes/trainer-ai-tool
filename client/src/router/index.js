@@ -1,4 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
+
+NProgress.configure({ showSpinner: false })
 
 // 路由懒加载 - 减少初始包体积
 const Login = () => import('../views/Login.vue')
@@ -83,6 +87,7 @@ const router = createRouter({
 let progressBar = null
 
 router.beforeEach((to, _from, next) => {
+  NProgress.start()
   // 设置页面标题
   if (to.meta.title) {
     document.title = `${to.meta.title} - 培训师 AI 工具`
@@ -130,19 +135,23 @@ router.beforeEach((to, _from, next) => {
       // token 和登录状态都存在且有效，允许访问
       // 注意：token 的有效性验证由 API 拦截器处理，如果 token 无效，
       // API 请求会返回 401，届时会清除本地存储并重定向到登录页
+      NProgress.done()
       next()
     }
   } else if (to.path === '/login' && token && loggedIn) {
     // 已登录用户访问登录页，重定向到仪表板
+    NProgress.done()
     next('/dashboard')
   } else {
     // 其他情况直接访问
+    NProgress.done()
     next()
   }
 })
 
 // 路由加载错误处理
 router.onError((error, to) => {
+  NProgress.done()
   console.error('路由加载错误:', error)
   console.error('目标路由:', to.path)
   

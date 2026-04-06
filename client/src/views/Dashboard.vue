@@ -930,15 +930,27 @@
 
     <a-modal v-model:visible="showImportDialog" title="批量导入题目" :width="600" @cancel="showImportDialog = false" :footer="null">
       <div style="padding: 20px 0">
-        <a-alert type="info" title="导入说明" style="margin-bottom: 16px">
-          <template #content>
-            <div style="font-size: 13px; line-height: 1.8">
-              <div>1. 下载模板文件，按照格式填写题目内容</div>
-              <div>2. 支持题型：单选题、多选题、判断题、问答题</div>
-              <div>3. 上传 Excel 文件后会自动验证数据格式</div>
-              <div>4. 导入成功后会显示导入结果统计</div>
-            </div>
+        <a-alert type="info" style="margin-bottom: 16px">
+          <template #title>
+            <span style="font-weight: 600">导入说明</span>
           </template>
+          <div style="font-size: 13px; line-height: 1.8">
+            <div><strong>题型说明：</strong></div>
+            <div style="margin-left: 12px; margin-bottom: 8px">
+              • single - 单选题（需要填写选项A-D和正确答案）<br>
+              • multiple - 多选题（多个正确答案用无间隔字符连接，如"AC"）<br>
+              • judge - 判断题（正确答案填写 true 或 false）<br>
+              • subjective - 问答题（只需填写题目内容和分值）
+            </div>
+            <div><strong>难度等级：</strong>easy（简单）/ medium（中等）/ hard（困难）</div>
+            <div><strong>注意事项：</strong></div>
+            <div style="margin-left: 12px">
+              • 类别名称需与系统中已存在的类别匹配<br>
+              • 多选题正确答案格式：如同时选A和C，填写"AC"<br>
+              • 判断题正确答案为 true（正确）或 false（错误）<br>
+              • Excel中请勿合并单元格，保持数据格式整洁
+            </div>
+          </div>
         </a-alert>
         
         <div style="display: flex; gap: 12px; margin-bottom: 20px">
@@ -966,7 +978,7 @@
         </div>
         
         <div v-if="importing" style="text-align: center; padding: 40px 0">
-          <a-spin tip="导入中，请稍候..." size="large" />
+          <a-spin tip="导入中，请稍候..." />
         </div>
       </div>
     </a-modal>
@@ -1175,6 +1187,7 @@ import { useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import { io } from 'socket.io-client'
 import E from 'wangeditor'
+import * as XLSX from 'xlsx'
 import {
   IconUser, IconDashboard, IconCheckCircle, IconTrophy,
   IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
@@ -1192,6 +1205,7 @@ import {
   checkUpgrade, doUpgrade
 } from '@/api'
 import { formatDateTime } from '@/utils/date'
+import { APP_VERSION } from '@/version'
 
 export default {
   name: 'Dashboard',
@@ -1200,7 +1214,7 @@ export default {
     const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
     const activeTab = ref('questions')
     const sidebarOpen = ref(false)
-    const currentVersion = ref('1.0.2')
+    const currentVersion = ref(APP_VERSION)
     const upgradeInfo = ref({})
     const checkingUpgrade = ref(false)
     const upgrading = ref(false)
@@ -1652,117 +1666,110 @@ export default {
     
     // 批量导入相关方法
     const downloadTemplate = () => {
-      const XLSX = require('xlsx')
       const ws_data = [
-        ['题目内容', '题型', '选项 A', '选项 B', '选项 C', '选项 D', '正确答案', '难度', '分值', '答案解析', '类别名称'],
-        ['示例：JavaScript 是什么类型的编程语言？', 'single', '编译型', '解释型', '混合型', '以上都不是', 'B', 'medium', '10', 'JavaScript 是一种解释型语言', '技术类'],
-        ['示例：以下哪些是前端框架？', 'multiple', 'Vue', 'Django', 'React', 'Flask', 'AC', 'easy', '15', 'Vue 和 React 是前端框架', '技术类'],
-        ['示例：地球是圆的', 'judge', '', '', '', '', 'true', 'easy', '5', '', '常识类'],
-        ['示例：请简述 HTTP 和 HTTPS 的区别', 'subjective', '', '', '', '', '', 'medium', '20', 'HTTPS 在 HTTP 基础上增加了 SSL/TLS 加密层', '技术类']
+        ['题目内容', '题型', '选项A', '选项B', '选项C', '选项D', '正确答案', '难度', '分值', '答案解析', '类别名称'],
+        ['【第一行是表头，请从第二行开始填写】', '', '', '', '', '', '', '', '', '', ''],
+        ['示例-单选题：JavaScript是什么类型的编程语言？', 'single', '编译型语言', '解释型语言', '汇编语言', '机器语言', 'B', 'medium', '10', 'JavaScript是一门解释型语言，代码不需要编译直接由浏览器解释执行', '编程语言'],
+        ['示例-多选题：以下哪些是前端框架？', 'multiple', 'Vue', 'Django', 'React', 'Spring', 'AC', 'easy', '15', 'Vue和React是主流前端框架，Django和Spring是后端框架', '编程语言'],
+        ['示例-判断题：Python是一种解释型语言', 'judge', '', '', '', '', 'true', 'easy', '5', 'Python确实是一种解释型语言', '编程语言'],
+        ['示例-问答题：请简述HTTP和HTTPS的区别', 'subjective', '', '', '', '', '', 'medium', '20', 'HTTPS = HTTP + SSL/TLS加密传输，HTTP端口80，HTTPS端口443', '计算机基础'],
+        ['【题型填写规范】single=单选 multiple=多选 judge=判断 subjective=问答', '', '', '', '', '', '', '', '', '', ''],
+        ['【难度填写规范】easy=简单 medium=中等 hard=困难', '', '', '', '', '', '', '', '', '', ''],
+        ['【多选题正确答案】如同时选AC则填写"AC"，同时选BCD则填写"BCD"（无间隔）', '', '', '', '', '', '', '', '', '', ''],
+        ['【判断题正确答案】正确填写"true"，错误填写"false"', '', '', '', '', '', '', '', '', '', '']
       ]
       const wb = XLSX.utils.book_new()
       const ws = XLSX.utils.aoa_to_sheet(ws_data)
-      XLSX.utils.book_append_sheet(wb, ws, '题目模板')
+      ws['!cols'] = [
+        { wch: 45 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 35 }, { wch: 15 }
+      ]
+      XLSX.utils.book_append_sheet(wb, ws, '题目导入模板')
       XLSX.writeFile(wb, '题目导入模板.xlsx')
     }
     
-    const handleImportQuestions = async (fileObj) => {
+    const handleImportQuestions = async (options) => {
+      const file = options.fileItem.file
+      console.log('file:', file)
       importing.value = true
       importResult.value = null
-      
+
       try {
-        const file = fileObj.file
-        const XLSX = require('xlsx')
-        const data = new FileReader().readAsArrayBuffer(file)
-        
-        await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            try {
-              const data = new Uint8Array(e.target.result)
-              const workbook = XLSX.read(data, { type: 'array' })
-              const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-              const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
-              
-              // 跳过第一行（标题行）
-              const questionsData = jsonData.slice(1).filter(row => row[0] && row[0].toString().trim())
-              
-              if (questionsData.length === 0) {
-                throw new Error('Excel 中没有有效的题目数据')
-              }
-              
-              // 转换数据格式
-              const questionsToImport = questionsData.map((row, index) => {
-                const typeMap = { 'single': 'single', 'multiple': 'multiple', 'judge': 'judge', 'true/false': 'judge', 'subjective': 'subjective' }
-                const difficultyMap = { 'easy': 'easy', 'medium': 'medium', 'hard': 'hard', '简单': 'easy', '中等': 'medium', '困难': 'hard' }
-                
-                let options = []
-                if (row[1] === 'single' || row[1] === 'multiple') {
-                  options = [
-                    { key: 'A', value: row[2] || '' },
-                    { key: 'B', value: row[3] || '' },
-                    { key: 'C', value: row[4] || '' },
-                    { key: 'D', value: row[5] || '' }
-                  ].filter(opt => opt.value)
-                }
-                
-                let answer = row[6] || ''
-                if (row[1] === 'judge') {
-                  answer = (answer === 'true' || answer === '正确' || answer === 'T') ? 'true' : 'false'
-                }
-                
-                return {
-                  title: row[0]?.toString() || '',
-                  type: typeMap[row[1]?.toString().toLowerCase()] || 'single',
-                  options: options,
-                  answer: answer,
-                  difficulty: difficultyMap[row[7]?.toString().toLowerCase()] || 'medium',
-                  score: parseInt(row[8]) || 10,
-                  explanation: row[9] || '',
-                  category_name: row[10]?.toString() || ''
-                }
-              })
-              
-              resolve(questionsToImport)
-            } catch (e) {
-              reject(e)
-            }
+        if (!file) {
+          throw new Error('无法读取文件，请选择有效的Excel文件')
+        }
+        const arrayBuffer = await file.arrayBuffer()
+        const data = new Uint8Array(arrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+
+        const questionsData = jsonData.slice(1).filter(row => row[0] && row[0].toString().trim())
+
+        if (questionsData.length === 0) {
+          throw new Error('Excel 中没有有效的题目数据')
+        }
+
+        const questionsToImport = questionsData.map((row) => {
+          const typeMap = { 'single': 'single', 'multiple': 'multiple', 'judge': 'judge', 'true/false': 'judge', 'subjective': 'subjective' }
+          const difficultyMap = { 'easy': 'easy', 'medium': 'medium', 'hard': 'hard', '简单': 'easy', '中等': 'medium', '困难': 'hard' }
+
+          let options = []
+          if (row[1] === 'single' || row[1] === 'multiple') {
+            options = [
+              { key: 'A', value: row[2] || '' },
+              { key: 'B', value: row[3] || '' },
+              { key: 'C', value: row[4] || '' },
+              { key: 'D', value: row[5] || '' }
+            ].filter(opt => opt.value)
           }
-          reader.onerror = reject
-          reader.readAsArrayBuffer(file)
-        }).then(async (questionsToImport) => {
-          // 批量导入 API 调用
-          let successCount = 0
-          let failCount = 0
-          const errors = []
-          
-          for (const q of questionsToImport) {
-            try {
-              const data = {
-                title: q.title,
-                type: q.type,
-                options: q.options,
-                answer: q.answer,
-                difficulty: q.difficulty,
-                score: q.score,
-                explanation: q.explanation,
-                status: 'draft'
-              }
-              
-              await createQuestion(data)
-              successCount++
-            } catch (e) {
-              failCount++
-              errors.push(`题目"${q.title.substring(0, 20)}..."导入失败：${e.message}`)
-            }
+
+          let answer = row[6] || ''
+          if (row[1] === 'judge') {
+            answer = (answer === 'true' || answer === '正确' || answer === 'T') ? 'true' : 'false'
           }
-          
-          importResult.value = {
-            success: successCount > 0,
-            title: successCount > 0 ? `成功导入${successCount}道题目` : '导入失败',
-            subtitle: failCount > 0 ? `失败${failCount}道` + (errors.length > 0 ? `\n${errors.slice(0, 3).join('\n')}` : '') : '所有题目已成功导入到题库'
+
+          return {
+            title: row[0]?.toString() || '',
+            type: typeMap[row[1]?.toString().toLowerCase()] || 'single',
+            options: options,
+            answer: answer,
+            difficulty: difficultyMap[row[7]?.toString().toLowerCase()] || 'medium',
+            score: parseInt(row[8]) || 10,
+            explanation: row[9] || '',
+            category_name: row[10]?.toString() || ''
           }
         })
+
+        let successCount = 0
+        let failCount = 0
+        const errors = []
+
+        for (const q of questionsToImport) {
+          try {
+            const postData = {
+              title: q.title,
+              type: q.type,
+              options: q.options,
+              answer: q.answer,
+              difficulty: q.difficulty,
+              score: q.score,
+              explanation: q.explanation,
+              status: 'draft'
+            }
+
+            await createQuestion(postData)
+            successCount++
+          } catch (e) {
+            failCount++
+            errors.push(`题目"${q.title.substring(0, 20)}..."导入失败：${e.message}`)
+          }
+        }
+
+        importResult.value = {
+          success: successCount > 0,
+          title: successCount > 0 ? `成功导入${successCount}道题目` : '导入失败',
+          subtitle: failCount > 0 ? `失败${failCount}道` + (errors.length > 0 ? `\n${errors.slice(0, 3).join('\n')}` : '') : '所有题目已成功导入到题库'
+        }
       } catch (e) {
         console.error('导入失败:', e)
         importResult.value = {
@@ -1772,7 +1779,7 @@ export default {
         }
       } finally {
         importing.value = false
-        fileObj.onSuccess && fileObj.onSuccess()
+        options.onSuccess && options.onSuccess()
       }
     }
 

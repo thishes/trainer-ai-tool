@@ -63,9 +63,26 @@
   "questions": [
     {
       "id": 1,
-      "key_id": "QMND52DHG82DEF93D",
-      "title": "JavaScript是什么类型的语言？",
-      "type": "subjective",
+      "key_id": "QMNN7JGCAA23518D6",
+      "title": "【第一行是表头，请从第二行开始填写】",
+      "type": "single",
+      "options": [],
+      "answer": "",
+      "explanation": "",
+      "difficulty": "medium",
+      "score": 10,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:50.842Z",
+      "updated_at": "2026-04-06T13:09:50.842Z"
+    },
+    {
+      "id": 2,
+      "key_id": "QMNN7JGE0CA898741",
+      "title": "示例-单选题：JavaScript是什么类型的编程语言？",
+      "type": "single",
       "options": [
         {
           "key": "A",
@@ -81,743 +98,160 @@
         },
         {
           "key": "D",
-          "value": "标记语言"
+          "value": "机器语言"
         }
       ],
       "answer": "B",
-      "explanation": "JavaScript是一种解释型语言，由浏览器动态解释执行。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
+      "explanation": "JavaScript是一门解释型语言，代码不需要编译直接由浏览器解释执行",
+      "difficulty": "medium",
+      "score": 10,
+      "tags": [],
+      "category_id": null,
       "user_id": 4,
-      "status": "published",
-      "created_at": "2026-03-30T12:02:52.997Z",
-      "updated_at": "2026-04-04T06:12:00.627Z"
-    },
-    {
-      "id": 2,
-      "key_id": "QMND52DHJC5831E3A",
-      "title": "Vue.js是一个用于构建用户界面的渐进式框架",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "Vue.js确实是一个渐进式JavaScript框架，可自底向上逐层应用。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-03-30T12:02:52.999Z",
-      "updated_at": "2026-03-30T12:02:52.999Z"
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:50.904Z",
+      "updated_at": "2026-04-06T13:09:50.904Z"
     },
     {
       "id": 3,
-      "key_id": "QMND52DHJ5CEDC597",
-      "title": "以下哪个不是JavaScript的数据类型？",
-      "type": "subjective",
-      "options": [
-        {
-          "key": "A",
-          "value": "String"
-        },
-        {
-          "key": "B",
-          "value": "Number"
-        },
-        {
-          "key": "C",
-          "value": "Boolean"
-        },
-        {
-          "key": "D",
-          "value": "Character"
-        }
-      ],
-      "answer": "D",
-      "explanation": "JavaScript的基本数据类型包括String、Number、Boolean、undefined、null、Symbol，没有Character类型。",
-      "difficulty": "medium",
-      "score": 10,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-03-30T12:02:52.999Z",
-      "updated_at": "2026-04-04T06:11:54.069Z"
-    },
-    {
-      "id": 4,
-      "key_id": "QMND52DHJ419687CA",
-      "title": "Node.js可以用于开发后端服务",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "Node.js基于Chrome V8引擎，可以用来开发服务器端应用。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-03-30T12:02:52.999Z",
-      "updated_at": "2026-03-30T12:02:52.999Z"
-    },
-    {
-      "id": 5,
-      "key_id": "QMND52DHJ0ABDCCA7",
-      "title": "Express.js是Node.js的一个Web应用框架",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "Express是最受欢迎的Node.js Web框架，简单、灵活且功能强大。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-03-30T12:02:52.999Z",
-      "updated_at": "2026-03-30T12:02:52.999Z"
-    },
-    {
-      "id": 6,
-      "key_id": "QMND529E7A47D52B",
-      "title": "React主要用于构建什么类型的应用？",
-      "type": "subjective",
-      "options": [
-        {
-          "key": "A",
-          "value": "桌面应用"
-        },
-        {
-          "key": "B",
-          "value": "移动应用"
-        },
-        {
-          "key": "C",
-          "value": "用户界面/前端应用"
-        },
-        {
-          "key": "D",
-          "value": "后端服务"
-        }
-      ],
-      "answer": "C",
-      "explanation": "React是Facebook开发的用于构建用户界面的JavaScript库，主要用于前端应用。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-04T06:11:08.803Z"
-    },
-    {
-      "id": 7,
-      "key_id": "QMND52AFA17569F4",
-      "title": "HTML5提供了语义化标签如header、footer、article等",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "HTML5引入了许多语义化标签，使网页结构更清晰。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
-    },
-    {
-      "id": 8,
-      "key_id": "QMND524C2277E665",
-      "title": "CSS盒子模型由哪些部分组成？",
+      "key_id": "QMNN7JGFD16FEB62C",
+      "title": "示例-多选题：以下哪些是前端框架？",
       "type": "multiple",
       "options": [
         {
           "key": "A",
-          "value": "content、padding"
+          "value": "Vue"
         },
         {
           "key": "B",
-          "value": "content、padding、border、margin"
+          "value": "Django"
         },
         {
           "key": "C",
-          "value": "width、height"
+          "value": "React"
         },
         {
           "key": "D",
-          "value": "display、position"
+          "value": "Spring"
         }
       ],
-      "answer": [
-        "B"
-      ],
-      "explanation": "CSS盒子模型包括content(内容)、padding(内边距)、border(边框)、margin(外边距)四个部分。",
-      "difficulty": "medium",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-04T06:11:16.230Z"
-    },
-    {
-      "id": 9,
-      "key_id": "QMND526882447230",
-      "title": "HTTP状态码404表示资源不存在",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "404 Not Found表示服务器无法找到请求的资源。",
+      "answer": "AC",
+      "explanation": "Vue和React是主流前端框架，Django和Spring是后端框架",
       "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
+      "score": 15,
+      "tags": [],
+      "category_id": null,
       "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
-    },
-    {
-      "id": 10,
-      "key_id": "QMND52A0C27AF1AC",
-      "title": "RESTful API设计规范中，GET请求用于",
-      "type": "single",
-      "options": [
-        {
-          "key": "A",
-          "value": "创建资源"
-        },
-        {
-          "key": "B",
-          "value": "更新资源"
-        },
-        {
-          "key": "C",
-          "value": "查询资源"
-        },
-        {
-          "key": "D",
-          "value": "删除资源"
-        }
-      ],
-      "answer": "C",
-      "explanation": "RESTful规范中，GET请求用于查询/获取资源，是幂等的。",
-      "difficulty": "medium",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-04T06:11:34.736Z"
-    },
-    {
-      "id": 11,
-      "key_id": "QMND52581528A0F4",
-      "title": "Git中的merge和rebase都可以用于合并分支",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "merge和rebase都是Git中合并分支的方式，各有优缺点。",
-      "difficulty": "medium",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
-    },
-    {
-      "id": 12,
-      "key_id": "QMND52F285242ECD",
-      "title": "以下哪个不是关系型数据库？",
-      "type": "subjective",
-      "options": [
-        {
-          "key": "A",
-          "value": "MySQL"
-        },
-        {
-          "key": "B",
-          "value": "PostgreSQL"
-        },
-        {
-          "key": "C",
-          "value": "MongoDB"
-        },
-        {
-          "key": "D",
-          "value": "SQLite"
-        }
-      ],
-      "answer": "C",
-      "explanation": "MongoDB是NoSQL文档型数据库，不是关系型数据库。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-04T06:11:42.016Z"
-    },
-    {
-      "id": 13,
-      "key_id": "QMND520917F0C166",
-      "title": "TypeScript是JavaScript的超集，添加了类型系统",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "TypeScript是JavaScript的超集，它添加了静态类型定义和其他高级特性。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
-    },
-    {
-      "id": 14,
-      "key_id": "QMND52661DFCA65D",
-      "title": "Vue2和Vue3最大的区别是什么？",
-      "type": "subjective",
-      "options": [
-        {
-          "key": "A",
-          "value": "模板语法完全不同"
-        },
-        {
-          "key": "B",
-          "value": "响应式系统的重写"
-        },
-        {
-          "key": "C",
-          "value": "移除了组件系统"
-        },
-        {
-          "key": "D",
-          "value": "不再支持Vue Router"
-        }
-      ],
-      "answer": "B",
-      "explanation": "Vue3重写了响应式系统，使用Proxy替代Object.defineProperty。",
-      "difficulty": "medium",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-04T06:11:47.800Z"
-    },
-    {
-      "id": 15,
-      "key_id": "QMND52921F2F4A4",
-      "title": "AJAX技术主要用于实现网页的局部刷新",
-      "type": "judge",
-      "options": [
-        {
-          "key": "A",
-          "value": "正确"
-        },
-        {
-          "key": "B",
-          "value": "错误"
-        }
-      ],
-      "answer": "A",
-      "explanation": "AJAX允许网页在不重新加载整个页面的情况下与服务器交换数据。",
-      "difficulty": "easy",
-      "score": 5,
-      "category_id": 3,
-      "user_id": 4,
-      "status": "published",
-      "created_at": "2026-04-02T12:00:00.000Z",
-      "updated_at": "2026-04-02T12:00:00.000Z"
-    }
-  ],
-  "papers": [
-    {
-      "id": 1,
-      "key_id": "PMNN0BTA471B4D4ED",
-      "title": "大法师",
-      "description": "随机抽取5道题目",
-      "time_limit": 60,
-      "shuffle": false,
-      "show_score": true,
-      "show_answer": true,
-      "allow_all_users": true,
-      "user_id": 4,
-      "status": "published",
-      "total_score": 30,
-      "created_at": "2026-04-06T09:47:57.052Z",
-      "updated_at": "2026-04-06T11:07:45.112Z",
-      "question_count": 5,
-      "qrcode_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB1PADUAAAAAklEQVR4AewaftIAAATnSURBVO3BQY4jRxAEwfAC//9l1xzzVECjk6NdKczwR6qWnFQtOqladFK16KRq0UnVopOqRSdVi06qFp1ULTqpWnRSteikatFJ1aKTqkUnVYs+eQnIb1LzBJAbNROQSc0NkEnNBORGzQ2Q36TmjZOqRSdVi06qFn2yTM0mIDdAbtQ8oWYC8gSQJ4BMam7UbAKy6aRq0UnVopOqRZ98GZAn1DyhZgIyAblRMwG5UTMBmdTcAJnUvAHkCTXfdFK16KRq0UnVok/+Z9RMQJ4AMqm5ATKp+S87qVp0UrXopGrRJ385IJOaJ9TcAJnU3ACZ1ExAbtT8zU6qFp1ULTqpWvTJl6n5JjWbgExqvknNG2r+JCdVi06qFp1ULfpkGZDfBGRSMwGZ1ExAJjUTkEnNBGRSMwGZ1ExAJjU3QP5kJ1WLTqoWnVQtwh/5HwHyhpoJyI2aCcik5r/kpGrRSdWik6pF+CMvAJnUTEAmNROQSc0EZFJzA2RScwNkUjMBuVEzAZnUfBOQSc0NkEnNppOqRSdVi06qFn2yDMik5kbNBGRScwPkBsjfBMiNmknNBGRSM6mZgExq3jipWnRSteikahH+yCIgk5oJyKTmBsgbam6A3Kh5A8ikZgIyqXkCyKRmAvKEmjdOqhadVC06qVqEP7IIyBtqNgF5Qs0NkEnNBOQJNROQSc0NkBs1E5BJzaaTqkUnVYtOqhZ98ocBcqNmAnKjZpOaCciNmjeATGomNROQJ4BMat44qVp0UrXopGrRJ79MzRtAJjVvALlRMwG5UfMnATKpmYBsOqladFK16KRq0ScvAZnUvAHkRs0NkEnNBGRScwPkm4DcqJmA3Ki5AfJNJ1WLTqoWnVQt+uQlNTdAbtRMat5Q8waQGzUTkAnIE2pugNyomYBMam7UbDqpWnRSteikahH+yCIgT6iZgNyoeQLIpOYJIDdqJiA3am6A3Kh5A8iNmjdOqhadVC06qVr0yS9TMwG5UfOGmgnIjZo31LyhZgLyBpBJzQRk00nVopOqRSdViz55Ccik5gbIE0AmNROQN9RMQCY1TwCZ1GwCMqmZgExqJiDfdFK16KRq0UnVok9eUjMBmdTcqJmATGomIDdqboDcqLkBMqm5ATKp+ZOo2XRSteikatFJ1SL8kReATGomIJOaJ4DcqPk3AXlCzQRkk5p/00nVopOqRSdViz55Sc2NmjfU3ACZ1ExAJjU3QCY1E5BvUvMEkBsgT6h546Rq0UnVopOqRZ+8BOQ3qZnUTEAmNU+omYA8oWYCMgF5Asik5gbIpGYC8k0nVYtOqhadVC36ZJmaTUDeAHKjZgJyo2YCMgHZpOYJNU+o2XRSteikatFJ1aJPvgzIE2qeAHKjZgJyo2YCMgGZ1NwAmdRMQCYgf7OTqkUnVYtOqhZ98pdTcwPkBsikZpOaCciNmhsgTwCZ1HzTSdWik6pFJ1WLPvnLAXlCzQRkAnKj5gbIpGZScwNkUvNNQCY1b5xULTqpWnRSteiTL1PzTWpugNyomYDcAJnUTGqeADKpuVEzAblRMwGZ1Gw6qVp0UrXopGrRJ8uA/CYg36TmBsikZhOQGzVvAJnUvHFSteikatFJ1SL8kaolJ1WLTqoWnVQtOqladFK16KRq0UnVopOqRSdVi06qFp1ULTqpWnRSteikatFJ1aJ/AFpXTzKP1fwhAAAAAElFTkSuQmCC"
-    }
-  ],
-  "paperQuestions": [
-    {
-      "id": 1,
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "question_id": 3,
-      "question_key_id": "QMND52DHJ5CEDC597",
-      "order": 0,
-      "score": 10
-    },
-    {
-      "id": 2,
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "question_id": 12,
-      "question_key_id": "QMND52F285242ECD",
-      "order": 1,
-      "score": 5
-    },
-    {
-      "id": 3,
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "question_id": 1,
-      "question_key_id": "QMND52DHG82DEF93D",
-      "order": 2,
-      "score": 5
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:50.953Z",
+      "updated_at": "2026-04-06T13:09:50.953Z"
     },
     {
       "id": 4,
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "question_id": 2,
-      "question_key_id": "QMND52DHJC5831E3A",
-      "order": 3,
-      "score": 5
+      "key_id": "QMNN7JGIP6FF40250",
+      "title": "示例-判断题：Python是一种解释型语言",
+      "type": "judge",
+      "options": [],
+      "answer": "true",
+      "explanation": "Python确实是一种解释型语言",
+      "difficulty": "easy",
+      "score": 5,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.073Z",
+      "updated_at": "2026-04-06T13:09:51.073Z"
     },
     {
       "id": 5,
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "question_id": 11,
-      "question_key_id": "QMND52581528A0F4",
-      "order": 4,
-      "score": 5
-    }
-  ],
-  "examRecords": [
-    {
-      "id": 1,
-      "key_id": "EMNN36QRV713A6A5B",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "史蒂夫个",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:07:59.371Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:07:59.371Z",
-      "updated_at": "2026-04-06T11:13:48.974Z"
-    },
-    {
-      "id": 2,
-      "key_id": "EMNN3GDCK1A940A23",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "uuu",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:15:28.532Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:15:28.532Z",
-      "updated_at": "2026-04-06T11:15:28.532Z"
-    },
-    {
-      "id": 3,
-      "key_id": "EMNN3HCNB2B157420",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "uu",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:16:14.279Z",
-      "status": "graded",
-      "answers": {
-        "1": "啊的说法",
-        "2": "true",
-        "3": "是大法师地方v",
-        "11": "true",
-        "12": "阿斯顿发"
-      },
-      "created_at": "2026-04-06T11:16:14.279Z",
-      "updated_at": "2026-04-06T12:22:02.257Z",
-      "essay_answers": {
-        "1": {
-          "user_answer": "啊的说法",
-          "max_score": 5
-        },
-        "3": {
-          "user_answer": "是大法师地方v",
-          "max_score": 10
-        },
-        "12": {
-          "user_answer": "阿斯顿发",
-          "max_score": 5
-        }
-      },
-      "score": 10,
-      "percentage": 33,
-      "objective_score": 10,
-      "objective_total": 10,
-      "end_time": "2026-04-06T11:16:27.429Z"
-    },
-    {
-      "id": 4,
-      "key_id": "EMNN3JU3X4387E385",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "版本",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:18:10.221Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:18:10.222Z",
-      "updated_at": "2026-04-06T11:18:10.222Z"
-    },
-    {
-      "id": 5,
-      "key_id": "EMNN3KEY83EAFE7F5",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "ii",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:18:37.232Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:18:37.232Z",
-      "updated_at": "2026-04-06T11:39:59.189Z"
+      "key_id": "QMNN7JGM578A8FD61",
+      "title": "示例-问答题：请简述HTTP和HTTPS的区别",
+      "type": "subjective",
+      "options": [],
+      "answer": "",
+      "explanation": "HTTPS = HTTP + SSL/TLS加密传输，HTTP端口80，HTTPS端口443",
+      "difficulty": "medium",
+      "score": 20,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.198Z",
+      "updated_at": "2026-04-06T13:09:51.198Z"
     },
     {
       "id": 6,
-      "key_id": "EMNN3KYS0B92ABDFA",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "哦哦",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:19:02.928Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:19:02.928Z",
-      "updated_at": "2026-04-06T11:35:20.033Z"
+      "key_id": "QMNN7JGNMA0E050F8",
+      "title": "【题型填写规范】single=单选 multiple=多选 judge=判断 subjective=问答",
+      "type": "single",
+      "options": [],
+      "answer": "",
+      "explanation": "",
+      "difficulty": "medium",
+      "score": 10,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.250Z",
+      "updated_at": "2026-04-06T13:09:51.250Z"
     },
     {
       "id": 7,
-      "key_id": "EMNN46DQK37879BFD",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "uu",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:35:42.092Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:35:42.092Z",
-      "updated_at": "2026-04-06T11:36:12.151Z"
+      "key_id": "QMNN7JGRWAD70A7B3",
+      "title": "【难度填写规范】easy=简单 medium=中等 hard=困难",
+      "type": "single",
+      "options": [],
+      "answer": "",
+      "explanation": "",
+      "difficulty": "medium",
+      "score": 10,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.404Z",
+      "updated_at": "2026-04-06T13:09:51.405Z"
     },
     {
       "id": 8,
-      "key_id": "EMNN4CUF66CD1C50A",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "ttt",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:40:43.650Z",
-      "status": "in_progress",
-      "answers": {},
-      "created_at": "2026-04-06T11:40:43.650Z",
-      "updated_at": "2026-04-06T11:40:43.650Z"
+      "key_id": "QMNN7JGTB206D753E",
+      "title": "【多选题正确答案】如同时选AC则填写\"AC\"，同时选BCD则填写\"BCD\"（无间隔）",
+      "type": "single",
+      "options": [],
+      "answer": "",
+      "explanation": "",
+      "difficulty": "medium",
+      "score": 10,
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.455Z",
+      "updated_at": "2026-04-06T13:09:51.455Z"
     },
     {
       "id": 9,
-      "key_id": "EMNN4D8G2F68EB1D6",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "ttt",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T11:41:01.826Z",
-      "status": "graded",
-      "answers": {
-        "1": "asdfdf",
-        "2": "true",
-        "3": "dsaf",
-        "11": "true",
-        "12": "sdfdsf"
-      },
-      "created_at": "2026-04-06T11:41:01.826Z",
-      "updated_at": "2026-04-06T12:22:41.116Z",
-      "essay_answers": {
-        "1": {
-          "user_answer": "asdfdf",
-          "max_score": 5
-        },
-        "3": {
-          "user_answer": "dsaf",
-          "max_score": 10
-        },
-        "12": {
-          "user_answer": "sdfdsf",
-          "max_score": 5
-        }
-      },
-      "score": 25,
-      "percentage": 83,
-      "objective_score": 10,
-      "objective_total": 10,
-      "end_time": "2026-04-06T11:41:12.331Z"
-    },
-    {
-      "id": 10,
-      "key_id": "EMNN5K77298F10C81",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "iii",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T12:14:26.414Z",
-      "status": "graded",
-      "answers": {
-        "1": "阿斯顿发发",
-        "2": "true",
-        "3": "哇发的",
-        "11": "true",
-        "12": "飒短发"
-      },
-      "created_at": "2026-04-06T12:14:26.414Z",
-      "updated_at": "2026-04-06T12:23:00.019Z",
-      "essay_answers": {
-        "1": {
-          "user_answer": "阿斯顿发发",
-          "max_score": 5
-        },
-        "3": {
-          "user_answer": "哇发的",
-          "max_score": 10
-        },
-        "12": {
-          "user_answer": "飒短发",
-          "max_score": 5
-        }
-      },
-      "score": 18,
-      "percentage": 60,
-      "objective_score": 10,
-      "objective_total": 10,
-      "end_time": "2026-04-06T12:14:38.619Z"
-    },
-    {
-      "id": 11,
-      "key_id": "EMNN5WOBKD269A178",
-      "paper_id": 1,
-      "paper_key_id": "PMNN0BTA471B4D4ED",
-      "user_id": null,
-      "student_name": "测试的家伙",
-      "ip_address": "127.0.0.1",
-      "start_time": "2026-04-06T12:24:08.480Z",
-      "status": "graded",
-      "answers": {
-        "1": "发地方",
-        "2": "true",
-        "3": "是大法师",
-        "11": "true",
-        "12": "是大法师"
-      },
-      "created_at": "2026-04-06T12:24:08.480Z",
-      "updated_at": "2026-04-06T12:26:06.835Z",
-      "essay_answers": {
-        "1": {
-          "user_answer": "发地方",
-          "max_score": 5
-        },
-        "3": {
-          "user_answer": "是大法师",
-          "max_score": 10
-        },
-        "12": {
-          "user_answer": "是大法师",
-          "max_score": 5
-        }
-      },
+      "key_id": "QMNN7JGUH596503C2",
+      "title": "【判断题正确答案】正确填写\"true\"，错误填写\"false\"",
+      "type": "single",
+      "options": [],
+      "answer": "",
+      "explanation": "",
+      "difficulty": "medium",
       "score": 10,
-      "percentage": 33,
-      "objective_score": 10,
-      "objective_total": 10,
-      "end_time": "2026-04-06T12:24:19.975Z"
+      "tags": [],
+      "category_id": null,
+      "user_id": 4,
+      "status": "draft",
+      "created_at": "2026-04-06T13:09:51.497Z",
+      "updated_at": "2026-04-06T13:09:51.497Z"
     }
   ],
+  "papers": [],
+  "paperQuestions": [],
+  "examRecords": [],
   "scoreRecords": [],
   "announcements": [
     {

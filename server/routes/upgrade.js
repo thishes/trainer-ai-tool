@@ -6,7 +6,19 @@ const fs = require('fs');
 const path = require('path');
 const authenticate = require('../middleware/auth');
 
-const CURRENT_VERSION = '1.0.1';
+function getCurrentVersion() {
+  try {
+    const packagePath = path.join(__dirname, '../../package.json');
+    if (fs.existsSync(packagePath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      return packageJson.version || '1.0.0';
+    }
+  } catch (e) {
+    console.error('读取版本失败:', e.message);
+  }
+  return '1.0.0';
+}
+
 const GITHUB_REPO = 'thishes/trainer-ai-tool';
 
 router.get('/check', authenticate, async (req, res) => {
@@ -15,13 +27,14 @@ router.get('/check', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
+    const currentVersion = getCurrentVersion();
     const latestVersion = await fetchLatestVersion();
-    const hasUpdate = compareVersions(latestVersion, CURRENT_VERSION) > 0;
+    const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
 
     res.json({
       success: true,
       data: {
-        currentVersion: CURRENT_VERSION,
+        currentVersion: currentVersion,
         latestVersion: latestVersion,
         hasUpdate: hasUpdate
       }
@@ -44,15 +57,49 @@ router.post('/upgrade', authenticate, async (req, res) => {
     }
 
     const projectRoot = path.join(__dirname, '../../');
-    const packagePath = path.join(projectRoot, 'package.json');
 
-    if (fs.existsSync(packagePath)) {
-      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-      packageJson.version = version;
-      fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+    try {
+      console.log('开始升级到版本:', version);
+
+      execSync('git fetch origin', { cwd: projectRoot, stdio: 'pipe' });
+
+      const tags = execSync('git tag -l', { cwd: projectRoot, encoding: 'utf8' });
+      console.log('现有标签:', tags);
+
+      const currentBranch = execSync('git branch --show-current', { cwd: projectRoot, encoding: 'utf8' }).trim();
+      console.log('当前分支:', currentBranch);
+
+      try {
+        execSync(`git checkout tags/v${version}`, { cwd: projectRoot, stdio: 'pipe' });
+        console.log('已切换到标签 v' + version);
+      } catch (tagErr) {
+        console.log('标签不存在，尝试直接拉取:', tagErr.message);
+        execSync(`git pull origin ${currentBranch}`, { cwd: projectRoot, stdio: 'pipe' });
+      }
+
+      const packagePath = path.join(projectRoot, 'package.json');
+      if (fs.existsSync(packagePath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+        packageJson.version = version;
+        fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+      }
+
+      console.log('升级成功');
+      res.json({ success: true, message: '升级成功，请重启服务' });
+
+    } catch (gitErr) {
+      console.error('Git操作失败:', gitErr.message);
+
+      const packagePath = path.join(projectRoot, 'package.json');
+      if (fs.existsSync(packagePath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+        packageJson.version = version;
+        fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+      }
+
+      res.json({ success: true, message: '版本已更新，Git操作跳过（可能无权限），请手动拉取最新代码' });
     }
 
-    res.json({ success: true, message: '版本更新成功，请重启服务' });
   } catch (error) {
     console.error('升级失败:', error);
     res.status(500).json({ success: false, message: '升级失败' });
@@ -63,7 +110,7 @@ function fetchLatestVersion() {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.github.com',
-      path: `/repos/thishes/trainer-ai-tool/releases/latest`,
+      path: `/repos/${GITHUB_REPO}/releases/latest`,
       method: 'GET',
       headers: {
         'User-Agent': 'trainer-ai-tool',
@@ -87,21 +134,21 @@ function fetchLatestVersion() {
             resolve(version);
           } else if (release.message) {
             if (DEBUG) console.log('GitHub API错误:', release.message);
-            resolve(CURRENT_VERSION);
+            resolve(getCurrentVersion());
           } else {
             if (DEBUG) console.log('无法获取tag_name，使用当前版本');
-            resolve(CURRENT_VERSION);
+            resolve(getCurrentVersion());
           }
         } catch (e) {
           console.error('解析GitHub响应失败:', e.message);
-          resolve(CURRENT_VERSION);
+          resolve(getCurrentVersion());
         }
       });
     });
 
     req.on('error', (e) => {
       console.error('GitHub API请求失败:', e.message);
-      resolve(CURRENT_VERSION);
+      resolve(getCurrentVersion());
     });
     req.end();
   });
