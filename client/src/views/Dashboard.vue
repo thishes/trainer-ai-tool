@@ -131,8 +131,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="q in paginatedQuestions" :key="q.id">
-                    <td>{{ q.id }}</td>
+                  <tr v-for="(q, index) in paginatedQuestions" :key="q.id">
+                    <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
                     <td class="title-cell">{{ q.title }}</td>
                     <td>
                       <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
@@ -182,8 +182,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="q in paginatedQuestions" :key="q.id">
-                    <td>{{ q.id }}</td>
+                  <tr v-for="(q, index) in paginatedQuestions" :key="q.id">
+                    <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
                     <td class="title-cell">{{ q.title }}</td>
                     <td>
                       <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
@@ -261,8 +261,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="p in paginatedPapers" :key="p.id">
-                  <td>{{ p.id }}</td>
+                <tr v-for="(p, index) in paginatedPapers" :key="p.id">
+                  <td>{{ (papersPage - 1) * papersPageSize + index + 1 }}</td>
                   <td class="title-cell">
                     <a-badge v-if="papersWithPendingGrading && papersWithPendingGrading[p.id]" :count="papersWithPendingGrading[p.id]" :max-count="99" :number-style="{backgroundColor: '#f53f3f'}">
                       <span style="cursor: pointer" @click="switchTab('grading'); $nextTick(() => scrollToPaper(p.id))">{{ p.title }}</span>
@@ -449,7 +449,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th width="60">ID</th>
+                <th width="60">序号</th>
                 <th>用户名</th>
                 <th width="120">手机号</th>
                 <th width="100">角色</th>
@@ -459,8 +459,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in paginatedUserList" :key="u.id">
-                <td>{{ u.id }}</td>
+              <tr v-for="(u, index) in paginatedUserList" :key="u.id">
+                <td>{{ (userPage - 1) * userPageSize + index + 1 }}</td>
                 <td>{{ u.username }}</td>
                 <td>{{ u.phone || '-' }}</td>
                 <td>
@@ -521,7 +521,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th width="60">ID</th>
+                <th width="60">序号</th>
                 <th>标题</th>
                 <th width="100">类型</th>
                 <th width="100">状态</th>
@@ -530,8 +530,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="a in paginatedAnnouncements" :key="a.id">
-                <td>{{ a.id }}</td>
+              <tr v-for="(a, index) in paginatedAnnouncements" :key="a.id">
+                <td>{{ (announcementPage - 1) * announcementPageSize + index + 1 }}</td>
                 <td class="title-cell">{{ a.title }}</td>
                 <td>
                   <span v-if="a.type === 'notice'" class="tag tag-blue">通知</span>
