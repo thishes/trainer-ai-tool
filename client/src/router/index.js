@@ -154,12 +154,22 @@ router.onError((error, to) => {
   NProgress.done()
   console.error('路由加载错误:', error)
   console.error('目标路由:', to.path)
-  
-  // ChunkLoadError 处理（代码块加载失败）
+
   if (error.name === 'ChunkLoadError') {
     console.warn('代码块加载失败，可能是新版本已部署，正在重新加载...')
     window.location.reload()
   }
+})
+
+router.afterEach((to) => {
+  const preloadRoutes = ['/dashboard', '/profile', '/paper']
+  preloadRoutes.forEach(path => {
+    if (to.path.startsWith(path)) return
+    const link = document.createElement('link')
+    link.rel = 'prefetch'
+    link.href = path
+    document.head.appendChild(link)
+  })
 })
 
 export default router
