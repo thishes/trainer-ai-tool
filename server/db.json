@@ -20,6 +20,17 @@
       "status": "active",
       "created_at": "2026-04-05T00:41:56.598Z",
       "updated_at": "2026-04-05T00:41:56.598Z"
+    },
+    {
+      "id": 6,
+      "key_id": "UMNN0C36QE422FC15",
+      "username": "地方",
+      "password": "$2a$10$fMGAAX8ipsA.lLuHCkSm8uR.VJpd6UfMd.pEzSGnf0MBv3W5ey3Ym",
+      "phone": "",
+      "role": "trainer",
+      "status": "active",
+      "created_at": "2026-04-06T09:48:09.890Z",
+      "updated_at": "2026-04-06T09:48:09.890Z"
     }
   ],
   "categories": [
@@ -495,8 +506,72 @@
       "updated_at": "2026-04-02T12:00:00.000Z"
     }
   ],
-  "papers": [],
-  "paperQuestions": [],
+  "papers": [
+    {
+      "id": 1,
+      "key_id": "PMNN0BTA471B4D4ED",
+      "title": "大法师",
+      "description": "随机抽取5道题目",
+      "time_limit": 60,
+      "shuffle": false,
+      "show_score": true,
+      "show_answer": true,
+      "allow_all_users": true,
+      "user_id": 4,
+      "status": "draft",
+      "total_score": 30,
+      "created_at": "2026-04-06T09:47:57.052Z",
+      "updated_at": "2026-04-06T09:47:57.114Z",
+      "question_count": 5
+    }
+  ],
+  "paperQuestions": [
+    {
+      "id": 1,
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "question_id": 3,
+      "question_key_id": "QMND52DHJ5CEDC597",
+      "order": 0,
+      "score": 10
+    },
+    {
+      "id": 2,
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "question_id": 12,
+      "question_key_id": "QMND52F285242ECD",
+      "order": 1,
+      "score": 5
+    },
+    {
+      "id": 3,
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "question_id": 1,
+      "question_key_id": "QMND52DHG82DEF93D",
+      "order": 2,
+      "score": 5
+    },
+    {
+      "id": 4,
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "question_id": 2,
+      "question_key_id": "QMND52DHJC5831E3A",
+      "order": 3,
+      "score": 5
+    },
+    {
+      "id": 5,
+      "paper_id": 1,
+      "paper_key_id": "PMNN0BTA471B4D4ED",
+      "question_id": 11,
+      "question_key_id": "QMND52581528A0F4",
+      "order": 4,
+      "score": 5
+    }
+  ],
   "examRecords": [],
   "scoreRecords": [],
   "announcements": [
@@ -521,6 +596,17 @@
       "author_name": "thishe",
       "created_at": "2026-04-04T16:10:52.287Z",
       "updated_at": "2026-04-04T16:10:52.287Z"
+    },
+    {
+      "id": 3,
+      "title": "法国的",
+      "content": "<p>对的</p>",
+      "type": "notice",
+      "status": "published",
+      "author_id": 4,
+      "author_name": "thishe",
+      "created_at": "2026-04-06T11:01:47.790Z",
+      "updated_at": "2026-04-06T11:01:47.790Z"
     }
   ],
   "students": [

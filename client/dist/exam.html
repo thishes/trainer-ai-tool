@@ -193,11 +193,14 @@
         <!-- 开始页面 -->
         <div class="card" v-if="!started && p.title && !r">
             <h1>{{ p.title || '加载中...' }}</h1>
-            <div class="info" v-if="p.title">
+            <div class="info" v-if="p.time_limit">
                 <p><strong>时间:</strong> {{ p.time_limit }}分钟</p>
                 <p><strong>总分:</strong> {{ p.total_score }}分</p>
             </div>
-            <div v-if="p.title">
+            <div class="info" v-if="p.error" style="background:#fff2f0;border:1px solid #ffccc7;">
+                <p style="color:#ff4d4f;"><strong>错误:</strong> {{ p.error }}</p>
+            </div>
+            <div v-if="p.time_limit">
                 <input v-model="name" placeholder="请输入姓名" @keyup.enter="start">
                 <br><br>
                 <button class="btn" @click="start" :disabled="!name">开始考试</button>
@@ -259,7 +262,15 @@ createApp({
         const r = ref(null);
         let tt = null;
         
-        fetch('/api/papers/public/3').then(x=>x.json()).then(d=>{ if(d.success) p.value=d.data });
+        fetch('/api/papers/public/3').then(x=>x.json()).then(d=>{
+            if(d.success) {
+                p.value=d.data;
+            } else {
+                p.value={title:'试卷加载失败',time_limit:0,total_score:0,error:d.message};
+            }
+        }).catch(e=>{
+            p.value={title:'网络错误',time_limit:0,total_score:0,error:'无法连接到服务器'};
+        });
         
         const q = computed(()=>cs.value[i.value]||{});
         

@@ -1241,6 +1241,12 @@ export default {
       } else if (tab === 'papers') {
         console.log('[DEBUG] Papers tab activated, calling loadPapers')
         loadPapers()
+      } else if (tab === 'users') {
+        console.log('[DEBUG] Users tab activated, calling loadUsers')
+        loadUsers()
+      } else if (tab === 'announcements') {
+        console.log('[DEBUG] Announcements tab activated, calling loadAnnouncements')
+        loadAnnouncements()
       }
     }
 
@@ -2420,11 +2426,11 @@ export default {
     })
 
     return {
-      userList, userSearch, showUserDialog, editingUser, userForm, userLoading,
+      userList, userSearch, userPage, userPageSize, showUserDialog, editingUser, userForm, userLoading, paginatedUserList,
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
       user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
       showQuestionDialog, showImportDialog,
-      editingQuestion, questionForm, papers, showPaperDialog, showRandomDialog,
+      editingQuestion, questionForm, papers, papersPageSize, showPaperDialog, showRandomDialog,
       randomForm, paperForm, selectedPaper, stats, publishedPapers, paginatedPapers,
       showExamUrlDialog, examUrlData,
       showRecordsDialog, examRecords, examRecordsStats, examRecordsPagination, examRecordsPage,
@@ -2437,8 +2443,8 @@ export default {
       IconUser, IconDashboard, IconCheckCircle, IconTrophy,
       IconBarChart, IconRobot, IconDown, IconDelete, IconPlus, IconUpload, IconDownload,
       newEntryAnimation, newEntryKey,
-      announcements, showAnnouncementDialog, editingAnnouncement, announcementForm, savingAnnouncement, editorContainerRef,
-      openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction,
+      announcements, announcementPage, announcementPageSize, showAnnouncementDialog, editingAnnouncement, announcementForm, savingAnnouncement, editorContainerRef, paginatedAnnouncements,
+      openAnnouncementDialog, saveAnnouncement, deleteAnnouncementAction, loadAnnouncements,
       showStudentDialog, showImportStudentDialog, studentForm, paperStudents,
       addStudent, removeStudentFromPaper, handleImportStudents, handleExportStudents,
       showCategoryDialog, newCategoryName, categories, handleAddCategory, handleDeleteCategory,

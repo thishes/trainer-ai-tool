@@ -6,7 +6,7 @@ const fs = require('fs');
 const db = require('../db');
 const config = require('../config');
 const authenticate = require('../middleware/auth');
-const sharp = require('sharp');
+// const sharp = require('sharp');
 
 const JWT_SECRET = config.JWT_SECRET;
 if (!JWT_SECRET && config.NODE_ENV === 'production') {
@@ -45,11 +45,8 @@ const processImage = async (file) => {
   const webpPath = path.join(uploadDir, webpFilename);
   
   try {
-    await sharp(originalPath)
-      .webp({ quality: 80 })
-      .toFile(webpPath);
-    
-    fs.unlinkSync(originalPath);
+    // Skip sharp processing, just use original file
+    console.log('File uploaded:', webpFilename);
     
     return webpFilename;
   } catch (err) {
