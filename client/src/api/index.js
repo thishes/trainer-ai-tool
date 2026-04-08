@@ -1,40 +1,120 @@
 import axios from 'axios'
 
-// 使用相对路径，依赖服务端代理
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const api = axios.create({
   baseURL,
   timeout: 30000,
-  headers: { 
+  headers: {
     'Content-Type': 'application/json',
-    // 显式允许携带 credentials
     'X-Requested-With': 'XMLHttpRequest'
   },
-  withCredentials: true // 允许携带 Cookie
+  withCredentials: true
 })
 
-// 请求拦截器 - 优先从 Cookie 获取 token，同时支持 localStorage 后备
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 1000,
+  maxDelay: 4000,
+  retryStatusCodes: [408, 429, 500, 502, 503, 504],
+  retryNetworkErrors: ['ECONNABORTED', 'ETIMEDOUT', 'Network Error']
+}
+
+let retryCounts = new Map()
+
+function getRetryCount(config) {
+  const key = `${config.method}_${config.url}`
+  return retryCounts.get(key) || 0
+}
+
+function incrementRetryCount(config) {
+  const key = `${config.method}_${config.url}`
+  const current = retryCounts.get(key) || 0
+  retryCounts.set(key, current + 1)
+  return current + 1
+}
+
+function clearRetryCount(config) {
+  const key = `${config.method}_${config.url}`
+  retryCounts.delete(key)
+}
+
+function calculateDelay(retryCount) {
+  const delay = RETRY_CONFIG.baseDelay * Math.pow(2, retryCount)
+  const jitter = Math.random() * 500
+  return Math.min(delay + jitter, RETRY_CONFIG.maxDelay)
+}
+
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 api.interceptors.request.use(config => {
-  // Cookie 中的 token 会被自动发送
-  // 如果需要显式发送 localStorage 的 token（用于非 Cookie 场景）
   const localToken = localStorage.getItem('token')
   if (localToken) {
     config.headers.Authorization = `Bearer ${localToken}`
   }
+  if (config._retryCount === undefined) {
+    config._retryCount = 0
+  }
   return config
 })
 
-// 响应拦截器 - 改进错误处理
 api.interceptors.response.use(
-  response => response.data,
-  error => {
+  response => {
+    clearRetryCount(response.config)
+    return response.data
+  },
+  async error => {
+    const originalConfig = error.config || {}
     const status = error.response?.status
+    const errorCode = error.code
+    const isNetworkError = !error.response && error.message
+
+    if (originalConfig._retryCount === undefined) {
+      originalConfig._retryCount = 0
+    }
+
+    const shouldRetry =
+      isNetworkError ||
+      RETRY_CONFIG.retryNetworkErrors.includes(errorCode) ||
+      (status && RETRY_CONFIG.retryStatusCodes.includes(status))
+
+    const isAuthError = status === 401
+    const isForbiddenError = status === 403
+    const isNotFoundError = status === 404
+    const isClientError = status && status >= 400 && status < 500 && !shouldRetry
+
+    if (isAuthError || isForbiddenError || isNotFoundError || isClientError) {
+      clearRetryCount(originalConfig)
+    }
+
+    if (shouldRetry && originalConfig._retryCount < RETRY_CONFIG.maxRetries) {
+      originalConfig._retryCount++
+
+      if (isNetworkError || errorCode === 'ECONNABORTED' || errorCode === 'ETIMEDOUT') {
+        console.log(`[API] Network error, retrying (${originalConfig._retryCount}/${RETRY_CONFIG.maxRetries})...`)
+      } else if (status) {
+        console.log(`[API] Server error ${status}, retrying (${originalConfig._retryCount}/${RETRY_CONFIG.maxRetries})...`)
+      }
+
+      const delay = calculateDelay(originalConfig._retryCount - 1)
+      await sleep(delay)
+
+      try {
+        const response = await api(originalConfig)
+        clearRetryCount(originalConfig)
+        return response
+      } catch (retryError) {
+        return Promise.reject(retryError)
+      }
+    }
+
+    clearRetryCount(originalConfig)
+
     const message = error.response?.data?.message
-    
-    // 统一错误提示
     let errorMsg = message || '网络错误，请稍后重试'
-    
+
     switch (status) {
       case 400:
         errorMsg = message || '请求参数错误'
@@ -83,13 +163,11 @@ api.interceptors.response.use(
           errorMsg = '网络连接失败，请检查网络'
         }
     }
-    
-    // 返回带有错误信息的 Promise
+
     return Promise.reject(new Error(errorMsg))
   }
 )
 
-// 认证
 export const login = (data) => api.post('/auth/login', data)
 export const register = (data) => api.post('/auth/register', data)
 export const getCaptcha = () => api.get('/auth/captcha')
@@ -97,7 +175,6 @@ export const getUserInfo = () => api.get('/auth/me')
 export const logout = () => api.post('/auth/logout')
 export const refreshToken = () => api.post('/auth/refresh')
 
-// 题目
 export const getQuestions = (params) => api.get('/questions', { params })
 export const getQuestion = (id) => api.get(`/questions/${id}`)
 export const createQuestion = (data) => api.post('/questions', data)
@@ -105,13 +182,11 @@ export const updateQuestion = (id, data) => api.put(`/questions/${id}`, data)
 export const deleteQuestion = (id) => api.delete(`/questions/${id}`)
 export const importQuestions = (data) => api.post('/questions/import', data)
 
-// 分类
 export const getCategories = () => api.get('/categories')
 export const createCategory = (data) => api.post('/categories', data)
 export const updateCategory = (id, data) => api.put(`/categories/${id}`, data)
 export const deleteCategory = (id) => api.delete(`/categories/${id}`)
 
-// 试卷
 export const getPapers = (params) => api.get('/papers', { params })
 export const getPaper = (id) => api.get(`/papers/${id}`)
 export const getPaperPublic = (id, params) => api.get(`/papers/public/${id}`, { params })
@@ -126,7 +201,6 @@ export const getPaperQuestions = (paperId) => api.get(`/papers/${paperId}/manage
 export const addQuestionsToPaper = (paperId, questionIds) => api.post(`/papers/${paperId}/questions/add`, { question_ids: questionIds })
 export const removeQuestionFromPaper = (paperId, questionId) => api.delete(`/papers/${paperId}/questions/${questionId}`)
 
-// 考试
 export const startExamApi = (data) => api.post('/exam/start', data)
 export const getExamQuestions = (examId) => api.get(`/exam/${examId}/questions`)
 export const saveProgress = (data) => api.post('/exam/save-progress', data)
@@ -137,7 +211,6 @@ export const getExamStats = (paperId) => api.get(`/exam/stats/${paperId}`)
 export const getPendingGrading = (paperId, params) => api.get(`/exam/pending-grading/${paperId}`, { params })
 export const gradeEssay = (data) => api.post('/exam/grade-essay', data)
 
-// 公告
 export const getAnnouncements = (params) => api.get('/announcements', { params })
 export const getAnnouncement = (id) => api.get(`/announcements/${id}`)
 export const createAnnouncement = (data) => api.post('/announcements', data)
@@ -151,7 +224,6 @@ export const uploadAnnouncementImage = (file) => {
   })
 }
 
-// 考生管理
 export const getStudents = (params) => api.get('/students', { params })
 export const getStudent = (id) => api.get(`/students/${id}`)
 export const createStudent = (data) => api.post('/students', data)
@@ -172,7 +244,7 @@ export const exportPaperStudents = (paperId) => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || ''
   const token = localStorage.getItem('token')
   return fetch(`${baseURL}/api/students/paper/${paperId}/export`, {
-    headers: { 
+    headers: {
       'Authorization': `Bearer ${token}`,
       'X-Requested-With': 'XMLHttpRequest'
     },
@@ -186,14 +258,34 @@ export const verifyStudent = (data) => api.post('/students/verify', data)
 
 export default api
 
-// 升级管理
 export const checkUpgrade = () => api.get('/upgrade/check')
 export const doUpgrade = (version) => api.post('/upgrade/upgrade', { version })
 
-// 用户管理
 export const getUsers = (params) => api.get('/users', { params })
 export const createUser = (data) => api.post('/users', data)
 export const updateUser = (id, data) => api.put(`/users/${id}`, data)
 export const lockUser = (id, status) => api.patch(`/users/${id}/status`, { status })
 export const deleteUser = (id) => api.delete(`/users/${id}`)
 export const changePassword = (data) => api.post('/users/change-password', data)
+
+export const getSystemInfo = () => api.get('/system/info')
+export const getSystemMetrics = () => api.get('/system/metrics')
+export const getSystemStats = () => api.get('/system/stats')
+export const getSystemLogs = (params) => api.get('/system/logs', { params })
+export const clearSystemLogs = (type) => api.post('/system/clear-logs', { type })
+export const getSystemDatabase = () => api.get('/system/database')
+export const backupSystemDatabase = () => api.post('/system/database/backup')
+export const getSystemUpgradeCheck = () => api.get('/system/upgrade/check')
+export const doSystemUpgrade = (version) => api.post('/system/upgrade', { version })
+
+export const getPromotions = (params) => api.get('/promotions', { params })
+export const getPromotion = (id) => api.get(`/promotions/${id}`)
+export const createPromotion = (data) => api.post('/promotions', data)
+export const updatePromotion = (id, data) => api.put(`/promotions/${id}`, data)
+export const deletePromotion = (id) => api.delete(`/promotions/${id}`)
+export const lockPromotion = (id) => api.post(`/promotions/${id}/lock`)
+export const unlockPromotion = (id) => api.post(`/promotions/${id}/unlock`)
+
+export const signupPromotion = (id, data) => api.post(`/promotions/${id}/signup`, data)
+export const getPromotionSignups = (id, params) => api.get(`/promotions/${id}/signups`, { params })
+export const exportPromotionSignups = (id) => api.get(`/promotions/${id}/signups/export`, { responseType: 'blob' })

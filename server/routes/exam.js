@@ -1,8 +1,9 @@
-// server/routes/exam.js - 考试路由 (JSON 版)
+// server/routes/exam.js - 考试路由 (MySQL优先)
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const db = require('../db');
+const mysqlDb = require('../db-mysql');
 const authenticate = require('../middleware/auth');
 
 // 问答题类型判断函数
@@ -570,25 +571,33 @@ router.get('/:examId/result', authenticate, async (req, res) => {
 router.get('/stats/:paperId', authenticate, async (req, res) => {
   try {
     const { paperId } = req.params;
-    console.log('[DEBUG] /stats/:paperId called, paperId:', paperId);
 
-    const paper = db.papers.findById(paperId);
-    console.log('[DEBUG] paper found:', paper ? paper.title : 'not found');
-    console.log('[DEBUG] user role:', req.user.role, 'user id:', req.user.id, 'paper user_id:', paper ? paper.user_id : 'N/A');
-    
+    let paper;
+    if (mysqlDb.isConnected()) {
+      try {
+        paper = await mysqlDb.getPaperById(paperId);
+      } catch (e) {
+        paper = db.papers.findById(paperId);
+      }
+    } else {
+      paper = db.papers.findById(paperId);
+    }
+
     if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
-    const allExamRecords = db.examRecords.findAll({});
-    console.log('[DEBUG] total exam records:', allExamRecords.length);
-    console.log('[DEBUG] all records paper_ids:', allExamRecords.map(r => ({ id: r.id, paper_id: r.paper_id, status: r.status, student_name: r.student_name })));
-
-    const records = db.examRecords.findAll({
-      paper_id: parseInt(paperId),
-      status: ['submitted', 'graded']
-    });
-    console.log('[DEBUG] filtered records count:', records.length);
+    let records;
+    if (mysqlDb.isConnected()) {
+      try {
+        const allRecords = await mysqlDb.getExamRecords();
+        records = allRecords.filter(r => r.paper_id === parseInt(paperId) && (r.status === 'submitted' || r.status === 'graded'));
+      } catch (e) {
+        records = db.examRecords.findAll({ paper_id: parseInt(paperId), status: ['submitted', 'graded'] });
+      }
+    } else {
+      records = db.examRecords.findAll({ paper_id: parseInt(paperId), status: ['submitted', 'graded'] });
+    }
 
     const ranking = records
       .filter(r => r.percentage !== null && r.percentage !== undefined)
@@ -693,18 +702,27 @@ router.get('/records/:paperId', authenticate, async (req, res) => {
 router.get('/pending-grading/:paperId', authenticate, async (req, res) => {
   try {
     const { paperId } = req.params;
-    const paper = db.papers.findById(paperId);
-    
+    let paper;
+
+    if (mysqlDb.isConnected()) {
+      try {
+        paper = await mysqlDb.getPaperById(paperId);
+      } catch (e) {
+        paper = db.papers.findById(paperId);
+      }
+    } else {
+      paper = db.papers.findById(paperId);
+    }
+
     if (!paper) {
       return res.status(404).json({ success: false, message: '试卷不存在' });
     }
-    
-    // 管理员或试卷所有者才能访问
+
     const currentUserId = String(req.user.id);
     const paperOwnerId = String(paper.user_id || '');
     const isAdmin = req.user.role === 'admin';
     const isOwner = paperOwnerId && paperOwnerId === currentUserId;
-    
+
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, message: '无权限' });
     }
@@ -712,43 +730,66 @@ router.get('/pending-grading/:paperId', authenticate, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
 
-    const records = db.examRecords.findAll({
-      paper_id: parseInt(paperId),
-      status: 'submitted'
-    });
+    // 并行获取考试记录和题目，减少等待时间
+    let records, questions;
+    
+    const fetchRecords = async () => {
+      if (mysqlDb.isConnected()) {
+        try {
+          const allRecords = await mysqlDb.getExamRecords();
+          return allRecords.filter(r => r.paper_id === parseInt(paperId) && r.status === 'submitted');
+        } catch (e) {
+          return db.examRecords.findAll({ paper_id: parseInt(paperId), status: 'submitted' });
+        }
+      } else {
+        return db.examRecords.findAll({ paper_id: parseInt(paperId), status: 'submitted' });
+      }
+    };
+    
+    const fetchQuestions = async () => {
+      if (mysqlDb.isConnected()) {
+        try {
+          return await mysqlDb.getQuestions();
+        } catch (e) {
+          return db.getQuestions();
+        }
+      } else {
+        return db.getQuestions();
+      }
+    };
+    
+    [records, questions] = await Promise.all([fetchRecords(), fetchQuestions()]);
 
-    // 获取试卷题目找出问答题
-    const paperQuestions = paper.key_id ? db.paperQuestions.findByPaperKeyId(paper.key_id) : [];
+    // 构建问答题 ID 集合，用于快速查找
     const essayQuestionIds = new Set();
-    for (const pq of paperQuestions) {
-      const q = db.questions.findById(pq.question_id);
-      if (q && isEssayQuestion(q.type)) {
+    const questionsMap = new Map();
+    for (const q of questions) {
+      questionsMap.set(q.id, q);
+      if (isEssayQuestion(q.type)) {
         essayQuestionIds.add(q.id);
       }
     }
 
-    // 筛选出有待评分问答题的记录
+    // 过滤出有问答题答案的记录
     const pendingGrading = records.filter(r => {
       if (!r.essay_answers) return false;
-      // 只要有 essay_answers 就说明有待评分的问答题
       return Object.keys(r.essay_answers).length > 0;
     });
 
-    // 分页处理
     const total = pendingGrading.length;
     const startIndex = (page - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     const paginatedRecords = pendingGrading.slice(startIndex, endIndex);
 
-    // 填充问答题信息
     const enrichedRecords = paginatedRecords.map(r => {
       const essayList = [];
       for (const qId of Object.keys(r.essay_answers || {})) {
-        if (essayQuestionIds.has(parseInt(qId))) {
-          const q = db.questions.findById(parseInt(qId));
+        const qIdNum = parseInt(qId);
+        if (essayQuestionIds.has(qIdNum)) {
+          const q = questionsMap.get(qIdNum);
           if (q) {
             essayList.push({
-              question_id: parseInt(qId),
+              question_id: qIdNum,
               title: q.title,
               max_score: r.essay_answers[qId].max_score,
               user_answer: r.essay_answers[qId].user_answer
@@ -771,7 +812,6 @@ router.get('/pending-grading/:paperId', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('获取待评分列表失败:', error);
-    fs.appendFileSync('/tmp/exam_debug.log', `[ERROR] ${error.message}\n${error.stack}\n`);
     res.status(500).json({ success: false, message: '获取失败：' + error.message });
   }
 });

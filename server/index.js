@@ -33,6 +33,61 @@ app.locals.BASE_URL = BASE_URL;
 console.log('Socket.IO 已初始化');
 
 // ============================================
+// MySQL 初始化（异步，不阻塞启动）
+// ============================================
+const dbMysql = require('./db-mysql');
+dbMysql.init().then(() => {
+  console.log('[MySQL] 已初始化');
+  if (dbMysql.isConnected()) {
+    console.log('[MySQL] 连接状态: 已连接');
+  }
+}).catch(err => {
+  console.warn('[MySQL] 初始化失败:', err.message);
+});
+
+// 引入 db 模块并初始化 MySQL
+const db = require('./db');
+db.initMySQL().then(connected => {
+  if (connected) {
+    console.log('[DB] JSON 数据库 MySQL 初始化成功');
+  }
+}).catch(err => {
+  console.warn('[DB] JSON 数据库 MySQL 初始化失败:', err.message);
+});
+
+// ============================================
+// MySQL 恢复检测与自动同步（后台定时任务）
+// ============================================
+const MYSQL_CHECK_INTERVAL = 30000;
+let syncInProgress = false;
+
+setInterval(async () => {
+  if (syncInProgress) {
+    console.log('[DB] 同步任务正在进行中，跳过本次检测');
+    return;
+  }
+  try {
+    const status = db.getMySQLStatus();
+    if (status.degradedMode && status.mysqlConnected) {
+      console.log('[DB] 检测到 MySQL 已恢复且处于降级模式，开始执行同步...');
+      syncInProgress = true;
+      const syncResult = await db.syncToMySQL();
+      if (syncResult) {
+        console.log('[DB] MySQL 同步成功，退出降级模式');
+      } else {
+        console.warn('[DB] MySQL 同步失败，保持降级模式');
+      }
+      syncInProgress = false;
+    }
+  } catch (e) {
+    console.error('[DB] MySQL 状态检测异常:', e.message);
+    syncInProgress = false;
+  }
+}, MYSQL_CHECK_INTERVAL);
+
+console.log(`[DB] MySQL 恢复检测已启动，检测间隔: ${MYSQL_CHECK_INTERVAL / 1000}秒`);
+
+// ============================================
 // 安全加固: 安全响应头
 // ============================================
 const helmet = require('helmet');
@@ -127,6 +182,7 @@ const csrfExclude = [
   '/api/papers',
   '/api/papers/public',
   '/api/papers/\\d+/exam-url',
+  '/api/promotions',
   '/api/exam/start',
   '/api/exam/save-progress',
   '/api/exam/submit',
@@ -165,6 +221,16 @@ app.use(express.static(path.join(__dirname, '../client/dist'), {
   etag: true,
   lastModified: true
 }));
+
+// SPA fallback - 所有非API路由返回index.html
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads') && !req.path.startsWith('/assets')) {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  } else {
+    next();
+  }
+});
+
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: '1h',
   etag: true
@@ -201,48 +267,23 @@ app.use('/api/upgrade', require('./routes/upgrade'));
 
 app.use('/api/users', require('./routes/users'));
 
+// 宣推服务路由
+app.use('/api/promotions', require('./routes/promotions'));
+
+// 系统管理路由
+app.use('/api/system', require('./routes/system'));
+
+// 引入错误处理中间件
+const { errorHandler, notFoundHandler, requestLogger } = require('./middleware/errorHandler');
+
+// 请求日志
+app.use(requestLogger);
+
+// 404 处理
+app.use(notFoundHandler);
+
 // 全局错误处理中间件
-app.use((err, req, res, next) => {
-  // 记录详细错误日志
-  console.error('=== 服务器错误 ===');
-  console.error('时间:', new Date().toISOString());
-  console.error('路径:', req.originalUrl || req.url);
-  console.error('方法:', req.method);
-  console.error('用户 ID:', req.user?.id || '未认证');
-  console.error('错误:', err.message);
-  console.error('堆栈:', err.stack);
-  
-  // 根据错误类型返回不同的响应
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ 
-      success: false, 
-      message: '数据验证失败',
-      details: err.errors?.map(e => e.message) || []
-    });
-  }
-  
-  if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({ 
-      success: false, 
-      message: '认证失败，请重新登录'
-    });
-  }
-  
-  if (err.code === 'ER_DUP_ENTRY') {
-    return res.status(409).json({ 
-      success: false, 
-      message: '数据已存在，请勿重复提交'
-    });
-  }
-  
-  // 默认错误响应 - 生产环境不暴露敏感信息
-  const isDev = process.env.NODE_ENV === 'development' || config.DEBUG;
-  res.status(500).json({ 
-    success: false, 
-    message: isDev ? err.message : '服务器内部错误，请稍后重试',
-    ...(isDev && { stack: err.stack })
-  });
-});
+app.use(errorHandler);
 
 // SPA fallback
 app.get('*', (req, res) => {

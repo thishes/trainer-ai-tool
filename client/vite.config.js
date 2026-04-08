@@ -42,66 +42,10 @@ export default defineConfig({
   },
   build: {
     target: 'es2015',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ['console.assert', 'console.log', 'console.warn', 'console.info'],
-        passes: 2,
-        unsafe_arrows: true,
-        unsafe_methods: true,
-        unsafe_proto: true
-      },
-      mangle: {
-        safari10: true,
-        properties: false
-      },
-      format: {
-        comments: false
-      }
-    },
+    minify: false,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html')
-      },
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('vue-router')) {
-              return 'vue-core'
-            }
-            if (id.includes('@arco-design')) {
-              return 'ui-vendor'
-            }
-            if (id.includes('lodash') || id.includes('dayjs') || id.includes('moment')) {
-              return 'utils'
-            }
-            if (id.includes('xlsx') || id.includes('wangeditor')) {
-              return 'heavy-vendor'
-            }
-            return 'vendor'
-          }
-          if (id.includes('/src/views/')) {
-            const match = id.match(/\/src\/views\/([^/]+)\.vue/)
-            if (match) {
-              return `view-${match[1].toLowerCase()}`
-            }
-          }
-        },
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.')
-          const ext = info[info.length - 1]
-          if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(assetInfo.name)) {
-            return 'assets/images/[name]-[hash][extname]'
-          }
-          if (/\.css$/i.test(assetInfo.name)) {
-            return 'assets/css/[name]-[hash][extname]'
-          }
-          return 'assets/[name]-[hash][extname]'
-        }
       }
     },
     cssCodeSplit: true,

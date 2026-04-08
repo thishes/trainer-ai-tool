@@ -11,6 +11,7 @@ const Profile = () => import('../views/Profile.vue')
 const PaperQuestions = () => import('../views/PaperQuestions.vue')
 const Exam = () => import('../views/Exam.vue')
 const ExamResult = () => import('../views/ExamResult.vue')
+const PromotionView = () => import('../views/PromotionView.vue')
 
 const routes = [
   {
@@ -66,6 +67,26 @@ const routes = [
     meta: {
       title: '考试结果',
       requiresAuth: true
+    }
+  },
+  {
+    path: '/promotions',
+    redirect: '/dashboard'
+  },
+  {
+    path: '/promotions/new',
+    redirect: '/dashboard'
+  },
+  {
+    path: '/promotions/:id/edit',
+    redirect: '/dashboard'
+  },
+  {
+    path: '/prom/p/:id',
+    name: 'PromotionView',
+    component: PromotionView,
+    meta: {
+      title: '宣传页面'
     }
   }
 ]

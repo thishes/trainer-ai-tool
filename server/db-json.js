@@ -5,26 +5,6 @@ const crypto = require('crypto');
 
 const DB_PATH = path.join(__dirname, 'db.json');
 
-let mysqlDb = null;
-let mysqlConnected = false;
-let useDualWrite = false;
-let degradedMode = false;
-let lastSync = null;
-
-try {
-  mysqlDb = require('./db-mysql');
-} catch (e) {
-  console.log('[DB] MySQL not available:', e.message);
-}
-
-function isMySQLConnected() {
-  try {
-    return mysqlDb && mysqlDb.isConnected();
-  } catch (e) {
-    return false;
-  }
-}
-
 const defaultData = {
   users: [],
   categories: [],
@@ -36,9 +16,7 @@ const defaultData = {
   announcements: [],
   students: [],
   paperStudents: [],
-  essayScores: [],
-  promotions: [],
-  promotionSignups: []
+  essayScores: []
 };
 
 function readDB() {
@@ -56,14 +34,6 @@ function readDB() {
 function writeDB(data) {
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
-    if (useDualWrite && mysqlDb) {
-      writeToMySQL(data).catch(e => {
-        console.warn('[DB] MySQL write failed, entering degraded mode:', e.message);
-        degradedMode = true;
-        useDualWrite = false;
-      });
-    }
-    lastSync = new Date().toISOString();
     return true;
   } catch (e) {
     console.error('写入数据库失败:', e);
@@ -71,123 +41,7 @@ function writeDB(data) {
   }
 }
 
-async function writeToMySQL(data) {
-  if (!mysqlDb || !mysqlConnected) {
-    throw new Error('MySQL not connected');
-  }
-  const tables = ['users', 'categories', 'questions', 'papers', 'examRecords', 'announcements', 'students', 'essayScores'];
-  for (const table of tables) {
-    if (data[table] && Array.isArray(data[table])) {
-      const tableData = data[table];
-      if (tableData.length === 0) continue;
-      const lastItem = tableData[tableData.length - 1];
-      try {
-        const cols = Object.keys(lastItem).join(', ');
-        const placeholders = Object.keys(lastItem).map(() => '?').join(', ');
-        const values = Object.values(lastItem);
-        await mysqlDb.query(`INSERT INTO ${table} (${cols}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${Object.keys(lastItem).filter(k => k !== 'id').map(k => `${k} = VALUES(${k})`).join(', ')}`, values);
-        console.log(`[DB] MySQL write: ${table}`);
-      } catch (e) {
-        console.warn(`[DB] MySQL write ${table} failed:`, e.message);
-      }
-    }
-  }
-}
-
-async function initMySQL() {
-  if (!mysqlDb) return false;
-  try {
-    const healthy = await mysqlDb.healthCheck();
-    if (healthy) {
-      await mysqlDb.init();
-      mysqlConnected = true;
-      useDualWrite = process.env.DUAL_WRITE === 'true';
-      console.log('[DB] MySQL initialized, dual-write:', useDualWrite);
-      return true;
-    }
-  } catch (e) {
-    console.warn('[DB] MySQL init failed:', e.message);
-  }
-  mysqlConnected = false;
-  return false;
-}
-
-async function checkMySQLHealth() {
-  if (!mysqlDb) return false;
-  try {
-    const healthy = await mysqlDb.healthCheck();
-    if (healthy && !mysqlConnected) {
-      mysqlConnected = true;
-      useDualWrite = process.env.DUAL_WRITE === 'true';
-      if (degradedMode) {
-        console.log('[DB] MySQL connection restored, exiting degraded mode');
-        degradedMode = false;
-        useDualWrite = process.env.DUAL_WRITE === 'true';
-      }
-      return true;
-    }
-  } catch (e) {
-    if (mysqlConnected) {
-      console.warn('[DB] MySQL connection lost:', e.message);
-      mysqlConnected = false;
-      useDualWrite = false;
-      degradedMode = true;
-    }
-  }
-  return mysqlConnected;
-}
-
-async function syncToMySQL() {
-  if (!useDualWrite || !mysqlConnected || !mysqlDb) return false;
-  const startTime = Date.now();
-  let syncedCount = 0;
-  let updatedCount = 0;
-  let errorCount = 0;
-  try {
-    console.log('[DB] 开始同步数据到 MySQL...');
-    const data = readDB();
-    const tables = ['users', 'categories', 'questions', 'papers', 'examRecords', 'announcements', 'students', 'essayScores'];
-    for (const table of tables) {
-      if (data[table] && Array.isArray(data[table])) {
-        const tableData = data[table];
-        if (tableData.length === 0) continue;
-        console.log(`[DB] 同步表 ${table}, 共 ${tableData.length} 条记录`);
-        for (const item of tableData) {
-          try {
-            const exists = await mysqlDb.query(`SELECT id FROM ${table} WHERE id = ?`, [item.id]);
-            if (exists && exists.length > 0) {
-              const fields = Object.keys(item).filter(k => k !== 'id');
-              if (fields.length > 0) {
-                const setClause = fields.map(f => `${f} = ?`).join(', ');
-                const values = fields.map(f => item[f]);
-                await mysqlDb.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...values, item.id]);
-                updatedCount++;
-              }
-            } else {
-              const cols = Object.keys(item).join(', ');
-              const placeholders = Object.keys(item).map(() => '?').join(', ');
-              const values = Object.values(item);
-              await mysqlDb.query(`INSERT INTO ${table} (${cols}) VALUES (${placeholders})`, values);
-              syncedCount++;
-            }
-          } catch (e) {
-            console.warn(`[DB] 同步 ${table} id=${item.id} 失败:`, e.message);
-            errorCount++;
-          }
-        }
-      }
-    }
-    lastSync = new Date().toISOString();
-    const duration = Date.now() - startTime;
-    console.log(`[DB] 同步完成: 新增 ${syncedCount} 条, 更新 ${updatedCount} 条, 失败 ${errorCount} 条, 耗时 ${duration}ms`);
-    return true;
-  } catch (e) {
-    console.error('[DB] 同步到 MySQL 失败:', e.message);
-    return false;
-  }
-}
-
-// 导出工具函数
+// 自增ID生成器
 let idCounters = {
   users: 0,
   categories: 0,
@@ -198,13 +52,11 @@ let idCounters = {
   scoreRecords: 0,
   announcements: 0,
   students: 0,
-  paperStudents: 0,
-  promotions: 0,
-  promotionSignups: 0
+  paperStudents: 0
 };
 
 function initCounters(data) {
-  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords', 'announcements', 'students', 'paperStudents', 'promotions', 'promotionSignups'];
+  const tables = ['users', 'categories', 'questions', 'papers', 'paperQuestions', 'examRecords', 'scoreRecords', 'announcements', 'students', 'paperStudents'];
   tables.forEach(table => {
     if (data[table] && data[table].length > 0) {
       idCounters[table] = Math.max(...data[table].map(item => item.id));
@@ -236,18 +88,7 @@ const normalizeQuestionType = (type) => {
 // 导出工具函数
 module.exports = {
   db,
-
-  // MySQL 双写状态
-  getMySQLStatus: () => ({
-    mysqlConnected: isMySQLConnected(),
-    useDualWrite: isMySQLConnected() && process.env.DUAL_WRITE === 'true',
-    degradedMode: isMySQLConnected() && !useDualWrite,
-    lastSync
-  }),
-  checkMySQLHealth,
-  initMySQL,
-  syncToMySQL,
-
+  
   // 用户表
   users: {
     findAll: () => db.users,
@@ -448,16 +289,7 @@ module.exports = {
       let result = [...db.papers];
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(p => p.user_id === filters.user_id);
       if (filters.status) result = result.filter(p => p.status === filters.status);
-
-      const total = result.length;
-      const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 20;
-      const start = (page - 1) * limit;
-      const end = start + limit;
-
-      const list = result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(start, end);
-
-      return { list, total, page, limit, totalPages: Math.ceil(total / limit) };
+      return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     },
     findById: (id) => db.papers.find(p => p.id === parseInt(id)),
     findByKeyId: (keyId) => db.papers.find(p => p.key_id === keyId),
@@ -645,81 +477,6 @@ module.exports = {
     }
   },
 
-  // 文案促销表
-  promotions: {
-    findAll: (filters = {}) => {
-      let result = Array.isArray(db.promotions) ? [...db.promotions] : [];
-      if (filters.user_id !== undefined && filters.user_id !== null) {
-        result = result.filter(p => p.created_by === filters.user_id);
-      }
-      if (filters.status) result = result.filter(p => p.status === filters.status);
-      if (filters.locked !== undefined) result = result.filter(p => p.locked === filters.locked);
-      return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    },
-    findById: (id) => (Array.isArray(db.promotions) ? db.promotions.find(p => p.id === parseInt(id)) : null),
-    create: (data) => {
-      if (!Array.isArray(db.promotions)) db.promotions = [];
-      const promotion = { id: getNextId('promotions'), ...data, locked: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-      db.promotions.push(promotion);
-      writeDB(db);
-      return promotion;
-    },
-    update: (id, data) => {
-      if (!Array.isArray(db.promotions)) return null;
-      const index = db.promotions.findIndex(p => p.id === parseInt(id));
-      if (index !== -1) {
-        db.promotions[index] = { ...db.promotions[index], ...data, updated_at: new Date().toISOString() };
-        writeDB(db);
-        return db.promotions[index];
-      }
-      return null;
-    },
-    delete: (id) => {
-      if (!Array.isArray(db.promotions)) return false;
-      const index = db.promotions.findIndex(p => p.id === parseInt(id));
-      if (index !== -1) {
-        db.promotions.splice(index, 1);
-        if (Array.isArray(db.promotionSignups)) {
-          db.promotionSignups = db.promotionSignups.filter(s => s.promotion_id !== parseInt(id));
-        }
-        writeDB(db);
-        return true;
-      }
-      return false;
-    }
-  },
-
-  // 文案报名表
-  promotionSignups: {
-    findAll: (filters = {}) => {
-      let result = Array.isArray(db.promotionSignups) ? [...db.promotionSignups] : [];
-      if (filters.promotion_id) result = result.filter(s => s.promotion_id === parseInt(filters.promotion_id));
-      if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(s => s.user_id === filters.user_id);
-      return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    },
-    findById: (id) => (Array.isArray(db.promotionSignups) ? db.promotionSignups.find(s => s.id === parseInt(id)) : null),
-    findByPromotionAndUser: (promotionId, userId) => {
-      return Array.isArray(db.promotionSignups) ? db.promotionSignups.find(s => s.promotion_id === parseInt(promotionId) && s.user_id === userId) : null;
-    },
-    create: (data) => {
-      if (!Array.isArray(db.promotionSignups)) db.promotionSignups = [];
-      const signup = { id: getNextId('promotionSignups'), ...data, created_at: new Date().toISOString() };
-      db.promotionSignups.push(signup);
-      writeDB(db);
-      return signup;
-    },
-    delete: (id) => {
-      if (!Array.isArray(db.promotionSignups)) return false;
-      const index = db.promotionSignups.findIndex(s => s.id === parseInt(id));
-      if (index !== -1) {
-        db.promotionSignups.splice(index, 1);
-        writeDB(db);
-        return true;
-      }
-      return false;
-    }
-  },
-
   // 考生表
   students: {
     findAll: (filters = {}) => {
@@ -823,193 +580,5 @@ module.exports = {
       );
       writeDB(db);
     }
-  },
-
-  // Legacy compatibility methods - direct access to db arrays
-  getUsers: () => [...db.users],
-  getUserById: (id) => db.users.find(u => u.id === parseInt(id)),
-  getUserByUsername: (username) => db.users.find(u => u.username === username),
-  createUser: (data) => {
-    const user = { id: getNextId('users'), ...data, created_at: new Date().toISOString() };
-    db.users.push(user);
-    writeDB(db);
-    return user;
-  },
-  updateUser: (id, data) => {
-    const index = db.users.findIndex(u => u.id === parseInt(id));
-    if (index !== -1) {
-      db.users[index] = { ...db.users[index], ...data };
-      writeDB(db);
-      return db.users[index];
-    }
-    return null;
-  },
-  deleteUser: (id) => {
-    const index = db.users.findIndex(u => u.id === parseInt(id));
-    if (index !== -1) {
-      db.users.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
-  },
-
-  getQuestions: (categoryId) => {
-    if (categoryId) {
-      return db.questions.filter(q => q.category_id === categoryId);
-    }
-    return [...db.questions];
-  },
-  getQuestionById: (id) => db.questions.find(q => q.id === parseInt(id)),
-  createQuestion: (data) => {
-    const question = { id: getNextId('questions'), ...data, created_at: new Date().toISOString() };
-    db.questions.push(question);
-    writeDB(db);
-    return question;
-  },
-  updateQuestion: (id, data) => {
-    const index = db.questions.findIndex(q => q.id === parseInt(id));
-    if (index !== -1) {
-      db.questions[index] = { ...db.questions[index], ...data };
-      writeDB(db);
-      return db.questions[index];
-    }
-    return null;
-  },
-  deleteQuestion: (id) => {
-    const index = db.questions.findIndex(q => q.id === parseInt(id));
-    if (index !== -1) {
-      db.questions.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
-  },
-
-  getPapers: (ownerId) => {
-    if (ownerId) {
-      return db.papers.filter(p => p.user_id === ownerId || p.owner_id === ownerId);
-    }
-    return [...db.papers];
-  },
-  getPaperById: (id) => db.papers.find(p => p.id === parseInt(id)) || db.papers.find(p => p.key_id === id),
-  createPaper: (data) => {
-    const paper = { id: getNextId('papers'), key_id: generateKeyId('P'), ...data, created_at: new Date().toISOString() };
-    db.papers.push(paper);
-    writeDB(db);
-    return paper;
-  },
-  updatePaper: (id, data) => {
-    const index = db.papers.findIndex(p => p.id === parseInt(id));
-    if (index !== -1) {
-      db.papers[index] = { ...db.papers[index], ...data };
-      writeDB(db);
-      return db.papers[index];
-    }
-    return null;
-  },
-  deletePaper: (id) => {
-    const index = db.papers.findIndex(p => p.id === parseInt(id));
-    if (index !== -1) {
-      db.papers.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
-  },
-
-  getExamRecords: (studentId, paperId) => {
-    let records = [...db.examRecords];
-    if (studentId) {
-      records = records.filter(r => r.student_id === studentId);
-    }
-    if (paperId) {
-      records = records.filter(r => r.paper_key_id === paperId);
-    }
-    return records;
-  },
-  getExamRecordById: (id) => db.examRecords.find(r => r.id === parseInt(id)),
-  createExamRecord: (data) => {
-    const record = { id: getNextId('examRecords'), key_id: generateKeyId('E'), ...data, created_at: new Date().toISOString() };
-    db.examRecords.push(record);
-    writeDB(db);
-    return record;
-  },
-  updateExamRecord: (id, data) => {
-    const index = db.examRecords.findIndex(r => r.id === parseInt(id));
-    if (index !== -1) {
-      db.examRecords[index] = { ...db.examRecords[index], ...data };
-      writeDB(db);
-      return db.examRecords[index];
-    }
-    return null;
-  },
-  deleteExamRecord: (id) => {
-    const index = db.examRecords.findIndex(r => r.id === parseInt(id));
-    if (index !== -1) {
-      db.examRecords.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
-  },
-
-  getCategories: () => [...db.categories],
-  getCategoryById: (id) => db.categories.find(c => c.id === parseInt(id)),
-  createCategory: (data) => {
-    const category = { id: getNextId('categories'), ...data, created_at: new Date().toISOString() };
-    db.categories.push(category);
-    writeDB(db);
-    return category;
-  },
-  updateCategory: (id, data) => {
-    const index = db.categories.findIndex(c => c.id === parseInt(id));
-    if (index !== -1) {
-      db.categories[index] = { ...db.categories[index], ...data };
-      writeDB(db);
-      return db.categories[index];
-    }
-    return null;
-  },
-  deleteCategory: (id) => {
-    const index = db.categories.findIndex(c => c.id === parseInt(id));
-    if (index !== -1) {
-      db.categories.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
-  },
-
-  getAnnouncements: (status) => {
-    if (status) {
-      return db.announcements.filter(a => a.status === status);
-    }
-    return [...db.announcements];
-  },
-  getAnnouncementById: (id) => db.announcements.find(a => a.id === parseInt(id)),
-  createAnnouncement: (data) => {
-    const announcement = { id: getNextId('announcements'), ...data, created_at: new Date().toISOString() };
-    db.announcements.push(announcement);
-    writeDB(db);
-    return announcement;
-  },
-  updateAnnouncement: (id, data) => {
-    const index = db.announcements.findIndex(a => a.id === parseInt(id));
-    if (index !== -1) {
-      db.announcements[index] = { ...db.announcements[index], ...data };
-      writeDB(db);
-      return db.announcements[index];
-    }
-    return null;
-  },
-  deleteAnnouncement: (id) => {
-    const index = db.announcements.findIndex(a => a.id === parseInt(id));
-    if (index !== -1) {
-      db.announcements.splice(index, 1);
-      writeDB(db);
-      return true;
-    }
-    return false;
   }
 };

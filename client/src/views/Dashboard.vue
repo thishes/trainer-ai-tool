@@ -29,6 +29,13 @@
             <span v-if="pendingGradingCount > 0" class="badge">{{ pendingGradingCount }}</span>
           </div>
         </div>
+        <div class="nav-group">
+          <div class="nav-group-title">宣推服务</div>
+          <div class="nav-item" :class="{ active: activeTab === 'promotions' }" @click="switchTab('promotions')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>海报与报名</span>
+          </div>
+        </div>
         <div v-if="user?.role === 'admin'" class="nav-group">
           <div class="nav-group-title">系统管理</div>
           <div class="nav-item" :class="{ active: activeTab === 'users' }" @click="switchTab('users')">
@@ -39,9 +46,12 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             <span>公告管理</span>
           </div>
-          <div class="nav-item" :class="{ active: activeTab === 'upgrade' }" @click="switchTab('upgrade')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>平台升级</span>
+          <div class="nav-item" :class="{ active: activeTab === 'system' }" @click="switchTab('system')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span>系统设置</span>
           </div>
         </div>
       </nav>
@@ -119,19 +129,32 @@
         <a-card class="content-card">
           <a-tabs v-model:active-key="activeCategory" @change="questionPage = 1">
             <a-tab-pane key="all" title="全部">
-              <table class="data-table">
+              <div style="overflow-x: auto; max-width: 100%;">
+                <table class="data-table" style="min-width: 600px;">
                 <thead>
                   <tr>
-                    <th width="60">ID</th>
-                    <th>题目内容</th>
-                    <th width="80">类型</th>
-                    <th width="80">难度</th>
-                    <th width="60">分值</th>
-                    <th width="120">操作</th>
+                    <th style="width: 60px; min-width: 60px;">ID</th>
+                    <th style="min-width: 200px;">题目内容</th>
+                    <th style="width: 80px; min-width: 80px;">类型</th>
+                    <th style="width: 80px; min-width: 80px;">难度</th>
+                    <th style="width: 60px; min-width: 60px;">分值</th>
+                    <th style="width: 120px; min-width: 120px;">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(q, index) in paginatedQuestions" :key="q.id">
+                  <tr v-if="questionsLoading">
+                    <td colspan="6">
+                      <a-skeleton :animation="true">
+                        <a-skeleton-line :widths="['100%', '80%', '60%', '70%', '50%']" :rows="5" />
+                      </a-skeleton>
+                    </td>
+                  </tr>
+                  <tr v-else-if="paginatedQuestions.length === 0">
+                    <td colspan="6">
+                      <a-empty description="暂无题目" />
+                    </td>
+                  </tr>
+                  <tr v-else v-for="(q, index) in paginatedQuestions" :key="q.id">
                     <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
                     <td class="title-cell">{{ q.title }}</td>
                     <td>
@@ -155,6 +178,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
               <div class="pagination" v-if="totalQuestionPages > 1">
                 <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
                 <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
@@ -171,15 +195,16 @@
               </div>
             </a-tab-pane>
             <a-tab-pane v-for="c in categories" :key="String(c.id)" :title="c.name">
-              <table class="data-table">
+              <div style="overflow-x: auto; max-width: 100%;">
+                <table class="data-table" style="min-width: 600px;">
                 <thead>
                   <tr>
-                    <th width="60">ID</th>
-                    <th>题目内容</th>
-                    <th width="80">类型</th>
-                    <th width="80">难度</th>
-                    <th width="60">分值</th>
-                    <th width="120">操作</th>
+                    <th style="width: 60px; min-width: 60px;">ID</th>
+                    <th style="min-width: 200px;">题目内容</th>
+                    <th style="width: 80px; min-width: 80px;">类型</th>
+                    <th style="width: 80px; min-width: 80px;">难度</th>
+                    <th style="width: 60px; min-width: 60px;">分值</th>
+                    <th style="width: 120px; min-width: 120px;">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,6 +232,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
               <div class="pagination" v-if="totalQuestionPages > 1">
                 <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
                 <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
@@ -263,7 +289,19 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(p, index) in paginatedPapers" :key="p.id">
+                <tr v-if="papersLoading">
+                  <td colspan="7">
+                    <a-skeleton :animation="true">
+                      <a-skeleton-line :widths="['100%', '80%', '60%', '70%', '50%']" :rows="5" />
+                    </a-skeleton>
+                  </td>
+                </tr>
+                <tr v-else-if="paginatedPapers.length === 0">
+                  <td colspan="7">
+                    <a-empty description="暂无试卷" />
+                  </td>
+                </tr>
+                <tr v-else v-for="(p, index) in paginatedPapers" :key="p.id">
                   <td>{{ (papersPage - 1) * papersPageSize + index + 1 }}</td>
                   <td class="title-cell">
                     <a-badge v-if="papersWithPendingGrading && papersWithPendingGrading[p.id]" :count="papersWithPendingGrading[p.id]" :max-count="99" :number-style="{backgroundColor: '#f53f3f'}">
@@ -451,53 +489,63 @@
           </div>
         </div>
         <a-card class="content-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th width="60">序号</th>
-                <th>用户名</th>
-                <th width="120">手机号</th>
-                <th width="100">角色</th>
-                <th width="80">状态</th>
-                <th width="160">创建时间</th>
-                <th width="180">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(u, index) in paginatedUserList" :key="u.id">
-                <td>{{ (userPage - 1) * userPageSize + index + 1 }}</td>
-                <td>{{ u.username }}</td>
-                <td>{{ u.phone || '-' }}</td>
-                <td>
-                  <span :class="u.role === 'admin' ? 'tag tag-red' : 'tag tag-blue'">{{ u.role === 'admin' ? '管理员' : '培训师' }}</span>
-                </td>
-                <td>
-                  <span :class="u.status === 'locked' ? 'tag tag-red' : 'tag tag-green'">{{ u.status === 'locked' ? '已锁定' : '正常' }}</span>
-                </td>
-                <td>{{ u.created_at ? new Date(u.created_at).toLocaleString() : '-' }}</td>
-                <td>
-                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-                    <a-link @click="editUser(u)">编辑</a-link>
-                    <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
-                    <a-button type="text" status="danger" size="small" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-if="userList.length > userPageSize" class="pagination">
-            <a-select v-model="userPageSize" style="width: 80px" @change="userPage = 1">
-              <a-option :value="8">8 条</a-option>
-              <a-option :value="10">10 条</a-option>
-              <a-option :value="15">15 条</a-option>
-              <a-option :value="20">20 条</a-option>
-            </a-select>
-            <span class="page-btn" @click="userPage = 1">首页</span>
-            <span class="page-btn" @click="userPage > 1 && userPage--">上一页</span>
-            <span class="page-current">{{ userPage }} / {{ Math.ceil(userList.length / userPageSize) }}</span>
-            <span class="page-btn" @click="userPage < Math.ceil(userList.length / userPageSize) && userPage++">下一页</span>
-            <span class="page-btn" @click="userPage = Math.ceil(userList.length / userPageSize)">末页</span>
-          </div>
+          <template v-if="userListLoading">
+            <a-skeleton :animation="true">
+              <a-skeleton-line :widths="['100%', '80%', '60%', '70%']" :rows="5" />
+            </a-skeleton>
+          </template>
+          <template v-else-if="paginatedUserList.length === 0">
+            <a-empty description="暂无用户数据" />
+          </template>
+          <template v-else>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th width="60">序号</th>
+                  <th>用户名</th>
+                  <th width="120">手机号</th>
+                  <th width="100">角色</th>
+                  <th width="80">状态</th>
+                  <th width="160">创建时间</th>
+                  <th width="180">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(u, index) in paginatedUserList" :key="u.id">
+                  <td>{{ (userPage - 1) * userPageSize + index + 1 }}</td>
+                  <td>{{ u.username }}</td>
+                  <td>{{ u.phone || '-' }}</td>
+                  <td>
+                    <span :class="u.role === 'admin' ? 'tag tag-red' : 'tag tag-blue'">{{ u.role === 'admin' ? '管理员' : '培训师' }}</span>
+                  </td>
+                  <td>
+                    <span :class="u.status === 'locked' ? 'tag tag-red' : 'tag tag-green'">{{ u.status === 'locked' ? '已锁定' : '正常' }}</span>
+                  </td>
+                  <td>{{ u.created_at ? new Date(u.created_at).toLocaleString() : '-' }}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                      <a-link @click="editUser(u)">编辑</a-link>
+                      <a-switch :checked="u.status !== 'locked'" size="small" @change="toggleUserStatus(u)" :disabled="u.role === 'admin'" />
+                      <a-button type="text" status="danger" size="small" @click="deleteUserApi(u.id)" :disabled="u.role === 'admin'">删除</a-button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="userList.length > userPageSize" class="pagination">
+              <a-select v-model="userPageSize" style="width: 80px" @change="userPage = 1">
+                <a-option :value="8">8 条</a-option>
+                <a-option :value="10">10 条</a-option>
+                <a-option :value="15">15 条</a-option>
+                <a-option :value="20">20 条</a-option>
+              </a-select>
+              <span class="page-btn" @click="userPage = 1">首页</span>
+              <span class="page-btn" @click="userPage > 1 && userPage--">上一页</span>
+              <span class="page-current">{{ userPage }} / {{ Math.ceil(userList.length / userPageSize) }}</span>
+              <span class="page-btn" @click="userPage < Math.ceil(userList.length / userPageSize) && userPage++">下一页</span>
+              <span class="page-btn" @click="userPage = Math.ceil(userList.length / userPageSize)">末页</span>
+            </div>
+          </template>
         </a-card>
       </div>
 
@@ -526,52 +574,62 @@
           </div>
         </div>
         <a-card class="content-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th width="60">序号</th>
-                <th>标题</th>
-                <th width="100">类型</th>
-                <th width="100">状态</th>
-                <th width="160">创建时间</th>
-                <th width="150">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(a, index) in paginatedAnnouncements" :key="a.id">
-                <td>{{ (announcementPage - 1) * announcementPageSize + index + 1 }}</td>
-                <td class="title-cell">{{ a.title }}</td>
-                <td>
-                  <span v-if="a.type === 'notice'" class="tag tag-blue">通知</span>
-                  <span v-else-if="a.type === 'news'" class="tag tag-green">新闻</span>
-                  <span v-else class="tag tag-orange">公告</span>
-                </td>
-                <td>
-                  <span :class="a.status === 'published' ? 'tag tag-green' : 'tag tag-gray'">{{ a.status === 'published' ? '已发布' : '草稿' }}</span>
-                </td>
-                <td>{{ a.created_at ? new Date(a.created_at).toLocaleString() : '-' }}</td>
-                <td>
-                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-                    <a-link @click="openAnnouncementDialog(a)">编辑</a-link>
-                    <a-button type="text" status="danger" size="small" @click="deleteAnnouncementAction(a.id)">删除</a-button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-if="announcements.length > announcementPageSize" class="pagination">
-            <a-select v-model="announcementPageSize" style="width: 80px" @change="announcementPage = 1">
-              <a-option :value="8">8 条</a-option>
-              <a-option :value="10">10 条</a-option>
-              <a-option :value="15">15 条</a-option>
-              <a-option :value="20">20 条</a-option>
-            </a-select>
-            <span class="page-btn" @click="announcementPage = 1">首页</span>
-            <span class="page-btn" @click="announcementPage > 1 && announcementPage--">上一页</span>
-            <span class="page-current">{{ announcementPage }} / {{ Math.ceil(announcements.length / announcementPageSize) }}</span>
-            <span class="page-btn" @click="announcementPage < Math.ceil(announcements.length / announcementPageSize) && announcementPage++">下一页</span>
-            <span class="page-btn" @click="announcementPage = Math.ceil(announcements.length / announcementPageSize)">末页</span>
-          </div>
+          <template v-if="announcementsLoading">
+            <a-skeleton :animation="true">
+              <a-skeleton-line :widths="['100%', '80%', '60%', '70%']" :rows="5" />
+            </a-skeleton>
+          </template>
+          <template v-else-if="paginatedAnnouncements.length === 0">
+            <a-empty description="暂无公告数据" />
+          </template>
+          <template v-else>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th width="60">序号</th>
+                  <th>标题</th>
+                  <th width="100">类型</th>
+                  <th width="100">状态</th>
+                  <th width="160">创建时间</th>
+                  <th width="150">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(a, index) in paginatedAnnouncements" :key="a.id">
+                  <td>{{ (announcementPage - 1) * announcementPageSize + index + 1 }}</td>
+                  <td class="title-cell">{{ a.title }}</td>
+                  <td>
+                    <span v-if="a.importance === 'high'" class="tag tag-red">重要</span>
+                    <span v-else-if="a.importance === 'medium'" class="tag tag-orange">一般</span>
+                    <span v-else class="tag tag-blue">普通</span>
+                  </td>
+                  <td>
+                    <span :class="a.status === 'published' ? 'tag tag-green' : 'tag tag-gray'">{{ a.status === 'published' ? '已发布' : '草稿' }}</span>
+                  </td>
+                  <td>{{ a.created_at ? new Date(a.created_at).toLocaleString() : '-' }}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                      <a-link @click="openAnnouncementDialog(a)">编辑</a-link>
+                      <a-button type="text" status="danger" size="small" @click="deleteAnnouncementAction(a.id)">删除</a-button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="announcements.length > announcementPageSize" class="pagination">
+              <a-select v-model="announcementPageSize" style="width: 80px" @change="announcementPage = 1">
+                <a-option :value="8">8 条</a-option>
+                <a-option :value="10">10 条</a-option>
+                <a-option :value="15">15 条</a-option>
+                <a-option :value="20">20 条</a-option>
+              </a-select>
+              <span class="page-btn" @click="announcementPage = 1">首页</span>
+              <span class="page-btn" @click="announcementPage > 1 && announcementPage--">上一页</span>
+              <span class="page-current">{{ announcementPage }} / {{ Math.ceil(announcements.length / announcementPageSize) }}</span>
+              <span class="page-btn" @click="announcementPage < Math.ceil(announcements.length / announcementPageSize) && announcementPage++">下一页</span>
+              <span class="page-btn" @click="announcementPage = Math.ceil(announcements.length / announcementPageSize)">末页</span>
+            </div>
+          </template>
         </a-card>
       </div>
 
@@ -668,6 +726,14 @@
             <span class="page-btn" @click="pendingGradingPage = Math.ceil(filteredPendingGradingList.length / pendingGradingPageSize)">末页</span>
           </div>
         </a-card>
+      </div>
+
+      <div v-show="activeTab === 'system'" v-if="user?.role === 'admin'">
+        <SystemSettings />
+      </div>
+
+      <div v-show="activeTab === 'promotions'">
+        <PromotionsPanel :is-admin="user?.role === 'admin'" />
       </div>
     </main>
 
@@ -1106,61 +1172,16 @@
       </div>
     </a-drawer>
 
-    <div v-show="activeTab === 'upgrade'" v-if="user?.role === 'admin'" class="page-view">
-      <!-- 页面头部 - 使用 Arco 标准 PageHeader -->
-      <div class="page-header-simple">
-        <div class="page-header-content">
-          <div class="page-header-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-          </div>
-          <div class="page-header-text">
-            <h1 class="page-title">平台升级</h1>
-            <p class="page-desc">检查并更新系统到最新版本</p>
-          </div>
-        </div>
-      </div>
-      <a-card class="content-card">
-        <div class="upgrade-info">
-          <a-descriptions :column="1" bordered size="small">
-            <a-descriptions-item label="当前版本">
-              <a-tag color="arcoblue">v{{ upgradeInfo.currentVersion || currentVersion }}</a-tag>
-            </a-descriptions-item>
-            <a-descriptions-item label="最新版本">
-              <a-tag :color="upgradeInfo.hasUpdate ? 'red' : 'green'">v{{ upgradeInfo.latestVersion || '-' }}</a-tag>
-            </a-descriptions-item>
-            <a-descriptions-item label="状态">
-              <a-tag v-if="upgradeInfo.hasUpdate" color="orange">发现新版本</a-tag>
-              <a-tag v-else color="green">已是最新版本</a-tag>
-            </a-descriptions-item>
-          </a-descriptions>
-          <div style="margin-top: 20px;">
-            <a-button type="primary" :loading="checkingUpgrade" @click="checkForUpgrade">
-              <template #icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></template>
-              检查更新
-            </a-button>
-            <a-button v-if="upgradeInfo.hasUpdate" type="primary" status="warning" :loading="upgrading" @click="performUpgrade" style="margin-left: 12px;">
-              升级到 v{{ upgradeInfo.latestVersion }}
-            </a-button>
-          </div>
-          <a-alert v-if="upgradeMessage" :type="upgradeSuccess ? 'success' : 'error'" style="margin-top: 16px">{{ upgradeMessage }}</a-alert>
-        </div>
-      </a-card>
-    </div>
-
     <a-modal v-model:visible="showAnnouncementDialog" :title="editingAnnouncement ? '编辑公告' : '新建公告'" :width="800" @cancel="showAnnouncementDialog = false" :footer="null">
       <a-form :model="announcementForm" layout="vertical">
         <a-form-item label="标题">
           <a-input v-model="announcementForm.title" placeholder="请输入公告标题" />
         </a-form-item>
         <a-form-item label="类型">
-          <a-select v-model="announcementForm.type">
-            <a-option label="通知" value="notice" />
-            <a-option label="新闻" value="news" />
-            <a-option label="公告" value="announcement" />
+          <a-select v-model="announcementForm.importance">
+            <a-option label="普通" value="normal" />
+            <a-option label="一般" value="medium" />
+            <a-option label="重要" value="high" />
           </a-select>
         </a-form-item>
         <a-form-item label="状态">
@@ -1206,9 +1227,12 @@ import {
 } from '@/api'
 import { formatDateTime } from '@/utils/date'
 import { APP_VERSION } from '@/version'
+import SystemSettings from './SystemSettings.vue'
+import PromotionsPanel from './PromotionsPanel.vue'
 
 export default {
   name: 'Dashboard',
+  components: { SystemSettings, PromotionsPanel },
   setup() {
     const router = useRouter()
     const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
@@ -1276,6 +1300,8 @@ export default {
       } else if (tab === 'announcements') {
         console.log('[DEBUG] Announcements tab activated, calling loadAnnouncements')
         loadAnnouncements()
+      } else if (tab === 'promotions') {
+        // 使用内嵌的 PromotionsPanel
       }
     }
 
@@ -1321,6 +1347,11 @@ export default {
     ]
 
     const loadPendingGrading = async () => {
+      if (!papers.value || papers.value.length === 0) {
+        pendingGradingList.value = []
+        papersWithPendingGrading.value = {}
+        return
+      }
       try {
         let allPending = []
         const pendingMap = {}
@@ -1334,17 +1365,15 @@ export default {
               for (const record of res.data.list) {
                 record.paper_title = paper.title
                 if (!record.essay_questions) record.essay_questions = []
-                // 从题库中获取问答题的满分分数
                 for (const eq of record.essay_questions) {
                   eq.currentScore = 0
                   eq.remark = ''
-                  // 如果没有 max_score，从题库中查找
                   if (!eq.max_score) {
                     const question = questions.value.find(q => q.id === eq.question_id)
                     if (question && question.score) {
                       eq.max_score = question.score
                     } else {
-                      eq.max_score = 0 // 默认值
+                      eq.max_score = 0
                     }
                   }
                 }
@@ -1488,6 +1517,7 @@ export default {
     }
 
     const questions = ref([])
+    const questionsLoading = ref(false)
     const questionSearch = ref('')
     const searchType = ref('')
     const searchDifficulty = ref('')
@@ -1510,6 +1540,7 @@ export default {
     const importResult = ref(null)
 
     const papers = ref([])
+    const papersLoading = ref(false)
     const papersPage = ref(1)
     const papersPageSize = ref(8)
     const showPaperDialog = ref(false)
@@ -1647,13 +1678,17 @@ export default {
     const totalQuestionPages = computed(() => Math.ceil((filteredQuestions.value || []).length / questionPageSize.value) || 1)
 
     const loadQuestions = async () => {
+      questionsLoading.value = true
       try {
         const res = await getQuestions({ limit: 100 });
         if (res.data) {
           questions.value = res.data.list || res.data.questions || []
         }
       } catch (e) {
-        Message.error('加载题目失败')
+        console.error('加载题目失败:', e)
+        Message.error('加载题目失败: ' + (e.message || '网络错误'))
+      } finally {
+        questionsLoading.value = false
       }
     }
     
@@ -1791,6 +1826,7 @@ export default {
         }
       } catch (e) {
         console.error('加载类别失败', e)
+        Message.error('加载类别失败: ' + (e.message || '网络错误'))
       }
     }
 
@@ -1820,15 +1856,16 @@ export default {
     }
 
     const userList = ref([])
+    const userListLoading = ref(false)
     const userPage = ref(1)
     const userPageSize = ref(8)
-    const userLoading = ref(false)
     const userSearch = ref('')
     const showUserDialog = ref(false)
     const editingUser = ref(null)
     const userForm = ref({ username: '', password: '', phone: '', role: 'trainer' })
 
     const announcements = ref([])
+    const announcementsLoading = ref(false)
     const announcementPage = ref(1)
     const announcementPageSize = ref(8)
 
@@ -1839,20 +1876,21 @@ export default {
 
     const showAnnouncementDialog = ref(false)
     const editingAnnouncement = ref(null)
-    const announcementForm = ref({ title: '', content: '', type: 'notice', status: 'published' })
+    const announcementForm = ref({ title: '', content: '', importance: 'normal', status: 'published' })
     const savingAnnouncement = ref(false)
     const editorContainerRef = ref(null)
     let editorInstance = null
 
     const loadUsers = async () => {
-      userLoading.value = true
+      userListLoading.value = true
       try {
         const res = await getUsers({ keyword: userSearch.value })
         userList.value = res.data?.list || res.data?.users || []
       } catch (e) {
         console.error(e)
+        Message.error('加载用户失败: ' + (e.message || '网络错误'))
       } finally {
-        userLoading.value = false
+        userListLoading.value = false
       }
     }
 
@@ -1919,11 +1957,15 @@ export default {
     }
 
     const loadAnnouncements = async () => {
+      announcementsLoading.value = true
       try {
         const res = await getAnnouncements()
         announcements.value = res.data?.list || res.data || []
       } catch (e) {
         console.error(e)
+        Message.error('加载公告失败: ' + (e.message || '网络错误'))
+      } finally {
+        announcementsLoading.value = false
       }
     }
 
@@ -1933,7 +1975,7 @@ export default {
         announcementForm.value = {
           title: announcement.title,
           content: announcement.content,
-          type: announcement.type,
+          importance: announcement.importance || 'normal',
           status: announcement.status
         }
       } else {
@@ -1946,7 +1988,7 @@ export default {
           editorInstance.destroy()
           editorInstance = null
         }
-        if (editorContainerRef.value) {
+        if (editorContainerRef.value && typeof E !== 'undefined') {
           const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
           let ignoreNextChange = true
           editorInstance = new E(editorContainerRef.value)
@@ -2037,6 +2079,7 @@ export default {
     }
 
     const loadPapers = async () => {
+      papersLoading.value = true
       try {
         const res = await getPapers({ limit: 100 });
         if (res.data) {
@@ -2045,7 +2088,9 @@ export default {
         }
       } catch (e) {
         console.error('加载试卷失败:', e)
-        Message.error('加载试卷失败')
+        Message.error('加载试卷失败: ' + (e.message || '网络错误'))
+      } finally {
+        papersLoading.value = false
       }
     }
 
@@ -2337,7 +2382,10 @@ export default {
         const res = await getPaperExamUrl(id)
         examUrlData.value = res.data
         showExamUrlDialog.value = true
-      } catch (e) { Message.error('获取考试地址失败') }
+      } catch (e) {
+        const errorMsg = e.response?.data?.message || '获取考试地址失败'
+        Message.error(errorMsg)
+      }
     }
 
     const manageQuestions = (id) => {
@@ -2457,7 +2505,7 @@ export default {
     })
 
     return {
-      userList, userSearch, userPage, userPageSize, showUserDialog, editingUser, userForm, userLoading, paginatedUserList,
+      userList, userSearch, userPage, userPageSize, showUserDialog, editingUser, userForm, userListLoading, paginatedUserList,
       loadUsers, editUser, saveUser, toggleUserStatus, deleteUserApi,
       user, activeTab, switchTab, sidebarOpen, currentVersion, upgradeInfo, checkingUpgrade, upgrading, upgradeMessage, upgradeSuccess, checkForUpgrade, performUpgrade, questions, questionSearch, activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
       showQuestionDialog, showImportDialog,
@@ -2731,7 +2779,7 @@ export default {
 .toolbar-standard {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
   flex-wrap: wrap;
@@ -2823,7 +2871,7 @@ export default {
   box-shadow: var(--shadow-card);
 }
 
-.data-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+.data-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; overflow-x: auto; }
 .data-table th, .data-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .data-table th {
   background: var(--bg-color);
@@ -2841,7 +2889,12 @@ export default {
 }
 .data-table tbody tr:hover { background: var(--bg-color-hover); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table .title-cell { max-width: 224px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-table .title-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .data-table { display: block; overflow-x: auto; }
+  .data-table th, .data-table td { min-width: 80px; }
+}
 
 .action-group { display: flex; gap: 8px; align-items: center; }
 

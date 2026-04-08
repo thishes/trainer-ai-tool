@@ -1,17 +1,13 @@
+// server/routes/announcements.js - 公告管理路由 (MySQL优先)
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
+const mysqlDb = require('../db-mysql');
 const config = require('../config');
 const authenticate = require('../middleware/auth');
-// const sharp = require('sharp');
-
-const JWT_SECRET = config.JWT_SECRET;
-if (!JWT_SECRET && config.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET 环境变量未设置');
-}
 
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -19,10 +15,10 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
+  destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
-  filename: async (req, file, cb) => {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + '.webp');
   }
@@ -41,18 +37,8 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 
 const processImage = async (file) => {
   const webpFilename = file.filename;
-  const originalPath = file.path;
-  const webpPath = path.join(uploadDir, webpFilename);
-  
-  try {
-    // Skip sharp processing, just use original file
-    console.log('File uploaded:', webpFilename);
-    
-    return webpFilename;
-  } catch (err) {
-    console.error('图片转换失败:', err);
-    return file.filename;
-  }
+  console.log('File uploaded:', webpFilename);
+  return webpFilename;
 };
 
 const handleUpload = [
@@ -64,7 +50,7 @@ const handleUpload = [
     if (!req.file) {
       return res.status(400).json({ success: false, message: '请选择图片文件' });
     }
-    
+
     const webpFilename = await processImage(req.file);
     const fileUrl = `/uploads/${webpFilename}`;
     res.json({ success: true, url: fileUrl });
@@ -75,8 +61,19 @@ router.post('/upload', upload.single('image'), ...handleUpload);
 
 router.get('/', async (req, res) => {
   try {
-    const { status, type } = req.query;
-    const announcements = db.announcements.findAll({ status, type });
+    const { status } = req.query;
+    let announcements;
+
+    if (mysqlDb.isConnected()) {
+      try {
+        announcements = await mysqlDb.getAnnouncements(status);
+      } catch (e) {
+        announcements = await db.getAnnouncements(status);
+      }
+    } else {
+      announcements = await db.getAnnouncements(status);
+    }
+
     res.json({ success: true, data: { list: announcements, total: announcements.length } });
   } catch (error) {
     console.error('获取公告错误:', error);
@@ -86,7 +83,18 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const announcement = db.announcements.findById(req.params.id);
+    let announcement;
+
+    if (mysqlDb.isConnected()) {
+      try {
+        announcement = await mysqlDb.getAnnouncementById(req.params.id);
+      } catch (e) {
+        announcement = await db.getAnnouncementById(req.params.id);
+      }
+    } else {
+      announcement = await db.getAnnouncementById(req.params.id);
+    }
+
     if (!announcement) {
       return res.status(404).json({ success: false, message: '公告不存在' });
     }
@@ -103,21 +111,40 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
-    const { title, content, type, status } = req.body;
-    console.log('Creating announcement:', { title, content, type, status });
+    const { title, content, importance, status } = req.body;
 
     if (!title) {
       return res.status(400).json({ success: false, message: '标题不能为空' });
     }
 
-    const announcement = db.announcements.create({
-      title,
-      content: content || '',
-      type: type || 'notice',
-      status: status || 'published',
-      author_id: req.user.id,
-      author_name: req.user.username
-    });
+    let announcement;
+    if (mysqlDb.isConnected()) {
+      try {
+        announcement = await mysqlDb.createAnnouncement({
+          title,
+          content: content || '',
+          importance: importance || 'normal',
+          status: status || 'published',
+          author_id: req.user.id
+        });
+      } catch (e) {
+        announcement = await db.createAnnouncement({
+          title,
+          content: content || '',
+          importance: importance || 'normal',
+          status: status || 'published',
+          author_id: req.user.id
+        });
+      }
+    } else {
+      announcement = await db.createAnnouncement({
+        title,
+        content: content || '',
+        importance: importance || 'normal',
+        status: status || 'published',
+        author_id: req.user.id
+      });
+    }
 
     res.json({ success: true, message: '创建成功', data: announcement });
   } catch (error) {
@@ -132,30 +159,39 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
-    const announcement = db.announcements.findById(req.params.id);
+    let announcement;
+    if (mysqlDb.isConnected()) {
+      try {
+        announcement = await mysqlDb.getAnnouncementById(req.params.id);
+      } catch (e) {
+        announcement = await db.getAnnouncementById(req.params.id);
+      }
+    } else {
+      announcement = await db.getAnnouncementById(req.params.id);
+    }
+
     if (!announcement) {
       return res.status(404).json({ success: false, message: '公告不存在' });
     }
 
-    const { title, content, type, status } = req.body;
+    const { title, content, importance, status } = req.body;
 
-    if (title !== undefined && !title) {
-      return res.status(400).json({ success: false, message: '标题不能为空' });
-    }
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (content !== undefined) updates.content = content;
+    if (importance !== undefined) updates.importance = importance;
+    if (status !== undefined) updates.status = status;
 
-    if (content !== undefined) {
-      const strippedContent = content.replace(/<[^>]*>/g, '').trim();
-      if (!strippedContent) {
-        return res.status(400).json({ success: false, message: '内容不能为空' });
+    let updated;
+    if (mysqlDb.isConnected()) {
+      try {
+        updated = await mysqlDb.updateAnnouncement(req.params.id, updates);
+      } catch (e) {
+        updated = await db.updateAnnouncement(req.params.id, updates);
       }
+    } else {
+      updated = await db.updateAnnouncement(req.params.id, updates);
     }
-
-    const updated = db.announcements.update(req.params.id, {
-      title: title !== undefined ? title : announcement.title,
-      content: content !== undefined ? content : announcement.content,
-      type: type !== undefined ? type : announcement.type,
-      status: status !== undefined ? status : announcement.status
-    });
 
     res.json({ success: true, message: '更新成功', data: updated });
   } catch (error) {
@@ -170,12 +206,31 @@ router.delete('/:id', authenticate, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
-    const announcement = db.announcements.findById(req.params.id);
+    let announcement;
+    if (mysqlDb.isConnected()) {
+      try {
+        announcement = await mysqlDb.getAnnouncementById(req.params.id);
+      } catch (e) {
+        announcement = await db.getAnnouncementById(req.params.id);
+      }
+    } else {
+      announcement = await db.getAnnouncementById(req.params.id);
+    }
+
     if (!announcement) {
       return res.status(404).json({ success: false, message: '公告不存在' });
     }
 
-    db.announcements.delete(req.params.id);
+    if (mysqlDb.isConnected()) {
+      try {
+        await mysqlDb.deleteAnnouncement(req.params.id);
+      } catch (e) {
+        await db.deleteAnnouncement(req.params.id);
+      }
+    } else {
+      await db.deleteAnnouncement(req.params.id);
+    }
+
     res.json({ success: true, message: '删除成功' });
   } catch (error) {
     console.error('删除公告错误:', error);
