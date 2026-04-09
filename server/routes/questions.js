@@ -25,39 +25,91 @@ async function getQuestionFromMySQL(id) {
   }
 }
 
+const redis = require('../redis');
+
 // 获取题目列表
 router.get('/', authenticate, async (req, res) => {
   try {
     const { page = 1, limit = 20, category_id, type, keyword, status } = req.query;
+    
+    // 构建缓存key
+    const cacheKey = `questions:list:${page}:${limit}:${category_id || 'all'}:${type || 'all'}:${keyword || 'all'}:${status || 'all'}`;
+    
+    // 检查缓存（仅在没有关键词时缓存，因为关键词变化频繁）
+    if (!keyword) {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return res.json({ success: true, data: cached, fromCache: true });
+      }
+    }
 
-    let questions;
-    const mysqlQuestions = await getQuestionsFromMySQL({ category_id });
-    if (mysqlQuestions) {
-      questions = mysqlQuestions;
+    let questions = [];
+    
+    // 使用数据库过滤而不是内存过滤
+    if (mysqlDb.isConnected()) {
+      try {
+        const { query } = require('../db-mysql');
+        let sql = 'SELECT * FROM questions WHERE 1=1';
+        const params = [];
+        
+        if (category_id) {
+          sql += ' AND category_id = ?';
+          params.push(parseInt(category_id));
+        }
+        if (type) {
+          sql += ' AND type = ?';
+          params.push(type);
+        }
+        if (keyword) {
+          sql += ' AND title LIKE ?';
+          params.push(`%${keyword}%`);
+        }
+        if (status) {
+          sql += ' AND status = ?';
+          params.push(status);
+        }
+        
+        // 添加分页
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        sql += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+        params.push(parseInt(limit), offset);
+        
+        questions = await query(sql, params);
+        
+        // 获取总数
+        let countSql = 'SELECT COUNT(*) as total FROM questions WHERE 1=1';
+        const countParams = [];
+        if (category_id) {
+          countSql += ' AND category_id = ?';
+          countParams.push(parseInt(category_id));
+        }
+        if (type) {
+          countSql += ' AND type = ?';
+          countParams.push(type);
+        }
+        if (keyword) {
+          countSql += ' AND title LIKE ?';
+          countParams.push(`%${keyword}%`);
+        }
+        if (status) {
+          countSql += ' AND status = ?';
+          countParams.push(status);
+        }
+        
+        const countResult = await query(countSql, countParams);
+        var total = countResult[0]?.total || 0;
+      } catch (e) {
+        // MySQL失败，回退到JSON
+        questions = await db.getQuestions();
+        applyFiltersAndPagination(questions, category_id, type, keyword, status, page, limit);
+      }
     } else {
       questions = await db.getQuestions();
+      applyFiltersAndPagination(questions, category_id, type, keyword, status, page, limit);
     }
-
-    if (category_id) {
-      questions = questions.filter(q => q.category_id === parseInt(category_id));
-    }
-    if (type) {
-      questions = questions.filter(q => q.type === type);
-    }
-    if (keyword) {
-      questions = questions.filter(q => q.title.includes(keyword));
-    }
-    if (status) {
-      questions = questions.filter(q => q.status === status);
-    }
-
-    const total = questions.length;
-    const start = (parseInt(page) - 1) * parseInt(limit);
-    const end = start + parseInt(limit);
-    const rows = questions.slice(start, end);
 
     // 批量获取所有需要的分类信息，避免 N+1 查询
-    const categoryIds = [...new Set(rows.filter(q => q.category_id).map(q => q.category_id))];
+    const categoryIds = [...new Set(questions.filter(q => q.category_id).map(q => q.category_id))];
     let categoriesMap = {};
     
     if (categoryIds.length > 0) {
@@ -81,25 +133,52 @@ router.get('/', authenticate, async (req, res) => {
       }
     }
     
-    const list = rows.map(q => {
+    const list = questions.map(q => {
       const category = q.category_id ? categoriesMap[q.category_id] : null;
       return { ...q, Category: category ? { id: category.id, name: category.name } : null };
     });
 
-    res.json({
-      success: true,
-      data: {
-        list,
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit)
-      }
-    });
+    const result = {
+      list,
+      total: total || list.length,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+    
+    // 缓存结果3分钟（仅在没有关键词时）
+    if (!keyword) {
+      await redis.setWithExpiry(cacheKey, result, 180);
+    }
+
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('获取题目列表错误:', error);
     res.status(500).json({ success: false, message: '获取失败' });
   }
 });
+
+// 辅助函数：应用过滤和分页
+function applyFiltersAndPagination(questions, category_id, type, keyword, status, page, limit) {
+  if (category_id) {
+    questions = questions.filter(q => q.category_id === parseInt(category_id));
+  }
+  if (type) {
+    questions = questions.filter(q => q.type === type);
+  }
+  if (keyword) {
+    questions = questions.filter(q => q.title.includes(keyword));
+  }
+  if (status) {
+    questions = questions.filter(q => q.status === status);
+  }
+  
+  const total = questions.length;
+  const start = (parseInt(page) - 1) * parseInt(limit);
+  const end = start + parseInt(limit);
+  questions = questions.slice(start, end);
+  
+  return { questions, total };
+}
 
 // 获取题目详情
 router.get('/:id', async (req, res) => {
@@ -145,6 +224,9 @@ router.post('/', authenticate, async (req, res) => {
       question = await db.createQuestion(questionData);
     }
 
+    // 清除题目列表缓存
+    await clearQuestionsCache();
+
     res.json({ success: true, message: '创建成功', data: question });
   } catch (error) {
     console.error('创建题目错误:', error);
@@ -175,6 +257,9 @@ router.put('/:id', authenticate, async (req, res) => {
       updated = await db.updateQuestion(req.params.id, updateData);
     }
 
+    // 清除题目列表缓存
+    await clearQuestionsCache();
+
     res.json({ success: true, message: '更新成功', data: updated });
   } catch (error) {
     console.error('更新题目错误:', error);
@@ -200,12 +285,32 @@ router.delete('/:id', authenticate, async (req, res) => {
       await db.deleteQuestion(req.params.id);
     }
 
+    // 清除题目列表缓存
+    await clearQuestionsCache();
+
     res.json({ success: true, message: '删除成功' });
   } catch (error) {
     console.error('删除题目错误:', error);
     res.status(500).json({ success: false, message: '删除失败' });
   }
 });
+
+// 清除题目列表缓存
+async function clearQuestionsCache() {
+  try {
+    // 使用通配符删除所有题目列表缓存
+    const client = await redis.getRedisClient();
+    if (client && redis.isConnected()) {
+      const keys = await client.keys('questions:list:*');
+      if (keys.length > 0) {
+        await client.del(keys);
+        console.log(`[Cache] Cleared ${keys.length} questions cache entries`);
+      }
+    }
+  } catch (error) {
+    console.error('[Cache] Failed to clear questions cache:', error.message);
+  }
+}
 
 // 批量导入题目
 router.post('/import', authenticate, async (req, res) => {

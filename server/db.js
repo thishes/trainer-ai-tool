@@ -695,6 +695,7 @@ module.exports = {
       let result = Array.isArray(db.promotionSignups) ? [...db.promotionSignups] : [];
       if (filters.promotion_id) result = result.filter(s => s.promotion_id === parseInt(filters.promotion_id));
       if (filters.user_id !== undefined && filters.user_id !== null) result = result.filter(s => s.user_id === filters.user_id);
+      if (filters.class_id) result = result.filter(s => s.class_id === filters.class_id);
       return result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     },
     findById: (id) => (Array.isArray(db.promotionSignups) ? db.promotionSignups.find(s => s.id === parseInt(id)) : null),
@@ -703,10 +704,20 @@ module.exports = {
     },
     create: (data) => {
       if (!Array.isArray(db.promotionSignups)) db.promotionSignups = [];
-      const signup = { id: getNextId('promotionSignups'), ...data, created_at: new Date().toISOString() };
+      const signup = { id: getNextId('promotionSignups'), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       db.promotionSignups.push(signup);
       writeDB(db);
       return signup;
+    },
+    update: (id, data) => {
+      if (!Array.isArray(db.promotionSignups)) return null;
+      const index = db.promotionSignups.findIndex(s => s.id === parseInt(id));
+      if (index !== -1) {
+        db.promotionSignups[index] = { ...db.promotionSignups[index], ...data, updated_at: new Date().toISOString() };
+        writeDB(db);
+        return db.promotionSignups[index];
+      }
+      return null;
     },
     delete: (id) => {
       if (!Array.isArray(db.promotionSignups)) return false;

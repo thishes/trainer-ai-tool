@@ -286,6 +286,21 @@ export const deletePromotion = (id) => api.delete(`/promotions/${id}`)
 export const lockPromotion = (id) => api.post(`/promotions/${id}/lock`)
 export const unlockPromotion = (id) => api.post(`/promotions/${id}/unlock`)
 
-export const signupPromotion = (id, data) => api.post(`/promotions/${id}/signup`, data)
+// 预览功能
+export const getPromotionPreview = (id) => api.get(`/promotions/${id}/preview`)
+
+// 公开访问（无需登录）
+export const getPromotionPublic = (id) => api.get(`/promotions/${id}/public`)
+
+// 报名配置
+export const updatePromotionSignupConfig = (id, data) => api.put(`/promotions/${id}/signup-config`, data)
+
+// 报名管理
 export const getPromotionSignups = (id, params) => api.get(`/promotions/${id}/signups`, { params })
+export const createPromotionSignup = (id, data) => api.post(`/promotions/${id}/signups`, data)
+export const signupPromotion = (id, data) => api.post(`/promotions/${id}/signups`, data)
+export const createPromotionSignupManual = (id, data) => api.post(`/promotions/${id}/signups/manual`, data)
+export const updatePromotionSignup = (id, signupId, data) => api.put(`/promotions/${id}/signups/${signupId}`, data)
+export const deletePromotionSignup = (id, signupId) => api.delete(`/promotions/${id}/signups/${signupId}`)
+export const updatePromotionSignupStatus = (id, signupId, status) => api.patch(`/promotions/${id}/signups/${signupId}/status`, { status })
 export const exportPromotionSignups = (id) => api.get(`/promotions/${id}/signups/export`, { responseType: 'blob' })

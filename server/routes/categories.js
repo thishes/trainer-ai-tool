@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const mysqlDb = require('../db-mysql');
 const authenticate = require('../middleware/auth');
+const redis = require('../redis');
 
 async function getCategoriesFromMySQL() {
   if (!mysqlDb.isConnected()) return null;
@@ -25,8 +26,31 @@ async function getCategoryFromMySQL(id) {
   }
 }
 
+// 清除分类缓存
+async function clearCategoriesCache() {
+  try {
+    const client = await redis.getRedisClient();
+    if (client && redis.isConnected()) {
+      const keys = await client.keys('categories:*');
+      if (keys.length > 0) {
+        await client.del(keys);
+        console.log(`[Cache] Cleared ${keys.length} categories cache entries`);
+      }
+    }
+  } catch (error) {
+    console.error('[Cache] Failed to clear categories cache:', error.message);
+  }
+}
+
 router.get('/', authenticate, async (req, res) => {
   try {
+    // 检查缓存
+    const cacheKey = 'categories:all';
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: cached, fromCache: true });
+    }
+
     let categories = null;
     if (mysqlDb.isConnected()) {
       try {
@@ -38,6 +62,10 @@ router.get('/', authenticate, async (req, res) => {
     if (!categories) {
       categories = db.categories.findAll();
     }
+
+    // 缓存结果10分钟
+    await redis.setWithExpiry(cacheKey, categories, 600);
+
     res.json({ success: true, data: categories });
   } catch (error) {
     console.error('获取分类列表错误:', error);
@@ -64,6 +92,10 @@ router.post('/', authenticate, async (req, res) => {
     } else {
       category = db.categories.create(categoryData);
     }
+
+    // 清除缓存
+    await clearCategoriesCache();
+
     res.json({ success: true, message: '创建成功', data: category });
   } catch (error) {
     console.error('创建分类错误:', error);

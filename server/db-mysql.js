@@ -294,8 +294,8 @@ const db = {
     const id = nextId('questions');
     const type = normalizeQuestionType(question.type);
     await insert(
-      'INSERT INTO questions (id, title, type, options, answer, difficulty, score, explanation, category_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, question.title, type, JSON.stringify(question.options || []), question.answer, question.difficulty || 'medium', question.score || 10, question.explanation || '', question.category_id || null, question.status || 'draft']
+      'INSERT INTO questions (id, title, type, options, answer, difficulty, score, explanation, category_id, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, question.title, type, JSON.stringify(question.options || []), JSON.stringify(question.answer || null), question.difficulty || 'medium', question.score || 10, question.explanation || '', question.category_id || null, question.status || 'draft', question.user_id || null]
     );
     return { id, ...question };
   },
@@ -305,15 +305,20 @@ const db = {
     const values = [];
     for (const [key, value] of Object.entries(updates)) {
       if (key !== 'id') {
+        // 处理undefined值，转换为null
+        const safeValue = value === undefined ? null : value;
         if (key === 'options') {
           fields.push('options = ?');
-          values.push(JSON.stringify(value));
-        } else if (key === 'type' && value === 'choice') {
+          values.push(JSON.stringify(safeValue || []));
+        } else if (key === 'answer') {
+          fields.push('answer = ?');
+          values.push(JSON.stringify(safeValue || null));
+        } else if (key === 'type' && safeValue === 'choice') {
           fields.push('type = ?');
           values.push('single');
         } else {
           fields.push(`${key} = ?`);
-          values.push(value);
+          values.push(safeValue);
         }
       }
     }
@@ -544,14 +549,27 @@ const db = {
   },
 
   async getPromotionById(id) {
-    return findOne('SELECT * FROM promotions WHERE id = ?', [id]);
+    const row = await findOne('SELECT * FROM promotions WHERE id = ?', [id]);
+    if (row) {
+      row.enable_signup = row.enable_signup === 1;
+      row.locked = row.locked === 1;
+      if (row.signup_config && typeof row.signup_config === 'string') {
+        try {
+          row.signup_config = JSON.parse(row.signup_config);
+        } catch (e) {
+          row.signup_config = null;
+        }
+      }
+    }
+    return row;
   },
 
   async createPromotion(promotion) {
     const id = nextId('promotions');
+    const signupConfig = promotion.signup_config ? JSON.stringify(promotion.signup_config) : null;
     await insert(
-      'INSERT INTO promotions (id, title, content, status, enable_signup, locked, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, promotion.title, promotion.content || '', promotion.status || 'draft', promotion.enable_signup ? 1 : 0, promotion.locked ? 1 : 0, promotion.created_by]
+      'INSERT INTO promotions (id, title, content, status, enable_signup, signup_config, locked, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, promotion.title, promotion.content || '', promotion.status || 'draft', promotion.enable_signup ? 1 : 0, signupConfig, promotion.locked ? 1 : 0, promotion.created_by]
     );
     return { id, ...promotion };
   },
@@ -564,6 +582,9 @@ const db = {
         if (key === 'enable_signup' || key === 'locked') {
           fields.push(`${key} = ?`);
           values.push(value ? 1 : 0);
+        } else if (key === 'signup_config') {
+          fields.push(`${key} = ?`);
+          values.push(value ? JSON.stringify(value) : null);
         } else {
           fields.push(`${key} = ?`);
           values.push(value);
@@ -604,10 +625,29 @@ const db = {
   async createPromotionSignup(signup) {
     const id = nextId('promotion_signups');
     await insert(
-      'INSERT INTO promotion_signups (id, promotion_id, user_id) VALUES (?, ?, ?)',
-      [id, signup.promotion_id, signup.user_id]
+      'INSERT INTO promotion_signups (id, promotion_id, name, unit, phone, class_id, class_name, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, signup.promotion_id, signup.name, signup.unit || '', signup.phone, signup.class_id, signup.class_name || '', signup.status || 'approved', signup.source || 'online', signup.created_at || new Date().toISOString()]
     );
     return { id, ...signup };
+  },
+
+  async updatePromotionSignup(id, updates) {
+    const fields = [];
+    const values = [];
+    for (const [key, value] of Object.entries(updates)) {
+      if (key !== 'id') {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+    values.push(id);
+    await update(`UPDATE promotion_signups SET ${fields.join(', ')} WHERE id = ?`, values);
+    return findOne('SELECT * FROM promotion_signups WHERE id = ?', [id]);
+  },
+
+  async deletePromotionSignup(id) {
+    await remove('DELETE FROM promotion_signups WHERE id = ?', [id]);
+    return true;
   },
 
   async init() {

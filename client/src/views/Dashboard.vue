@@ -310,7 +310,7 @@
                     <span v-else>{{ p.title }}</span>
                   </td>
                   <td>{{ p.total_score || 0 }}分</td>
-                  <td>{{ p.time_limit }}分钟</td>
+                  <td>{{ p.duration }}分钟</td>
                   <td>
                     <span v-if="p.status === 'published'" class="tag tag-green">已发布</span>
                     <span v-else class="tag tag-gray">草稿</span>

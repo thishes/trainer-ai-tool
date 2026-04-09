@@ -70,8 +70,9 @@
               </td>
               <td>{{ p.created_at ? new Date(p.created_at).toLocaleString() : '-' }}</td>
               <td>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;">
                   <a-link @click="openPreview(p)">预览</a-link>
+                  <a-link @click="openSignupList(p)">名单</a-link>
                   <a-link @click="openEditDialog(p)" :disabled="p.locked && !isAdmin">编辑</a-link>
                   <a-button type="text" size="small" @click="toggleLock(p)" :disabled="!isAdmin">
                     {{ p.locked ? '解锁' : '锁定' }}
@@ -117,16 +118,18 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="previewVisible" title="文案预览" :width="600" :footer="null">
-      <div class="preview-content">
-        <h2>{{ previewData.title }}</h2>
-        <div class="preview-meta">
-          <a-tag :color="getStatusColor(previewData.status)">{{ getStatusText(previewData.status) }}</a-tag>
-          <span v-if="previewData.enable_signup" class="signup-badge">报名开启</span>
-        </div>
-        <div class="preview-body" v-html="previewData.content"></div>
-      </div>
-    </a-modal>
+    <!-- 使用新的预览弹窗组件 -->
+    <PreviewDialog
+      v-model:visible="previewDialogVisible"
+      :promotion-id="selectedPromotionId"
+    />
+
+    <!-- 名单管理弹窗 -->
+    <SignupListDialog
+      v-model:visible="signupListVisible"
+      :promotion="selectedPromotion"
+      @refresh="loadPromotions"
+    />
   </div>
 </template>
 
@@ -135,6 +138,8 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import E from 'wangeditor'
 import { getPromotions, createPromotion, updatePromotion, deletePromotion, lockPromotion, unlockPromotion } from '@/api'
+import PreviewDialog from '@/components/promotion/PreviewDialog.vue'
+import SignupListDialog from '@/components/promotion/SignupListDialog.vue'
 
 const props = defineProps({
   isAdmin: {
@@ -150,10 +155,12 @@ const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const dialogVisible = ref(false)
-const previewVisible = ref(false)
+const previewDialogVisible = ref(false)
+const signupListVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref(null)
-const previewData = ref({})
+const selectedPromotionId = ref(null)
+const selectedPromotion = ref(null)
 
 const form = ref({
   title: '',
@@ -290,8 +297,13 @@ const openEditDialog = async (item) => {
 }
 
 const openPreview = (item) => {
-  previewData.value = item
-  previewVisible.value = true
+  selectedPromotionId.value = item.id
+  previewDialogVisible.value = true
+}
+
+const openSignupList = (item) => {
+  selectedPromotion.value = item
+  signupListVisible.value = true
 }
 
 const handleSave = async () => {

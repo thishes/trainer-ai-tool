@@ -57,16 +57,25 @@ router.post('/login', async (req, res) => {
 
     await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
 
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        const users = await mysqlDb.getUsers();
-        user = users.find(u => u.username === username);
-      } catch (e) {
+    // 检查用户缓存
+    const cacheKey = `user:login:${username}`;
+    let user = await redis.get(cacheKey);
+    
+    if (!user) {
+      if (mysqlDb.isConnected()) {
+        try {
+          const users = await mysqlDb.getUsers();
+          user = users.find(u => u.username === username);
+        } catch (e) {
+          user = await db.users.findByUsername(username);
+        }
+      } else {
         user = await db.users.findByUsername(username);
       }
-    } else {
-      user = await db.users.findByUsername(username);
+      // 缓存用户信息5分钟
+      if (user) {
+        await redis.setWithExpiry(cacheKey, user, 300);
+      }
     }
 
     if (!user) {

@@ -121,4 +121,102 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
+router.post('/', requireAdmin, async (req, res) => {
+  try {
+    const { username, password, phone, role } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
+    }
+
+    let existingUser;
+    if (mysqlDb.isConnected()) {
+      try {
+        existingUser = await mysqlDb.getUserByUsername(username);
+      } catch (e) {}
+    }
+    if (!existingUser) {
+      existingUser = await db.getUserByUsername(username);
+    }
+
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: '用户名已存在' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userData = {
+      username,
+      password: hashedPassword,
+      phone: phone || null,
+      role: role || 'user',
+      status: 'active'
+    };
+
+    let user;
+    if (mysqlDb.isConnected()) {
+      try {
+        user = await mysqlDb.createUser(userData);
+      } catch (e) {
+        user = await db.createUser(userData);
+      }
+    } else {
+      user = await db.createUser(userData);
+    }
+
+    res.json({
+      success: true,
+      message: '创建成功',
+      data: {
+        id: user.id,
+        username: user.username,
+        phone: user.phone,
+        role: user.role,
+        status: user.status || 'active',
+        created_at: user.created_at
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.patch('/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status || !['active', 'locked'].includes(status)) {
+      return res.status(400).json({ success: false, message: '状态值无效，必须是 active 或 locked' });
+    }
+
+    let user;
+    if (mysqlDb.isConnected()) {
+      try {
+        user = await mysqlDb.updateUser(req.params.id, { status });
+      } catch (e) {
+        user = await db.updateUser(req.params.id, { status });
+      }
+    } else {
+      user = await db.updateUser(req.params.id, { status });
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+
+    res.json({
+      success: true,
+      message: status === 'active' ? '解锁成功' : '锁定成功',
+      data: {
+        id: user.id,
+        username: user.username,
+        phone: user.phone,
+        role: user.role,
+        status: user.status
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;

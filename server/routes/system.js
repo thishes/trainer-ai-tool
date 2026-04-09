@@ -143,35 +143,68 @@ router.get('/metrics', authenticate, async (req, res) => {
   }
 });
 
+const redis = require('../redis');
+
 router.get('/stats', authenticate, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: '无权限' });
     }
 
+    // 检查缓存
+    const cacheKey = 'system:stats';
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: cached, fromCache: true });
+    }
+
     let users, questions, papers, examRecords, announcements;
 
+    // 并行查询所有数据
     if (mysqlDb.isConnected()) {
       try {
-        users = await mysqlDb.getUsers();
-        questions = await mysqlDb.getQuestions();
-        papers = await mysqlDb.getPapers();
-        examRecords = await mysqlDb.getExamRecords();
-        announcements = await mysqlDb.getAnnouncements();
+        const { query } = require('../db-mysql');
+        
+        // 使用并行查询减少总耗时
+        const [
+          usersResult,
+          questionsResult,
+          papersResult,
+          examRecordsResult,
+          announcementsResult
+        ] = await Promise.all([
+          query('SELECT role, status FROM users'),
+          query('SELECT type, status FROM questions'),
+          query('SELECT status FROM papers'),
+          query('SELECT status, graded FROM exam_records'),
+          query('SELECT status FROM announcements')
+        ]);
+        
+        users = usersResult;
+        questions = questionsResult;
+        papers = papersResult;
+        examRecords = examRecordsResult;
+        announcements = announcementsResult;
       } catch (e) {
         console.warn('[Stats] MySQL query failed, falling back to JSON:', e.message);
-        users = await db.getUsers();
-        questions = await db.getQuestions();
-        papers = await db.getPapers();
-        examRecords = await db.getExamRecords();
-        announcements = await db.getAnnouncements();
+        // 并行获取JSON数据
+        [users, questions, papers, examRecords, announcements] = await Promise.all([
+          db.getUsers(),
+          db.getQuestions(),
+          db.getPapers(),
+          db.getExamRecords(),
+          db.getAnnouncements()
+        ]);
       }
     } else {
-      users = await db.getUsers();
-      questions = await db.getQuestions();
-      papers = await db.getPapers();
-      examRecords = await db.getExamRecords();
-      announcements = await db.getAnnouncements();
+      // 并行获取JSON数据
+      [users, questions, papers, examRecords, announcements] = await Promise.all([
+        db.getUsers(),
+        db.getQuestions(),
+        db.getPapers(),
+        db.getExamRecords(),
+        db.getAnnouncements()
+      ]);
     }
 
     const pendingGradingCount = examRecords.filter(r => r.status === 'submitted').length;
@@ -212,6 +245,9 @@ router.get('/stats', authenticate, async (req, res) => {
         published: announcements.filter(a => a.status === 'published').length
       }
     };
+
+    // 缓存结果5分钟
+    await redis.setWithExpiry(cacheKey, stats, 300);
 
     writeLog('INFO', `用户 ${req.user.username} 获取了数据统计`);
     res.json({ success: true, data: stats });

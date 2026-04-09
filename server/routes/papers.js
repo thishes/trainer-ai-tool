@@ -445,4 +445,125 @@ router.get('/:id/exam-url', authenticate, async (req, res) => {
   }
 });
 
+// 随机组卷
+router.post('/random', authenticate, async (req, res) => {
+  try {
+    const { title, count, duration, category_ids, question_types, difficulty } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ success: false, message: '请输入试卷标题' });
+    }
+
+    if (!count || count < 1) {
+      return res.status(400).json({ success: false, message: '题目数量必须大于0' });
+    }
+
+    // 构建查询条件
+    let questions;
+    if (mysqlDb.isConnected()) {
+      // MySQL版本：构建SQL查询
+      let sql = 'SELECT * FROM questions WHERE 1=1';
+      const params = [];
+
+      // 权限过滤：admin可以抽所有题目，普通用户只能抽自己的
+      if (req.user.role !== 'admin') {
+        sql += ' AND user_id = ?';
+        params.push(req.user.id);
+      }
+
+      // 分类过滤
+      if (category_ids && category_ids.length > 0) {
+        sql += ' AND category_id IN (?)';
+        params.push(category_ids);
+      }
+
+      // 题型过滤
+      if (question_types && question_types.length > 0) {
+        sql += ' AND type IN (?)';
+        params.push(question_types);
+      }
+
+      // 难度过滤
+      if (difficulty && difficulty.length > 0) {
+        sql += ' AND difficulty IN (?)';
+        params.push(difficulty);
+      }
+
+      // 随机排序并限制数量
+      sql += ' ORDER BY RAND() LIMIT ?';
+      params.push(parseInt(count));
+
+      const rows = await mysqlDb.query(sql, params);
+      questions = rows.map(q => ({
+        ...q,
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+      }));
+    } else {
+      // JSON版本：使用db.questions.random
+      questions = db.questions.random(
+        req.user.role === 'admin' ? null : req.user.id,
+        category_ids || [],
+        parseInt(count)
+      );
+
+      // 题型过滤
+      if (question_types && question_types.length > 0) {
+        questions = questions.filter(q => question_types.includes(q.type));
+      }
+
+      // 难度过滤
+      if (difficulty && difficulty.length > 0) {
+        questions = questions.filter(q => difficulty.includes(q.difficulty));
+      }
+    }
+
+    if (questions.length === 0) {
+      return res.status(400).json({ success: false, message: '没有符合条件的题目' });
+    }
+
+    if (questions.length < count) {
+      return res.status(400).json({
+        success: false,
+        message: `符合条件的题目只有 ${questions.length} 道，少于要求的 ${count} 道`
+      });
+    }
+
+    // 计算总分
+    const totalScore = questions.reduce((sum, q) => sum + (q.score || 10), 0);
+
+    // 创建试卷数据
+    const paperData = {
+      title,
+      description: `随机抽取${questions.length}道题目`,
+      owner_id: req.user.id,
+      duration: duration || 60,
+      total_score: totalScore,
+      question_ids: questions.map(q => q.id),
+      random_config: { category_ids, question_types, difficulty, count },
+      status: 'draft',
+      passing_score: Math.round(totalScore * 0.6)
+    };
+
+    // 创建试卷
+    let paper;
+    if (mysqlDb.isConnected()) {
+      paper = await mysqlDb.createPaper(paperData);
+    } else {
+      paper = await db.createPaper(paperData);
+    }
+
+    res.json({
+      success: true,
+      message: '创建成功',
+      data: {
+        paper,
+        question_count: questions.length
+      }
+    });
+  } catch (error) {
+    console.error('随机组卷错误:', error);
+    res.status(500).json({ success: false, message: '组卷失败: ' + error.message });
+  }
+});
+
 module.exports = router;

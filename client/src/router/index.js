@@ -12,6 +12,7 @@ const PaperQuestions = () => import('../views/PaperQuestions.vue')
 const Exam = () => import('../views/Exam.vue')
 const ExamResult = () => import('../views/ExamResult.vue')
 const PromotionView = () => import('../views/PromotionView.vue')
+const PromotionPublic = () => import('../views/PromotionPublic.vue')
 
 const routes = [
   {
@@ -87,6 +88,14 @@ const routes = [
     component: PromotionView,
     meta: {
       title: '宣传页面'
+    }
+  },
+  {
+    path: '/promotion/:id',
+    name: 'PromotionPublic',
+    component: PromotionPublic,
+    meta: {
+      title: '文案详情'
     }
   }
 ]
