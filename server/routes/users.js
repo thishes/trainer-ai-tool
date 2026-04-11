@@ -1,222 +1,99 @@
-// server/routes/users.js - 用户管理路由 (MySQL优先)
+// server/routes/users.js - 用户管理路由 (统一数据访问层)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const db = require('../db');
-const mysqlDb = require('../db-mysql');
-const config = require('../config');
+const repo = require('../repository');
 const authenticate = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
+const resp = require('../utils/response');
 
-const JWT_SECRET = config.JWT_SECRET;
+router.get('/', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { page = 1, pageSize = 20, keyword = '' } = req.query;
+  let users = await repo.getUsers();
 
-const requireAdmin = async (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ success: false, message: '未登录' });
+  users = users.map(u => ({
+    id: u.id,
+    username: u.username,
+    phone: u.phone,
+    role: u.role,
+    status: u.status || 'active',
+    created_at: u.created_at
+  }));
+
+  if (keyword) {
+    users = users.filter(u => u.username.includes(keyword) || (u.phone && u.phone.includes(keyword)));
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.getUserById(decoded.id);
-      } catch (e) {}
-    }
-    if (!user) {
-      user = await db.getUserById(decoded.id);
-    }
-    if (!user) {
-      return res.status(401).json({ success: false, message: '用户不存在' });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '权限不足' });
-    }
-    req.user = user;
-    next();
-  } catch (e) {
-    return res.status(401).json({ success: false, message: '登录已过期' });
+  const total = users.length;
+  const start = (parseInt(page) - 1) * parseInt(pageSize);
+  users = users.slice(start, start + parseInt(pageSize));
+
+  resp.success(res, { list: users, total, page: parseInt(page), pageSize: parseInt(pageSize) });
+}));
+
+router.post('/', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { username, password, phone, role } = req.body;
+  if (!username || !password) {
+    return resp.error(res, '用户名和密码不能为空');
   }
-};
 
-router.get('/', requireAdmin, async (req, res) => {
-  try {
-    const { page = 1, pageSize = 20, keyword = '' } = req.query;
-    let users;
-
-    if (mysqlDb.isConnected()) {
-      try {
-        users = await mysqlDb.getUsers();
-      } catch (e) {
-        users = await db.getUsers();
-      }
-    } else {
-      users = await db.getUsers();
-    }
-
-    users = users.map(u => ({
-      id: u.id,
-      username: u.username,
-      phone: u.phone,
-      role: u.role,
-      status: u.status || 'active',
-      created_at: u.created_at
-    }));
-
-    if (keyword) {
-      users = users.filter(u => u.username.includes(keyword) || (u.phone && u.phone.includes(keyword)));
-    }
-
-    const total = users.length;
-    const start = (parseInt(page) - 1) * parseInt(pageSize);
-    users = users.slice(start, start + parseInt(pageSize));
-
-    res.json({ success: true, data: { list: users, total, page, pageSize } });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+  const existingUser = await repo.getUserByUsername(username);
+  if (existingUser) {
+    return resp.error(res, '用户名已存在', 409);
   }
-});
 
-router.put('/:id', requireAdmin, async (req, res) => {
-  try {
-    const { username, phone, role, status } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = await repo.createUser({
+    username,
+    password: hashedPassword,
+    phone: phone || null,
+    role: role || 'user',
+    status: 'active'
+  });
 
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.updateUser(req.params.id, { username, phone, role, status });
-      } catch (e) {
-        user = await db.updateUser(req.params.id, { username, phone, role, status });
-      }
-    } else {
-      user = await db.updateUser(req.params.id, { username, phone, role, status });
-    }
+  resp.success(res, {
+    id: user.id,
+    username: user.username,
+    phone: user.phone,
+    role: user.role,
+    status: user.status || 'active',
+    created_at: user.created_at
+  }, '创建成功');
+}));
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
-
-    res.json({ success: true, message: '更新成功', data: { id: user.id, username: user.username, phone: user.phone, role: user.role, status: user.status } });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+router.put('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { username, phone, role, status } = req.body;
+  const user = await repo.updateUser(req.params.id, { username, phone, role, status });
+  if (!user) {
+    return resp.notFound(res, '用户不存在');
   }
-});
+  resp.success(res, { id: user.id, username: user.username, phone: user.phone, role: user.role, status: user.status }, '更新成功');
+}));
 
-router.delete('/:id', requireAdmin, async (req, res) => {
-  try {
-    if (mysqlDb.isConnected()) {
-      try {
-        await mysqlDb.deleteUser(req.params.id);
-      } catch (e) {
-        await db.deleteUser(req.params.id);
-      }
-    } else {
-      await db.deleteUser(req.params.id);
-    }
-
-    res.json({ success: true, message: '删除成功' });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+router.patch('/:id/status', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  if (!status || !['active', 'locked'].includes(status)) {
+    return resp.error(res, '状态值无效，必须是 active 或 locked');
   }
-});
 
-router.post('/', requireAdmin, async (req, res) => {
-  try {
-    const { username, password, phone, role } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
-    }
-
-    let existingUser;
-    if (mysqlDb.isConnected()) {
-      try {
-        existingUser = await mysqlDb.getUserByUsername(username);
-      } catch (e) {}
-    }
-    if (!existingUser) {
-      existingUser = await db.getUserByUsername(username);
-    }
-
-    if (existingUser) {
-      return res.status(409).json({ success: false, message: '用户名已存在' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userData = {
-      username,
-      password: hashedPassword,
-      phone: phone || null,
-      role: role || 'user',
-      status: 'active'
-    };
-
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.createUser(userData);
-      } catch (e) {
-        user = await db.createUser(userData);
-      }
-    } else {
-      user = await db.createUser(userData);
-    }
-
-    res.json({
-      success: true,
-      message: '创建成功',
-      data: {
-        id: user.id,
-        username: user.username,
-        phone: user.phone,
-        role: user.role,
-        status: user.status || 'active',
-        created_at: user.created_at
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+  const user = await repo.updateUser(req.params.id, { status });
+  if (!user) {
+    return resp.notFound(res, '用户不存在');
   }
-});
 
-router.patch('/:id/status', requireAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
+  resp.success(res, {
+    id: user.id,
+    username: user.username,
+    phone: user.phone,
+    role: user.role,
+    status: user.status
+  }, status === 'active' ? '解锁成功' : '锁定成功');
+}));
 
-    if (!status || !['active', 'locked'].includes(status)) {
-      return res.status(400).json({ success: false, message: '状态值无效，必须是 active 或 locked' });
-    }
-
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.updateUser(req.params.id, { status });
-      } catch (e) {
-        user = await db.updateUser(req.params.id, { status });
-      }
-    } else {
-      user = await db.updateUser(req.params.id, { status });
-    }
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
-
-    res.json({
-      success: true,
-      message: status === 'active' ? '解锁成功' : '锁定成功',
-      data: {
-        id: user.id,
-        username: user.username,
-        phone: user.phone,
-        role: user.role,
-        status: user.status
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
-  }
-});
+router.delete('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  await repo.deleteUser(req.params.id);
+  resp.success(res, null, '删除成功');
+}));
 
 module.exports = router;

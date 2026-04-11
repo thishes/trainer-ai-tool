@@ -71,10 +71,22 @@
           <a-option value="approved">已通过</a-option>
           <a-option value="rejected">已拒绝</a-option>
         </a-select>
-        <a-button type="primary" @click="handleAdd">
-          <icon-plus />
-          手动添加
-        </a-button>
+        <a-space>
+          <a-button type="primary" @click="handleAdd">
+            <icon-plus />
+            手动添加
+          </a-button>
+          <a-dropdown v-if="selectedRowKeys.length > 0">
+            <a-button type="primary" status="warning">
+              批量审核 ({{ selectedRowKeys.length }})
+              <icon-down />
+            </a-button>
+            <template #content>
+              <a-doption @click="handleBatchStatus('approved')">批量通过</a-doption>
+              <a-doption @click="handleBatchStatus('rejected')">批量拒绝</a-doption>
+            </template>
+          </a-dropdown>
+        </a-space>
       </div>
 
       <!-- 报名列表 -->
@@ -82,6 +94,7 @@
         :data="signups"
         :loading="loading"
         :pagination="pagination"
+        :row-selection="{ selectedRowKeys, onChange: handleSelectionChange }"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
         size="small"
@@ -197,7 +210,8 @@ import {
   updatePromotionSignup,
   deletePromotionSignup,
   updatePromotionSignupStatus,
-  exportPromotionSignups
+  exportPromotionSignups,
+  batchUpdatePromotionSignupStatus
 } from '@/api'
 
 const props = defineProps({
@@ -220,6 +234,8 @@ const pagination = reactive({
   pageSize: 20,
   total: 0
 })
+
+const selectedRowKeys = ref([])
 
 const formVisible = ref(false)
 const formTitle = ref('')
@@ -400,12 +416,39 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
+const handleSelectionChange = (keys) => {
+  selectedRowKeys.value = keys
+}
+
+const handleBatchStatus = async (status) => {
+  if (selectedRowKeys.value.length === 0) {
+    Message.warning('请先选择报名记录')
+    return
+  }
+
+  try {
+    const res = await batchUpdatePromotionSignupStatus(props.promotion.id, {
+      signup_ids: selectedRowKeys.value,
+      status
+    })
+    if (res.success) {
+      Message.success(res.message)
+      selectedRowKeys.value = []
+      fetchSignups()
+      emit('refresh')
+    }
+  } catch (error) {
+    Message.error('批量审核失败')
+  }
+}
+
 watch(() => props.visible, (val) => {
   if (val && props.promotion?.id) {
     pagination.current = 1
     searchKeyword.value = ''
     filterClass.value = ''
     filterStatus.value = ''
+    selectedRowKeys.value = []
     fetchSignups()
   }
 })

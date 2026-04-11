@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="培训师AI测试工具 - 专为培训场景设计的AI测试工具">
+    <title>培训师小助手</title>
+    
+    <!-- 预连接关键域名 -->
+    <link rel="preconnect" href="https://kb.thishe.com" crossorigin>
+    <link rel="dns-prefetch" href="https://kb.thishe.com">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/assets/logo-626f427e.png">
+    
+    <!-- 预加载关键资源 -->
+    <link rel="modulepreload" href="data:application/javascript;base64,Ly8gY2xpZW50L3NyYy9tYWluLmpzCmltcG9ydCB7IGNyZWF0ZUFwcCB9IGZyb20gJ3Z1ZScKaW1wb3J0IHsgY3JlYXRlUGluaWEgfSBmcm9tICdwaW5pYScKaW1wb3J0IEFwcCBmcm9tICcuL0FwcC52dWUnCmltcG9ydCByb3V0ZXIgZnJvbSAnLi9yb3V0ZXInCmltcG9ydCBBcmNvVnVlIGZyb20gJ0BhcmNvLWRlc2lnbi93ZWItdnVlJwppbXBvcnQgJ0BhcmNvLWRlc2lnbi93ZWItdnVlL2Rpc3QvYXJjby5jc3MnCmltcG9ydCAnLi9zdHlsZXMvdmFyaWFibGVzLmNzcycKCmNvbnN0IGFwcCA9IGNyZWF0ZUFwcChBcHApCmNvbnN0IHBpbmlhID0gY3JlYXRlUGluaWEoKQoKYXBwLnVzZShwaW5pYSkKYXBwLnVzZShyb3V0ZXIpCmFwcC51c2UoQXJjb1Z1ZSkKCmFwcC5tb3VudCgnI2FwcCcpCgovLyDmoIforrAgVnVlIOW3suWKoOi9ve+8jOmakOiXj+mqqOaetuWxjwpkb2N1bWVudC5ib2R5LmNsYXNzTGlzdC5hZGQoJ3Z1ZS1sb2FkZWQnKQoKLy8g55Sf5Lqn546v5aKD5oCn6IO955uR5o6nIC0g5bu26L+f5Yqg6L29CmlmIChwcm9jZXNzLmVudi5OT0RFX0VOViA9PT0gJ3Byb2R1Y3Rpb24nKSB7CiAgc2V0VGltZW91dCgoKSA9PiB7CiAgICBpbXBvcnQoJy4vdXRpbHMvcGVyZm9ybWFuY2UnKS50aGVuKCh7IHBlcmZvcm1hbmNlTW9uaXRvciB9KSA9PiB7CiAgICAgIHBlcmZvcm1hbmNlTW9uaXRvci5pbml0KCkKICAgIH0pLmNhdGNoKCgpID0+IHt9KQogIH0sIDEwMDApCn0K">
+    
+    <!-- 内联关键 CSS -->
+    <style>
+      /* 骨架屏样式 - 首屏显示 */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+      #app {
+        height: 100%;
+      }
+      .app-skeleton {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: linear-gradient(135deg, #165DFF 0%, #0d47a1 100%);
+      }
+      .skeleton-header {
+        height: 60px;
+        background: rgba(255,255,255,0.1);
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .skeleton-card {
+        width: 380px;
+        padding: 40px 32px;
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      }
+      .skeleton-logo {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #165DFF 0%, #0d47a1 100%);
+        border-radius: 14px;
+        margin: 0 auto 20px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-title {
+        height: 28px;
+        background: #e5e6eb;
+        border-radius: 4px;
+        margin: 0 auto 10px;
+        width: 60%;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-subtitle {
+        height: 16px;
+        background: #e5e6eb;
+        border-radius: 4px;
+        margin: 0 auto 28px;
+        width: 40%;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-input {
+        height: 44px;
+        background: #f2f3f5;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      .skeleton-button {
+        height: 44px;
+        background: #165DFF;
+        border-radius: 8px;
+        margin-top: 8px;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      .loading-text {
+        color: rgba(255,255,255,0.8);
+        text-align: center;
+        margin-top: 16px;
+        font-size: 14px;
+      }
+      /* 隐藏骨架屏当 Vue 加载完成 */
+      .vue-loaded .app-skeleton {
+        display: none;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/main-d1235cdf.js"></script>
+    <link rel="stylesheet" href="/assets/index-f5f9f9a1.css">
+  </head>
+  <body>
+    <div id="app">
+      <!-- 骨架屏 - 首屏显示直到 Vue 加载完成 -->
+      <div class="app-skeleton">
+        <div class="skeleton-header"></div>
+        <div class="skeleton-content">
+          <div>
+            <div class="skeleton-card">
+              <div class="skeleton-logo"></div>
+              <div class="skeleton-title"></div>
+              <div class="skeleton-subtitle"></div>
+              <div class="skeleton-input"></div>
+              <div class="skeleton-input"></div>
+              <div class="skeleton-button"></div>
+            </div>
+            <div class="loading-text">正在加载应用...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // 性能监控
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var timing = performance.timing;
+          var pageLoadTime = timing.loadEventEnd - timing.navigationStart;
+          console.log('页面加载时间: ' + pageLoadTime + 'ms');
+        }, 0);
+      });
+    </script>
+    
+  </body>
+</html>

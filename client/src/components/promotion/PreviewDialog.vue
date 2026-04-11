@@ -50,7 +50,7 @@
           </div>
           <div class="device-content">
             <div class="promotion-title">{{ promotion?.title }}</div>
-            <div class="promotion-content" v-html="promotion?.content"></div>
+            <SafeHtml :html="promotion?.content" class="promotion-content" />
             <div class="signup-section" v-if="promotion?.enable_signup && promotion?.status === 'published'">
               <a-button type="primary" size="large" class="signup-btn">
                 立即报名
@@ -91,7 +91,7 @@
           </div>
           <div class="device-content mobile-content">
             <div class="promotion-title">{{ promotion?.title }}</div>
-            <div class="promotion-content" v-html="promotion?.content"></div>
+            <SafeHtml :html="promotion?.content" class="promotion-content" />
             <div class="signup-section" v-if="promotion?.enable_signup && promotion?.status === 'published'">
               <a-button type="primary" size="large" block class="signup-btn">
                 立即报名
@@ -111,6 +111,7 @@
 import { ref, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconDesktop, IconMobile, IconCopy } from '@arco-design/web-vue/es/icon'
+import SafeHtml from '@/components/SafeHtml.vue'
 import { getPromotionPreview } from '@/api'
 
 const props = defineProps({

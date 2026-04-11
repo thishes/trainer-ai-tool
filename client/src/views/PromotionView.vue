@@ -13,7 +13,7 @@
       </a-result>
       <div class="promotion-content" v-else-if="promotion">
         <h1 class="promotion-title">{{ promotion.title }}</h1>
-        <div class="promotion-body" v-html="promotion.content"></div>
+        <SafeHtml :html="promotion.content" class="promotion-body" />
         <div class="promotion-action" v-if="promotion.enable_signup">
           <a-button v-if="!showSignupForm" type="primary" size="large" @click="showSignupForm = true">
             立即报名
@@ -51,9 +51,11 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
+import SafeHtml from '@/components/SafeHtml.vue'
 import { getPromotion, signupPromotion } from '@/api'
 
 export default {
+  components: { SafeHtml },
   name: 'PromotionView',
   setup() {
     const route = useRoute()

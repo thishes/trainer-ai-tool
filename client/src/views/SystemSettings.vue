@@ -703,6 +703,9 @@ onMounted(() => {
     if (activeTab.value === 'metrics') {
       loadMetrics()
     }
+    if (activeTab.value === 'stats') {
+      loadStats()
+    }
   }, 30000)
 })
 

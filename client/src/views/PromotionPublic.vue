@@ -23,11 +23,25 @@
         </div>
       </div>
 
-      <div class="promotion-content" v-html="promotion.content"></div>
+      <SafeHtml :html="promotion.content" class="promotion-content" />
 
       <!-- 报名区域 -->
       <div class="signup-area" v-if="promotion.enable_signup">
-        <div v-if="promotion.status === 'published' && !promotion.signup_ended" class="signup-section">
+        <!-- 报名成功状态 -->
+        <div v-if="signupSuccess" class="signup-section">
+          <a-divider />
+          <a-result
+            status="success"
+            :title="autoReply?.title || '报名成功！'"
+            :subtitle="autoReply?.content || '我们会通过手机号与您联系，请保持电话畅通'"
+          >
+            <template #extra>
+              <a-button type="primary" @click="signupSuccess = false; autoReply = null">继续报名</a-button>
+            </template>
+          </a-result>
+        </div>
+
+        <div v-else-if="promotion.status === 'published' && !promotion.signup_ended" class="signup-section">
           <a-divider />
           <div class="signup-header">
             <h3>报名信息</h3>
@@ -37,9 +51,6 @@
           <a-form :model="formData" layout="vertical" class="signup-form">
             <a-form-item label="姓名" required>
               <a-input v-model="formData.name" placeholder="请输入您的姓名" size="large" />
-            </a-form-item>
-            <a-form-item label="单位">
-              <a-input v-model="formData.unit" placeholder="请输入您的单位（选填）" size="large" />
             </a-form-item>
             <a-form-item label="手机号码" required>
               <a-input v-model="formData.phone" placeholder="请输入您的手机号码" size="large" />
@@ -60,6 +71,75 @@
                 </a-option>
               </a-select>
             </a-form-item>
+
+            <!-- 自定义表单字段 -->
+            <template v-for="field in customFields" :key="field.name">
+              <a-form-item :label="field.label" :required="field.required">
+                <!-- 文本输入 -->
+                <a-input
+                  v-if="field.type === 'text' || field.type === 'email'"
+                  v-model="formData.custom_fields[field.name]"
+                  :placeholder="`请输入${field.label}`"
+                  size="large"
+                  :type="field.type"
+                />
+                <!-- 多行文本 -->
+                <a-textarea
+                  v-else-if="field.type === 'textarea'"
+                  v-model="formData.custom_fields[field.name]"
+                  :placeholder="`请输入${field.label}`"
+                  size="large"
+                  :auto-size="{ minRows: 3 }"
+                />
+                <!-- 数字 -->
+                <a-input-number
+                  v-else-if="field.type === 'number'"
+                  v-model="formData.custom_fields[field.name]"
+                  :placeholder="`请输入${field.label}`"
+                  size="large"
+                  style="width: 100%"
+                />
+                <!-- 下拉选择 -->
+                <a-select
+                  v-else-if="field.type === 'select'"
+                  v-model="formData.custom_fields[field.name]"
+                  :placeholder="`请选择${field.label}`"
+                  size="large"
+                >
+                  <a-option v-for="opt in field.options" :key="opt" :value="opt">
+                    {{ opt }}
+                  </a-option>
+                </a-select>
+                <!-- 单选 -->
+                <a-radio-group
+                  v-else-if="field.type === 'radio'"
+                  v-model="formData.custom_fields[field.name]"
+                  direction="vertical"
+                >
+                  <a-radio v-for="opt in field.options" :key="opt" :value="opt">
+                    {{ opt }}
+                  </a-radio>
+                </a-radio-group>
+                <!-- 多选 -->
+                <a-checkbox-group
+                  v-else-if="field.type === 'checkbox'"
+                  v-model="formData.custom_fields[field.name]"
+                  direction="vertical"
+                >
+                  <a-checkbox v-for="opt in field.options" :key="opt" :value="opt">
+                    {{ opt }}
+                  </a-checkbox>
+                </a-checkbox-group>
+                <!-- 日期 -->
+                <a-date-picker
+                  v-else-if="field.type === 'date'"
+                  v-model="formData.custom_fields[field.name]"
+                  :placeholder="`请选择${field.label}`"
+                  size="large"
+                  style="width: 100%"
+                />
+              </a-form-item>
+            </template>
             <a-form-item>
               <a-button
                 type="primary"
@@ -96,6 +176,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
+import SafeHtml from '@/components/SafeHtml.vue'
 import { getPromotionPublic, createPromotionSignup } from '@/api'
 
 const route = useRoute()
@@ -103,16 +184,22 @@ const loading = ref(true)
 const error = ref(null)
 const promotion = ref(null)
 const submitting = ref(false)
+const signupSuccess = ref(false)
+const autoReply = ref(null)
 
 const formData = reactive({
   name: '',
-  unit: '',
   phone: '',
-  class_id: ''
+  class_id: '',
+  custom_fields: {}
 })
 
 const availableClasses = computed(() => {
   return promotion.value?.signup_config?.classes || []
+})
+
+const customFields = computed(() => {
+  return promotion.value?.signup_config?.fields || []
 })
 
 const getStatusColor = (status) => {
@@ -179,14 +266,24 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const res = await createPromotionSignup(promotion.value.id, formData)
+    const submitData = {
+      name: formData.name,
+      phone: formData.phone,
+      class_id: formData.class_id,
+      ...formData.custom_fields
+    }
+    const res = await createPromotionSignup(promotion.value.id, submitData)
     if (res.success) {
-      Message.success(res.message)
+      signupSuccess.value = true
+      // 保存自动回复信息
+      if (res.data?.auto_reply) {
+        autoReply.value = res.data.auto_reply
+      }
       // 清空表单
       formData.name = ''
-      formData.unit = ''
       formData.phone = ''
       formData.class_id = ''
+      formData.custom_fields = {}
     }
   } catch (err) {
     Message.error(err.message || '报名失败')

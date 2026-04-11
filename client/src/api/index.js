@@ -50,10 +50,7 @@ async function sleep(ms) {
 }
 
 api.interceptors.request.use(config => {
-  const localToken = localStorage.getItem('token')
-  if (localToken) {
-    config.headers.Authorization = `Bearer ${localToken}`
-  }
+  // Token 通过 HttpOnly Cookie 自动发送，不再使用 localStorage
   if (config._retryCount === undefined) {
     config._retryCount = 0
   }
@@ -121,14 +118,12 @@ api.interceptors.response.use(
         break
       case 401:
         const wasLoggedIn = localStorage.getItem('loggedIn') === 'true'
-        localStorage.removeItem('token')
         localStorage.removeItem('user')
         localStorage.removeItem('loggedIn')
+        localStorage.removeItem('token')
         errorMsg = message || '登录已过期，请重新登录'
         if (!window.location.pathname.includes('/login') && wasLoggedIn) {
-          setTimeout(() => {
-            window.location.href = '/login'
-          }, 500)
+          window.location.href = '/login'
         }
         break
       case 403:
@@ -197,8 +192,8 @@ export const publishPaper = (id) => api.post(`/papers/${id}/publish`)
 export const unpublishPaper = (id) => api.post(`/papers/${id}/unpublish`)
 export const createRandomPaper = (data) => api.post('/papers/random', data)
 export const getPaperExamUrl = (id) => api.get(`/papers/${id}/exam-url`)
-export const getPaperQuestions = (paperId) => api.get(`/papers/${paperId}/manage-questions`)
-export const addQuestionsToPaper = (paperId, questionIds) => api.post(`/papers/${paperId}/questions/add`, { question_ids: questionIds })
+export const getPaperQuestions = (paperId) => api.get(`/papers/${paperId}/questions`)
+export const addQuestionsToPaper = (paperId, questionIds) => api.post(`/papers/${paperId}/questions`, { question_ids: questionIds })
 export const removeQuestionFromPaper = (paperId, questionId) => api.delete(`/papers/${paperId}/questions/${questionId}`)
 
 export const startExamApi = (data) => api.post('/exam/start', data)
@@ -242,10 +237,9 @@ export const removePaperStudent = (paperId, studentId) => api.delete(`/students/
 export const clearPaperStudents = (paperId) => api.delete(`/students/paper/${paperId}/all`)
 export const exportPaperStudents = (paperId) => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || ''
-  const token = localStorage.getItem('token')
+  // 使用 fetch + credentials:'include' 让 Cookie 自动发送，不再需要 Authorization header
   return fetch(`${baseURL}/api/students/paper/${paperId}/export`, {
     headers: {
-      'Authorization': `Bearer ${token}`,
       'X-Requested-With': 'XMLHttpRequest'
     },
     credentials: 'include'
@@ -304,3 +298,8 @@ export const updatePromotionSignup = (id, signupId, data) => api.put(`/promotion
 export const deletePromotionSignup = (id, signupId) => api.delete(`/promotions/${id}/signups/${signupId}`)
 export const updatePromotionSignupStatus = (id, signupId, status) => api.patch(`/promotions/${id}/signups/${signupId}/status`, { status })
 export const exportPromotionSignups = (id) => api.get(`/promotions/${id}/signups/export`, { responseType: 'blob' })
+export const getPromotionStats = (id, params) => api.get(`/promotions/${id}/stats`, { params })
+export const batchUpdatePromotionSignupStatus = (id, data) => api.patch(`/promotions/${id}/signups/batch-status`, data)
+export const queryPromotionSignup = (id, data) => api.post(`/promotions/${id}/signups/query`, data)
+export const cancelPromotionSignup = (id, signupId, data) => api.post(`/promotions/${id}/signups/${signupId}/cancel`)
+

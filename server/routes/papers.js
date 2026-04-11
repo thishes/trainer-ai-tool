@@ -1,569 +1,361 @@
-// server/routes/papers.js - 试卷管理路由 (MySQL优先)
+// server/routes/papers.js - 试卷管理路由
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const mysqlDb = require('../db-mysql');
+const repo = require('../repository');
 const QRCode = require('qrcode');
 const authenticate = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validate');
+const schemas = require('../middleware/schemas');
+const resp = require('../utils/response');
 
-async function getPapersFromMySQL(ownerId = null) {
-  if (!mysqlDb.isConnected()) return null;
-  try {
-    return await mysqlDb.getPapers(ownerId);
-  } catch (e) {
-    console.warn('[Papers] MySQL query failed:', e.message);
-    return null;
+router.get('/', authenticate, asyncHandler(async (req, res) => {
+  const { page = 1, pageSize = 20, status } = req.query;
+
+  const filters = {};
+  if (req.user.role !== 'admin') {
+    filters.user_id = req.user.id;
   }
-}
-
-async function getPaperFromMySQL(id) {
-  if (!mysqlDb.isConnected()) return null;
-  try {
-    return await mysqlDb.getPaperById(id);
-  } catch (e) {
-    console.warn('[Papers] MySQL query failed:', e.message);
-    return null;
+  if (status) {
+    filters.status = status;
   }
-}
 
-router.get('/', authenticate, async (req, res) => {
-  try {
-    const { page = 1, limit = 20, status } = req.query;
+  let papers = await repo.getPapers(filters.user_id);
 
-    const filters = { page, limit };
-    if (req.user.role !== 'admin') {
-      filters.user_id = req.user.id;
-    }
-    if (status) {
-      filters.status = status;
-    }
-
-    let result;
-    const mysqlPapers = await getPapersFromMySQL(filters.user_id);
-    if (mysqlPapers) {
-      result = { list: mysqlPapers, total: mysqlPapers.length, page: parseInt(page), limit: parseInt(limit) };
-    } else {
-      result = await db.papers.findAll(filters);
-    }
-
-    const list = await Promise.all(result.list.map(async p => {
-      let owner = null;
-      const ownerId = p.user_id || p.owner_id;
-      if (mysqlDb.isConnected()) {
-        try {
-          owner = await mysqlDb.getUserById(ownerId);
-        } catch (e) {}
-      }
-      if (!owner) {
-        owner = await db.users.findById(ownerId);
-      }
-      return {
-        ...p,
-        owner: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
-      };
-    }));
-
-    res.json({
-      success: true,
-      data: { list, total: result.total, page: result.page, limit: result.limit }
-    });
-  } catch (error) {
-    console.error('获取试卷列表错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+  // 状态过滤
+  if (status) {
+    papers = papers.filter(p => p.status === status);
   }
-});
 
-router.get('/public/:id', async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
+  // 批量获取所有者信息 - 使用 Set 去重 + 并行查询
+  const ownerIds = [...new Set(papers.map(p => p.user_id || p.owner_id).filter(Boolean))];
+  const ownersMap = {};
 
-    if (!paper || paper.status !== 'published') {
-      return res.status(404).json({ success: false, message: '试卷不存在或未发布' });
-    }
+  await Promise.all(ownerIds.map(async id => {
+    const owner = await repo.getUserById(id);
+    if (owner) ownersMap[id] = { id: owner.id, username: owner.username, avatar: owner.avatar };
+  }));
 
-    let owner = null;
-    if (mysqlDb.isConnected()) {
-      try {
-        owner = await mysqlDb.getUserById(paper.owner_id);
-      } catch (e) {}
-    }
-    if (!owner) {
-      owner = await db.getUserById(paper.owner_id);
-    }
+  const allList = papers.map(p => ({
+    ...p,
+    owner: ownersMap[p.user_id || p.owner_id] || null
+  }));
 
-    res.json({
-      success: true,
-      data: {
-        id: paper.id,
-        title: paper.title,
-        description: paper.description,
-        duration: paper.duration,
-        status: paper.status,
-        total_score: paper.total_score,
-        passing_score: paper.passing_score,
-        trainer: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
-      }
-    });
-  } catch (error) {
-    console.error('获取公开试卷信息错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+  // 分页
+  const total = allList.length;
+  const start = (parseInt(page) - 1) * parseInt(pageSize);
+  const list = allList.slice(start, start + parseInt(pageSize));
+
+  resp.success(res, { list, total, page: parseInt(page), pageSize: parseInt(pageSize) });
+}));
+
+router.get('/public/:id', asyncHandler(async (req, res) => {
+  const paper = await repo.getPublicPaper(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在或未发布');
   }
-});
 
-router.get('/:id', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
+  const owner = paper.owner_id ? await repo.getUserById(paper.owner_id) : null;
 
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
+  resp.success(res, {
+    id: paper.id,
+    title: paper.title,
+    description: paper.description,
+    duration: paper.duration,
+    status: paper.status,
+    total_score: paper.total_score,
+    passing_score: paper.passing_score,
+    trainer: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
+  });
+}));
 
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    let owner = null;
-    if (mysqlDb.isConnected()) {
-      try {
-        owner = await mysqlDb.getUserById(paper.owner_id);
-      } catch (e) {}
-    }
-    if (!owner) {
-      owner = await db.getUserById(paper.owner_id);
-    }
-
-    res.json({
-      success: true,
-      data: {
-        ...paper,
-        owner: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
-      }
-    });
-  } catch (error) {
-    console.error('获取试卷信息错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+router.get('/:id', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
   }
-});
 
-router.get('/:id/questions', async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
-
-    if (!paper || paper.status !== 'published') {
-      return res.status(404).json({ success: false, message: '试卷不存在或未发布' });
-    }
-
-    let questions;
-    if (mysqlDb.isConnected()) {
-      try {
-        questions = await mysqlDb.getQuestions();
-      } catch (e) {
-        questions = await db.getQuestions();
-      }
-    } else {
-      questions = await db.getQuestions();
-    }
-    const questionIds = paper.question_ids || [];
-
-    const paperQuestions = questionIds.map((qid, index) => {
-      const q = questions.find(q => q.id === qid);
-      if (!q) return null;
-      return { id: q.id, title: q.title, type: q.type, options: q.options, score: q.score, order: index };
-    }).filter(q => q !== null);
-
-    res.json({
-      success: true,
-      data: {
-        paper_id: paper.id,
-        title: paper.title,
-        duration: paper.duration,
-        questions: paperQuestions
-      }
-    });
-  } catch (error) {
-    console.error('获取试卷题目错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
   }
-});
 
-router.post('/', authenticate, async (req, res) => {
-  try {
-    const { title, description, duration, question_ids, random_config, status, passing_score } = req.body;
+  const owner = paper.owner_id ? await repo.getUserById(paper.owner_id) : null;
 
-    const paperData = {
-      title,
-      description: description || '',
-      owner_id: req.user.id,
-      duration: duration || 60,
-      total_score: 0,
-      question_ids: question_ids || [],
-      random_config: random_config || {},
-      status: status || 'draft',
-      passing_score: passing_score || 60
-    };
+  resp.success(res, {
+    ...paper,
+    owner: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
+  });
+}));
 
-    let paper;
-    if (mysqlDb.isConnected()) {
-      paper = await mysqlDb.createPaper(paperData);
-    } else {
-      paper = await db.createPaper(paperData);
-    }
-
-    if (question_ids && question_ids.length > 0) {
-      let questions;
-      if (mysqlDb.isConnected()) {
-        try {
-          questions = await mysqlDb.getQuestions();
-        } catch (e) {
-          questions = await db.getQuestions();
-        }
-      } else {
-        questions = await db.getQuestions();
-      }
-      let totalScore = 0;
-      for (const qid of question_ids) {
-        const q = questions.find(q => q.id === qid);
-        if (q) totalScore += q.score;
-      }
-      if (mysqlDb.isConnected()) {
-        await mysqlDb.updatePaper(paper.id, { total_score: totalScore });
-      } else {
-        await db.updatePaper(paper.id, { total_score: totalScore });
-      }
-      paper.total_score = totalScore;
-    }
-
-    res.json({ success: true, message: '创建成功', data: paper });
-  } catch (error) {
-    console.error('创建试卷错误:', error);
-    res.status(500).json({ success: false, message: '创建失败' });
+router.get('/:id/questions', asyncHandler(async (req, res) => {
+  const paper = await repo.getPublicPaper(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在或未发布');
   }
-});
 
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
+  const questions = await repo.getQuestions();
+  const questionIds = paper.question_ids || [];
+
+  const paperQuestions = questionIds.map((qid, index) => {
+    const q = questions.find(q => q.id === qid);
+    if (!q) return null;
+    return { id: q.id, title: q.title, type: q.type, options: q.options, score: q.score, order: index };
+  }).filter(q => q !== null);
+
+  resp.success(res, {
+    paper_id: paper.id,
+    title: paper.title,
+    duration: paper.duration,
+    questions: paperQuestions
+  });
+}));
+
+router.post('/', authenticate, validate(schemas.paperCreate), asyncHandler(async (req, res) => {
+  const { title, description, duration, question_ids, random_config, status, passing_score } = req.body;
+
+  const paperData = {
+    title,
+    description: description || '',
+    owner_id: req.user.id,
+    duration: duration || 60,
+    total_score: 0,
+    question_ids: question_ids || [],
+    random_config: random_config || {},
+    status: status || 'draft',
+    passing_score: passing_score || 60
+  };
+
+  const paper = await repo.createPaper(paperData);
+
+  if (question_ids && question_ids.length > 0) {
+    // 批量获取题目 - 修复 N+1
+    const questionsMap = await repo.getQuestionsByIds(question_ids);
+    let totalScore = 0;
+    for (const qid of question_ids) {
+      const q = questionsMap[qid];
+      if (q) totalScore += q.score || 10;
     }
-
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
-
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    const { title, description, duration, question_ids, status, passing_score } = req.body;
-
-    const updates = {};
-    if (title !== undefined) updates.title = title;
-    if (description !== undefined) updates.description = description;
-    if (duration !== undefined) updates.duration = duration;
-    if (status !== undefined) updates.status = status;
-    if (passing_score !== undefined) updates.passing_score = passing_score;
-    if (question_ids !== undefined) {
-      updates.question_ids = question_ids;
-      let questions;
-      if (mysqlDb.isConnected()) {
-        try {
-          questions = await mysqlDb.getQuestions();
-        } catch (e) {
-          questions = await db.getQuestions();
-        }
-      } else {
-        questions = await db.getQuestions();
-      }
-      let totalScore = 0;
-      for (const qid of question_ids) {
-        const q = questions.find(q => q.id === qid);
-        if (q) totalScore += q.score;
-      }
-      updates.total_score = totalScore;
-    }
-
-    let updated;
-    if (mysqlDb.isConnected()) {
-      updated = await mysqlDb.updatePaper(req.params.id, updates);
-    } else {
-      updated = await db.updatePaper(req.params.id, updates);
-    }
-
-    res.json({ success: true, message: '更新成功', data: updated });
-  } catch (error) {
-    console.error('更新试卷错误:', error);
-    res.status(500).json({ success: false, message: '更新失败' });
+    await repo.updatePaper(paper.id, { total_score: totalScore });
+    paper.total_score = totalScore;
   }
-});
 
-router.post('/:id/publish', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
+  resp.success(res, paper, '创建成功');
+}));
 
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
-
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    if (!paper.question_ids || paper.question_ids.length === 0) {
-      return res.status(400).json({ success: false, message: '试卷暂无题目' });
-    }
-
-    const baseUrl = req.app.locals.BASE_URL;
-    const accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
-    const qrcodeDataUrl = await QRCode.toDataURL(accessUrl);
-
-    if (mysqlDb.isConnected()) {
-      await mysqlDb.updatePaper(paper.id, { status: 'published' });
-    } else {
-      await db.updatePaper(paper.id, { status: 'published' });
-    }
-
-    res.json({
-      success: true,
-      message: '发布成功',
-      data: { paper_id: paper.id, access_url: accessUrl, qrcode: qrcodeDataUrl }
-    });
-  } catch (error) {
-    console.error('发布试卷错误:', error);
-    res.status(500).json({ success: false, message: '发布失败' });
+router.put('/:id', authenticate, validate(schemas.paperUpdate), asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
   }
-});
 
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
-
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
-
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    if (mysqlDb.isConnected()) {
-      await mysqlDb.deletePaper(req.params.id);
-    } else {
-      await db.deletePaper(req.params.id);
-    }
-
-    res.json({ success: true, message: '删除成功' });
-  } catch (error) {
-    console.error('删除试卷错误:', error);
-    res.status(500).json({ success: false, message: '删除失败' });
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
   }
-});
+
+  const { title, description, duration, question_ids, status, passing_score } = req.body;
+
+  const updates = {};
+  if (title !== undefined) updates.title = title;
+  if (description !== undefined) updates.description = description;
+  if (duration !== undefined) updates.duration = duration;
+  if (status !== undefined) updates.status = status;
+  if (passing_score !== undefined) updates.passing_score = passing_score;
+  if (question_ids !== undefined) {
+    updates.question_ids = question_ids;
+    // 批量获取题目
+    const questionsMap = await repo.getQuestionsByIds(question_ids);
+    let totalScore = 0;
+    for (const qid of question_ids) {
+      const q = questionsMap[qid];
+      if (q) totalScore += q.score || 10;
+    }
+    updates.total_score = totalScore;
+  }
+
+  const updated = await repo.updatePaper(req.params.id, updates);
+  resp.success(res, updated, '更新成功');
+}));
+
+router.post('/:id/publish', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
+  }
+
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  if (!paper.question_ids || paper.question_ids.length === 0) {
+    return resp.error(res, '试卷暂无题目');
+  }
+
+  const baseUrl = req.app.locals.BASE_URL;
+  const accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
+  const qrcodeDataUrl = await QRCode.toDataURL(accessUrl);
+
+  await repo.updatePaper(paper.id, { status: 'published' });
+
+  resp.success(res, { paper_id: paper.id, access_url: accessUrl, qrcode: qrcodeDataUrl }, '发布成功');
+}));
+
+// 从试卷移除单题
+router.delete('/:id/questions/:questionId', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
+  }
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  const questionId = parseInt(req.params.questionId);
+  const questionIds = paper.question_ids || [];
+  const index = questionIds.indexOf(questionId);
+  if (index === -1) {
+    return resp.error(res, '题目不在试卷中');
+  }
+
+  questionIds.splice(index, 1);
+  await repo.updatePaper(paper.id, { question_ids: questionIds });
+  resp.success(res, null, '移除成功');
+}));
+
+// 批量添加题目到试卷
+router.post('/:id/questions', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
+  }
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  const { question_ids } = req.body;
+  if (!Array.isArray(question_ids)) {
+    return resp.error(res, 'question_ids 必须是数组');
+  }
+
+  const existingIds = new Set(paper.question_ids || []);
+  const newIds = question_ids.filter(id => !existingIds.has(id));
+  const finalIds = [...paper.question_ids || [], ...newIds];
+
+  const questionsMap = await repo.getQuestionsByIds(finalIds);
+  let totalScore = 0;
+  for (const id of finalIds) {
+    const q = questionsMap[id];
+    if (q) totalScore += q.score || 10;
+  }
+
+  await repo.updatePaper(paper.id, { question_ids: finalIds, total_score: totalScore });
+  resp.success(res, { question_ids: finalIds, total_score: totalScore }, '添加成功');
+}));
+
+router.delete('/:id', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
+  }
+
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  await repo.deletePaper(req.params.id);
+  resp.success(res, null, '删除成功');
+}));
 
 // 取消发布试卷
-router.post('/:id/unpublish', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
-
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
-
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    if (paper.status !== 'published') {
-      return res.status(400).json({ success: false, message: '试卷未发布' });
-    }
-
-    const updateData = { status: 'draft' };
-
-    if (mysqlDb.isConnected()) {
-      await mysqlDb.updatePaper(req.params.id, updateData);
-    } else {
-      await db.updatePaper(req.params.id, updateData);
-    }
-
-    res.json({ success: true, message: '取消发布成功' });
-  } catch (error) {
-    console.error('取消发布试卷错误:', error);
-    res.status(500).json({ success: false, message: '取消发布失败' });
+router.post('/:id/unpublish', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
   }
-});
+
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  if (paper.status !== 'published') {
+    return resp.error(res, '试卷未发布');
+  }
+
+  await repo.updatePaper(req.params.id, { status: 'draft' });
+  resp.success(res, null, '取消发布成功');
+}));
 
 // 获取试卷考试地址
-router.get('/:id/exam-url', authenticate, async (req, res) => {
-  try {
-    let paper = await getPaperFromMySQL(req.params.id);
-    if (!paper) {
-      paper = await db.getPaperById(req.params.id);
-    }
-
-    if (!paper) {
-      return res.status(404).json({ success: false, message: '试卷不存在' });
-    }
-
-    if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    if (paper.status !== 'published') {
-      return res.status(400).json({ success: false, message: '试卷未发布' });
-    }
-
-    const baseUrl = req.app.locals.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const accessUrl = `${baseUrl}/exam/${paper.id}`;
-
-    res.json({
-      success: true,
-      data: {
-        paper_id: paper.id,
-        access_url: accessUrl
-      }
-    });
-  } catch (error) {
-    console.error('获取考试地址错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+router.get('/:id/exam-url', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
   }
-});
+
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
+
+  if (paper.status !== 'published') {
+    return resp.error(res, '试卷未发布');
+  }
+
+  const baseUrl = req.app.locals.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const accessUrl = `${baseUrl}/exam/${paper.id}`;
+
+  resp.success(res, { paper_id: paper.id, access_url: accessUrl });
+}));
 
 // 随机组卷
-router.post('/random', authenticate, async (req, res) => {
-  try {
-    const { title, count, duration, category_ids, question_types, difficulty } = req.body;
+router.post('/random', authenticate, validate(schemas.randomPaper), asyncHandler(async (req, res) => {
+  const { title, count, duration, category_ids, question_types, difficulty } = req.body;
 
-    if (!title) {
-      return res.status(400).json({ success: false, message: '请输入试卷标题' });
-    }
+  // 白名单校验
+  const safeCategoryIds = Array.isArray(category_ids)
+    ? category_ids.map(id => parseInt(id)).filter(id => !isNaN(id))
+    : [];
 
-    if (!count || count < 1) {
-      return res.status(400).json({ success: false, message: '题目数量必须大于0' });
-    }
+  const safeQuestionTypes = Array.isArray(question_types)
+    ? question_types.filter(t => ['single', 'multiple', 'judge', 'subjective'].includes(t))
+    : [];
 
-    // 构建查询条件
-    let questions;
-    if (mysqlDb.isConnected()) {
-      // MySQL版本：构建SQL查询
-      let sql = 'SELECT * FROM questions WHERE 1=1';
-      const params = [];
+  const safeDifficulty = Array.isArray(difficulty)
+    ? difficulty.filter(d => ['easy', 'medium', 'hard'].includes(d))
+    : [];
 
-      // 权限过滤：admin可以抽所有题目，普通用户只能抽自己的
-      if (req.user.role !== 'admin') {
-        sql += ' AND user_id = ?';
-        params.push(req.user.id);
-      }
+  // 通过 repository 统一查询
+  const questions = await repo.randomQuestions({
+    count,
+    user_id: req.user.role !== 'admin' ? req.user.id : null,
+    category_ids: safeCategoryIds,
+    question_types: safeQuestionTypes,
+    difficulty: safeDifficulty
+  });
 
-      // 分类过滤
-      if (category_ids && category_ids.length > 0) {
-        sql += ' AND category_id IN (?)';
-        params.push(category_ids);
-      }
-
-      // 题型过滤
-      if (question_types && question_types.length > 0) {
-        sql += ' AND type IN (?)';
-        params.push(question_types);
-      }
-
-      // 难度过滤
-      if (difficulty && difficulty.length > 0) {
-        sql += ' AND difficulty IN (?)';
-        params.push(difficulty);
-      }
-
-      // 随机排序并限制数量
-      sql += ' ORDER BY RAND() LIMIT ?';
-      params.push(parseInt(count));
-
-      const rows = await mysqlDb.query(sql, params);
-      questions = rows.map(q => ({
-        ...q,
-        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
-      }));
-    } else {
-      // JSON版本：使用db.questions.random
-      questions = db.questions.random(
-        req.user.role === 'admin' ? null : req.user.id,
-        category_ids || [],
-        parseInt(count)
-      );
-
-      // 题型过滤
-      if (question_types && question_types.length > 0) {
-        questions = questions.filter(q => question_types.includes(q.type));
-      }
-
-      // 难度过滤
-      if (difficulty && difficulty.length > 0) {
-        questions = questions.filter(q => difficulty.includes(q.difficulty));
-      }
-    }
-
-    if (questions.length === 0) {
-      return res.status(400).json({ success: false, message: '没有符合条件的题目' });
-    }
-
-    if (questions.length < count) {
-      return res.status(400).json({
-        success: false,
-        message: `符合条件的题目只有 ${questions.length} 道，少于要求的 ${count} 道`
-      });
-    }
-
-    // 计算总分
-    const totalScore = questions.reduce((sum, q) => sum + (q.score || 10), 0);
-
-    // 创建试卷数据
-    const paperData = {
-      title,
-      description: `随机抽取${questions.length}道题目`,
-      owner_id: req.user.id,
-      duration: duration || 60,
-      total_score: totalScore,
-      question_ids: questions.map(q => q.id),
-      random_config: { category_ids, question_types, difficulty, count },
-      status: 'draft',
-      passing_score: Math.round(totalScore * 0.6)
-    };
-
-    // 创建试卷
-    let paper;
-    if (mysqlDb.isConnected()) {
-      paper = await mysqlDb.createPaper(paperData);
-    } else {
-      paper = await db.createPaper(paperData);
-    }
-
-    res.json({
-      success: true,
-      message: '创建成功',
-      data: {
-        paper,
-        question_count: questions.length
-      }
-    });
-  } catch (error) {
-    console.error('随机组卷错误:', error);
-    res.status(500).json({ success: false, message: '组卷失败: ' + error.message });
+  if (questions.length === 0) {
+    return resp.error(res, '没有符合条件的题目');
   }
-});
+
+  if (questions.length < count) {
+    return resp.error(res, `符合条件的题目只有 ${questions.length} 道，少于要求的 ${count} 道`);
+  }
+
+  const totalScore = questions.reduce((sum, q) => sum + (q.score || 10), 0);
+
+  const paperData = {
+    title,
+    description: `随机抽取${questions.length}道题目`,
+    owner_id: req.user.id,
+    duration: duration || 60,
+    total_score: totalScore,
+    question_ids: questions.map(q => q.id),
+    random_config: { category_ids: safeCategoryIds, question_types: safeQuestionTypes, difficulty: safeDifficulty, count },
+    status: 'draft',
+    passing_score: Math.round(totalScore * 0.6)
+  };
+
+  const paper = await repo.createPaper(paperData);
+
+  resp.success(res, { paper, question_count: questions.length }, '创建成功');
+}));
 
 module.exports = router;

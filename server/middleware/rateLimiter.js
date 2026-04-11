@@ -106,11 +106,11 @@ const rateLimiters = {
     message: 'API 请求过于频繁，请稍后再试'
   }),
 
-  // 登录限流：5 分钟内最多 5 次尝试
+  // 登录限流：15 分钟内最多 20 次尝试
   login: createRateLimiter({
-    windowMs: 5 * 60 * 1000,
-    max: 5,
-    message: '登录尝试过于频繁，请 5 分钟后再试'
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: '登录尝试过于频繁，请稍后再试'
   }),
 
   // 注册限流：1 小时内最多 3 次注册

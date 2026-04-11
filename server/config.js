@@ -18,7 +18,7 @@ const config = {
   NODE_ENV: getEnv('NODE_ENV', 'development'),
   SECURE_COOKIE: getEnv('SECURE_COOKIE', null) === 'true' || isProduction,
 
-  CORS_ORIGINS: getEnv('ALLOWED_ORIGINS', isProduction ? '' : 'http://localhost:3000,http://localhost:5173'),
+  CORS_ORIGINS: getEnv('ALLOWED_ORIGINS', isProduction ? '' : 'http://localhost:3000,http://localhost:3002,http://localhost:5173'),
 
   DB_HOST: getEnv('DB_HOST', 'localhost'),
   DB_PORT: parseInt(getEnv('DB_PORT', '3306')),
@@ -68,9 +68,14 @@ if (isProduction && !process.env.SECURE_COOKIE) {
   console.warn('⚠️ 警告：生产环境建议设置 SECURE_COOKIE=true');
 }
 
-if (!process.env.JWT_SECRET && !isProduction) {
-  config.JWT_SECRET = crypto.randomBytes(32).toString('hex');
-  console.warn('⚠️ 警告：使用默认 JWT_SECRET，请设置 JWT_SECRET 环境变量');
+// 开发环境使用固定默认密钥，避免服务器重启导致 token 失效
+const DEV_JWT_SECRET = 'dev-trainai-tool-jwt-secret-2024';
+
+if (!process.env.JWT_SECRET) {
+  if (isProduction) {
+    throw new Error('生产环境必须设置 JWT_SECRET 环境变量');
+  }
+  config.JWT_SECRET = DEV_JWT_SECRET;
 }
 
 if (!process.env.DB_PASSWORD && !isProduction) {

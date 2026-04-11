@@ -196,7 +196,26 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ success: false, message: '未登录' });
     }
     
-    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+    // 仅允许过期不超过15分钟的token刷新
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        // 检查过期时间，仅允许15分钟内的过期token刷新
+        decoded = jwt.decode(token);
+        if (!decoded || !decoded.exp) {
+          return res.status(401).json({ success: false, message: 'token无效，请重新登录' });
+        }
+        const expiredDuration = Date.now() / 1000 - decoded.exp;
+        const refreshCount = decoded.refreshCount || 0;
+        if (expiredDuration > 900 || refreshCount > 5) { // 超过15分钟或刷新次数超过5次不允许刷新
+          return res.status(401).json({ success: false, message: 'token已过期太久，请重新登录' });
+        }
+      } else {
+        return res.status(401).json({ success: false, message: 'token无效' });
+      }
+    }
     const user = db.users.findById(decoded.id);
     
     if (!user) {

@@ -1,13 +1,15 @@
-// server/routes/announcements.js - 公告管理路由 (MySQL优先)
+// server/routes/announcements.js - 公告管理路由 (统一数据访问层)
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../db');
-const mysqlDb = require('../db-mysql');
-const config = require('../config');
+const repo = require('../repository');
 const authenticate = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
+const resp = require('../utils/response');
+const cache = require('../utils/cache');
 
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -41,201 +43,76 @@ const processImage = async (file) => {
   return webpFilename;
 };
 
-const handleUpload = [
-  authenticate,
-  async (req, res) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: '请选择图片文件' });
-    }
-
-    const webpFilename = await processImage(req.file);
-    const fileUrl = `/uploads/${webpFilename}`;
-    res.json({ success: true, url: fileUrl });
+router.post('/upload', authenticate, requireAdmin, upload.single('image'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return resp.error(res, '请选择图片文件');
   }
-];
 
-router.post('/upload', upload.single('image'), ...handleUpload);
+  const webpFilename = await processImage(req.file);
+  const fileUrl = `/uploads/${webpFilename}`;
+  resp.success(res, { url: fileUrl });
+}));
 
-router.get('/', async (req, res) => {
-  try {
-    const { status } = req.query;
-    let announcements;
+router.get('/', asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const cacheKey = cache.namespaces.auth('announcements:' + (status || 'all'));
+  const { data } = await cache.withCache(cacheKey, async () => {
+    const announcements = await repo.getAnnouncements(status);
+    return { list: announcements, total: announcements.length };
+  }, { ttl: 120 });
+  resp.success(res, data);
+}));
 
-    if (mysqlDb.isConnected()) {
-      try {
-        announcements = await mysqlDb.getAnnouncements(status);
-      } catch (e) {
-        announcements = await db.getAnnouncements(status);
-      }
-    } else {
-      announcements = await db.getAnnouncements(status);
-    }
-
-    res.json({ success: true, data: { list: announcements, total: announcements.length } });
-  } catch (error) {
-    console.error('获取公告错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+router.get('/:id', asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
   }
-});
+  resp.success(res, announcement);
+}));
 
-router.get('/:id', async (req, res) => {
-  try {
-    let announcement;
-
-    if (mysqlDb.isConnected()) {
-      try {
-        announcement = await mysqlDb.getAnnouncementById(req.params.id);
-      } catch (e) {
-        announcement = await db.getAnnouncementById(req.params.id);
-      }
-    } else {
-      announcement = await db.getAnnouncementById(req.params.id);
-    }
-
-    if (!announcement) {
-      return res.status(404).json({ success: false, message: '公告不存在' });
-    }
-    res.json({ success: true, data: announcement });
-  } catch (error) {
-    console.error('获取公告错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+router.post('/', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { title, content, importance, status } = req.body;
+  if (!title) {
+    return resp.error(res, '标题不能为空');
   }
-});
 
-router.post('/', authenticate, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
+  const announcement = await repo.createAnnouncement({
+    title,
+    content: content || '',
+    importance: importance || 'normal',
+    status: status || 'published',
+    author_id: req.user.id
+  });
 
-    const { title, content, importance, status } = req.body;
+  resp.success(res, announcement, '创建成功');
+}));
 
-    if (!title) {
-      return res.status(400).json({ success: false, message: '标题不能为空' });
-    }
-
-    let announcement;
-    if (mysqlDb.isConnected()) {
-      try {
-        announcement = await mysqlDb.createAnnouncement({
-          title,
-          content: content || '',
-          importance: importance || 'normal',
-          status: status || 'published',
-          author_id: req.user.id
-        });
-      } catch (e) {
-        announcement = await db.createAnnouncement({
-          title,
-          content: content || '',
-          importance: importance || 'normal',
-          status: status || 'published',
-          author_id: req.user.id
-        });
-      }
-    } else {
-      announcement = await db.createAnnouncement({
-        title,
-        content: content || '',
-        importance: importance || 'normal',
-        status: status || 'published',
-        author_id: req.user.id
-      });
-    }
-
-    res.json({ success: true, message: '创建成功', data: announcement });
-  } catch (error) {
-    console.error('创建公告错误:', error);
-    res.status(500).json({ success: false, message: '创建失败' });
+router.put('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
   }
-});
 
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
+  const { title, content, importance, status } = req.body;
+  const updates = {};
+  if (title !== undefined) updates.title = title;
+  if (content !== undefined) updates.content = content;
+  if (importance !== undefined) updates.importance = importance;
+  if (status !== undefined) updates.status = status;
 
-    let announcement;
-    if (mysqlDb.isConnected()) {
-      try {
-        announcement = await mysqlDb.getAnnouncementById(req.params.id);
-      } catch (e) {
-        announcement = await db.getAnnouncementById(req.params.id);
-      }
-    } else {
-      announcement = await db.getAnnouncementById(req.params.id);
-    }
+  const updated = await repo.updateAnnouncement(req.params.id, updates);
+  resp.success(res, updated, '更新成功');
+}));
 
-    if (!announcement) {
-      return res.status(404).json({ success: false, message: '公告不存在' });
-    }
-
-    const { title, content, importance, status } = req.body;
-
-    const updates = {};
-    if (title !== undefined) updates.title = title;
-    if (content !== undefined) updates.content = content;
-    if (importance !== undefined) updates.importance = importance;
-    if (status !== undefined) updates.status = status;
-
-    let updated;
-    if (mysqlDb.isConnected()) {
-      try {
-        updated = await mysqlDb.updateAnnouncement(req.params.id, updates);
-      } catch (e) {
-        updated = await db.updateAnnouncement(req.params.id, updates);
-      }
-    } else {
-      updated = await db.updateAnnouncement(req.params.id, updates);
-    }
-
-    res.json({ success: true, message: '更新成功', data: updated });
-  } catch (error) {
-    console.error('更新公告错误:', error);
-    res.status(500).json({ success: false, message: '更新失败' });
+router.delete('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
   }
-});
 
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
-
-    let announcement;
-    if (mysqlDb.isConnected()) {
-      try {
-        announcement = await mysqlDb.getAnnouncementById(req.params.id);
-      } catch (e) {
-        announcement = await db.getAnnouncementById(req.params.id);
-      }
-    } else {
-      announcement = await db.getAnnouncementById(req.params.id);
-    }
-
-    if (!announcement) {
-      return res.status(404).json({ success: false, message: '公告不存在' });
-    }
-
-    if (mysqlDb.isConnected()) {
-      try {
-        await mysqlDb.deleteAnnouncement(req.params.id);
-      } catch (e) {
-        await db.deleteAnnouncement(req.params.id);
-      }
-    } else {
-      await db.deleteAnnouncement(req.params.id);
-    }
-
-    res.json({ success: true, message: '删除成功' });
-  } catch (error) {
-    console.error('删除公告错误:', error);
-    res.status(500).json({ success: false, message: '删除失败' });
-  }
-});
+  await repo.deleteAnnouncement(req.params.id);
+  resp.success(res, null, '删除成功');
+}));
 
 module.exports = router;

@@ -27,7 +27,21 @@
         </a-tag>
       </div>
 
-      <div v-if="result" class="result-content">
+      <div v-if="loading" class="loading">
+        <a-spin size="large" />
+        <p>加载中...</p>
+      </div>
+
+      <div v-else-if="error" class="error-state">
+        <a-result status="error" :title="error">
+          <template #extra>
+            <a-button type="primary" @click="loadResult">重新加载</a-button>
+            <a-button @click="$router.push('/')">返回首页</a-button>
+          </template>
+        </a-result>
+      </div>
+
+      <div v-else-if="result" class="result-content">
         <!-- 成绩概览卡片 -->
         <div class="score-overview">
           <!-- 总分卡片 -->
@@ -141,11 +155,6 @@
           </a-button>
         </div>
       </div>
-
-      <div v-else class="loading">
-        <a-spin size="large" />
-        <p>加载中...</p>
-      </div>
     </a-card>
   </div>
 </template>
@@ -162,6 +171,27 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const result = ref(null)
+    const loading = ref(true)
+    const error = ref(null)
+
+    const loadResult = async () => {
+      loading.value = true
+      error.value = null
+      try {
+        const examId = route.params.id
+        if (!examId) {
+          error.value = '缺少考试记录ID'
+          return
+        }
+        const res = await getExamResult(examId)
+        result.value = res.data
+      } catch (e) {
+        console.error('加载考试结果失败:', e)
+        error.value = e.response?.data?.message || e.message || '加载结果失败，请稍后重试'
+      } finally {
+        loading.value = false
+      }
+    }
 
     // 计算显示分数
     const displayScore = computed(() => {
@@ -253,27 +283,15 @@ export default {
       return '#f53f3f'
     }
 
-    onMounted(async () => {
-      if (route.query.data) {
-        try {
-          result.value = JSON.parse(route.query.data)
-        } catch (e) {
-          console.error(e)
-        }
-      }
-
-      if (!result.value && route.params.id) {
-        try {
-          const res = await getExamResult(route.params.id)
-          result.value = res.data
-        } catch (e) {
-          console.error(e)
-        }
-      }
+    onMounted(() => {
+      loadResult()
     })
 
     return {
       result,
+      loading,
+      error,
+      loadResult,
       displayScore,
       essayScore,
       essayTotal,
@@ -550,6 +568,11 @@ export default {
 .loading p {
   margin-top: 16px;
   color: var(--text-secondary);
+}
+
+/* 错误状态 */
+.error-state {
+  padding: 40px 0;
 }
 
 /* 响应式 */

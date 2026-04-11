@@ -248,6 +248,15 @@ module.exports = {
   initMySQL,
   syncToMySQL,
 
+  // 由 index.js 在 dbMysql.init() 完成后调用，避免重复初始化
+  setMySQLReady: () => {
+    if (mysqlDb && mysqlDb.isConnected()) {
+      mysqlConnected = true;
+      useDualWrite = process.env.DUAL_WRITE === 'true';
+      console.log('[DB] MySQL ready (notified by index.js), dual-write:', useDualWrite);
+    }
+  },
+
   // 用户表
   users: {
     findAll: () => db.users,
@@ -936,6 +945,13 @@ module.exports = {
     }
     if (paperId) {
       records = records.filter(r => r.paper_key_id === paperId);
+    }
+    return records;
+  },
+  getExamRecordsByPaperId: (paperId, status) => {
+    let records = db.examRecords.filter(r => r.paper_id === parseInt(paperId));
+    if (status) {
+      records = records.filter(r => r.status === status);
     }
     return records;
   },

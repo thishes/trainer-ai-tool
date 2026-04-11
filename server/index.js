@@ -6,7 +6,7 @@ const http = require('http');
 
 console.log('正在启动后端服务...');
 
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const config = require('./config');
 console.log('配置加载完成');
@@ -34,54 +34,62 @@ console.log('Socket.IO 已初始化');
 
 // ============================================
 // MySQL 初始化（异步，不阻塞启动）
+// 只调用 dbMysql.init() 一次，db.initMySQL() 会在内部复用结果
 // ============================================
 const dbMysql = require('./db-mysql');
+const db = require('./db');
+
 dbMysql.init().then(() => {
   console.log('[MySQL] 已初始化');
   if (dbMysql.isConnected()) {
     console.log('[MySQL] 连接状态: 已连接');
+    // 通知 db.js MySQL 已就绪（不再重复调用 init）
+    db.setMySQLReady();
   }
 }).catch(err => {
   console.warn('[MySQL] 初始化失败:', err.message);
 });
 
-// 引入 db 模块并初始化 MySQL
-const db = require('./db');
-db.initMySQL().then(connected => {
-  if (connected) {
-    console.log('[DB] JSON 数据库 MySQL 初始化成功');
-  }
-}).catch(err => {
-  console.warn('[DB] JSON 数据库 MySQL 初始化失败:', err.message);
-});
-
 // ============================================
 // MySQL 恢复检测与自动同步（后台定时任务）
+// 使用 sync-state 模块共享同步状态
 // ============================================
+const syncState = require('./sync-state');
 const MYSQL_CHECK_INTERVAL = 30000;
-let syncInProgress = false;
 
 setInterval(async () => {
-  if (syncInProgress) {
+  if (syncState.isInProgress()) {
     console.log('[DB] 同步任务正在进行中，跳过本次检测');
     return;
   }
   try {
+    // 如果 MySQL 未连接，尝试重连
+    if (!dbMysql.isConnected()) {
+      console.log('[DB] MySQL 未连接，尝试重连...');
+      const reconnected = await dbMysql.reconnect();
+      if (reconnected) {
+        console.log('[DB] ✅ MySQL 重连成功！');
+        db.setMySQLReady();
+      }
+      return;
+    }
+
     const status = db.getMySQLStatus();
-    if (status.degradedMode && status.mysqlConnected) {
+    // 只有在启用双写模式且处于降级模式时才执行同步
+    if (status.useDualWrite && status.degradedMode && status.mysqlConnected) {
       console.log('[DB] 检测到 MySQL 已恢复且处于降级模式，开始执行同步...');
-      syncInProgress = true;
+      syncState.setInProgress(true);
       const syncResult = await db.syncToMySQL();
       if (syncResult) {
         console.log('[DB] MySQL 同步成功，退出降级模式');
       } else {
         console.warn('[DB] MySQL 同步失败，保持降级模式');
       }
-      syncInProgress = false;
+      syncState.setInProgress(false);
     }
   } catch (e) {
     console.error('[DB] MySQL 状态检测异常:', e.message);
-    syncInProgress = false;
+    syncState.setInProgress(false);
   }
 }, MYSQL_CHECK_INTERVAL);
 
@@ -95,10 +103,10 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "data:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "data:"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", "wss:", "ws:"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:*", "https://api.github.com"],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "blob:"],
@@ -106,7 +114,7 @@ app.use(helmet({
     },
   },
   hsts: {
-    maxAge: 31536000, // 1年
+    maxAge: 31536000,
     includeSubDomains: true,
     preload: true
   },
@@ -144,10 +152,27 @@ io.on('connection', (socket) => {
 // 导出io供路由使用
 app.set('io', io);
 
-// 中间件
+// ============================================
+// 中间件（必须在路由之前注册）
+// ============================================
+const ALLOWED_ORIGINS = config.CORS_ORIGINS
+  ? config.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:5173']);
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : (process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000', 'http://localhost:5173']),
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] 拒绝来源: ${origin}`);
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  maxAge: 86400
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -161,8 +186,7 @@ app.use(cookieParser());
 
 const isSecureCookie = config.SECURE_COOKIE;
 
-// 仅对 API 启用 CSRF 保护
-const csrfProtection = csrf({ 
+const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
     secure: isSecureCookie,
@@ -170,34 +194,18 @@ const csrfProtection = csrf({
   }
 });
 
-// 白名单路由（公开API不需要CSRF）
+// 白名单路由
 const csrfExclude = [
   '/api/health',
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
-  '/api/auth/refresh',
+  '/api/auth/captcha',
   '/api/auth/me',
   '/api/students/verify',
-  '/api/papers',
-  '/api/papers/public',
-  '/api/papers/\\d+/exam-url',
-  '/api/promotions',
   '/api/exam/start',
   '/api/exam/save-progress',
-  '/api/exam/submit',
-  '/api/exam/questions',
-  '/api/exam/\\d+/questions',
-  '/api/exam/\\d+/result',
-  '/api/exam/records',
-  '/api/exam/stats',
-  '/api/exam/grade-essay',
-  '/api/exam/\\d+/grade',
-  '/api/categories',
-  '/api/questions',
-  '/api/users',
-  '/api/announcements',
-  '/api/students'
+  '/api/exam/submit'
 ];
 
 app.use((req, res, next) => {
@@ -207,7 +215,7 @@ app.use((req, res, next) => {
   csrfProtection(req, res, next);
 });
 
-// 错误处理 - CSRF 错误
+// CSRF 错误处理
 app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     return res.status(403).json({ success: false, message: '您的请求已过期，请刷新页面重试' });
@@ -215,40 +223,85 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// 静态文件 - 开启缓存和压缩
-app.use(express.static(path.join(__dirname, '../client/dist'), {
-  maxAge: '1d', // 缓存1天
+// ============================================
+// 请求日志（必须在路由之前注册才能记录API请求）
+// ============================================
+const { errorHandler, notFoundHandler, requestLogger } = require('./middleware/errorHandler');
+app.use(requestLogger);
+
+// ============================================
+// 静态文件 - 支持预压缩 (.gz / .br)
+// ============================================
+const distPath = path.join(__dirname, '../client/dist');
+const fs = require('fs');
+const mime = require('mime');
+
+// 预压缩文件缓存（避免每次请求 existsSync）
+const precompressCache = new Map();
+function hasPrecompressedFile(filePath) {
+  if (precompressCache.has(filePath)) return precompressCache.get(filePath);
+  const br = fs.existsSync(filePath + '.br');
+  const gz = fs.existsSync(filePath + '.gz');
+  const result = { br, gz };
+  precompressCache.set(filePath, result);
+  return result;
+}
+
+// 预压缩中间件：原始文件不存在时，自动返回 .br/.gz 版本
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+
+  const filePath = path.join(distPath, req.path);
+  // 安全检查
+  if (!filePath.startsWith(distPath)) return next();
+
+  const compressed = hasPrecompressedFile(filePath);
+  const acceptEncoding = req.headers['accept-encoding'] || '';
+  const contentType = mime.lookup(filePath) || 'application/octet-stream';
+
+  if (acceptEncoding.includes('br') && compressed.br) {
+    res.set('Content-Encoding', 'br');
+    res.set('Content-Type', contentType);
+    req.url = req.url + '.br';
+    return express.static(distPath, { maxAge: '1d', etag: true, lastModified: true })(req, res, next);
+  }
+
+  if (acceptEncoding.includes('gzip') && compressed.gz) {
+    res.set('Content-Encoding', 'gzip');
+    res.set('Content-Type', contentType);
+    req.url = req.url + '.gz';
+    return express.static(distPath, { maxAge: '1d', etag: true, lastModified: true })(req, res, next);
+  }
+
+  next();
+});
+
+app.use(express.static(distPath, {
+  maxAge: '1d',
   etag: true,
   lastModified: true
 }));
-
-// SPA fallback - 所有非API路由返回index.html
-app.use((req, res, next) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads') && !req.path.startsWith('/assets')) {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  } else {
-    next();
-  }
-});
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: '1h',
   etag: true
 }));
 
+// ============================================
+// API 路由
+// ============================================
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: '服务正常运行', timestamp: new Date().toISOString() });
 });
 
-// 路由
 const authRoutes = require('./routes/auth');
 const questionRoutes = require('./routes/questions');
 const paperRoutes = require('./routes/papers');
 const examRoutes = require('./routes/exam');
 const announcementRoutes = require('./routes/announcements');
 const studentRoutes = require('./routes/students');
-// const apiDocsRoutes = require('./routes/api-docs'); // 临时注释
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -256,7 +309,6 @@ app.use('/api/papers', paperRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/students', studentRoutes);
-// app.use('/api', apiDocsRoutes); // 临时注释
 
 // 分类路由
 const categoryRoutes = require('./routes/categories');
@@ -265,6 +317,7 @@ app.use('/api/categories', categoryRoutes);
 // 升级路由
 app.use('/api/upgrade', require('./routes/upgrade'));
 
+// 用户路由
 app.use('/api/users', require('./routes/users'));
 
 // 宣推服务路由
@@ -273,24 +326,26 @@ app.use('/api/promotions', require('./routes/promotions'));
 // 系统管理路由
 app.use('/api/system', require('./routes/system'));
 
-// 引入错误处理中间件
-const { errorHandler, notFoundHandler, requestLogger } = require('./middleware/errorHandler');
+// ============================================
+// SPA fallback + 错误处理（必须在路由之后）
+// ============================================
 
-// 请求日志
-app.use(requestLogger);
+// SPA fallback - 所有非API/非静态资源路由返回 index.html
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads') && !req.path.startsWith('/assets')) {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'), (err) => {
+      if (err) next(err);
+    });
+  } else {
+    next();
+  }
+});
 
 // 404 处理
 app.use(notFoundHandler);
 
 // 全局错误处理中间件
 app.use(errorHandler);
-
-// SPA fallback
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  }
-});
 
 // 启动服务
 server.listen(PORT, HOST, () => {

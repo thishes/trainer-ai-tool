@@ -1,19 +1,17 @@
 const mysql = require('mysql2/promise');
 
 const DB_CONFIG = {
-  host: process.env.DB_HOST || 'kb.thishe.com',
+  host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT) || 33060,
-  user: process.env.DB_USER || 'lankong',
-  password: process.env.DB_PASSWORD || 'Hejinqiang860612!',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'trainer_ai_tool',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 5,
   queueLimit: 0,
   connectTimeout: 30000,
-  idleTimeout: 60000,
-  maxIdle: 2,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000
+  keepAliveInitialDelay: 30000
 };
 
 let pool = null;
@@ -24,10 +22,30 @@ const RECONNECT_DELAY_BASE = 1000;
 
 function getPool() {
   if (!pool) {
-    pool = mysql.createPool(DB_CONFIG);
-    pool.on('connection', () => {
+    pool = mysql.createPool({
+      host: DB_CONFIG.host,
+      port: DB_CONFIG.port,
+      user: DB_CONFIG.user,
+      password: DB_CONFIG.password,
+      database: DB_CONFIG.database,
+      waitForConnections: DB_CONFIG.waitForConnections,
+      connectionLimit: DB_CONFIG.connectionLimit,
+      queueLimit: DB_CONFIG.queueLimit,
+      connectTimeout: DB_CONFIG.connectTimeout,
+      enableKeepAlive: DB_CONFIG.enableKeepAlive,
+      keepAliveInitialDelay: DB_CONFIG.keepAliveInitialDelay
+    });
+
+    pool.on('connection', (conn) => {
       isConnected = true;
       reconnectAttempts = 0;
+    });
+
+    pool.on('error', (err) => {
+      console.error('[MySQL] Pool error:', err.code, err.message);
+      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNREFUSED') {
+        isConnected = false;
+      }
     });
   }
   return pool;
@@ -94,14 +112,49 @@ async function remove(sql, params = []) {
 }
 
 async function healthCheck() {
+  const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT) || 30000;
   try {
-    const [rows] = await getPool().execute('SELECT 1');
+    const pool = getPool();
+    const result = await Promise.race([
+      pool.execute('SELECT 1'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), timeout))
+    ]);
     isConnected = true;
     return true;
   } catch (error) {
     isConnected = false;
-    console.error('[MySQL] Health check failed:', error.message);
-    return false;
+    console.error('[MySQL] Health check failed:', error.code, error.message);
+
+    // 连接池失败时，销毁旧池以便下次 getPool() 重建
+    if (pool) {
+      try {
+        await pool.end();
+      } catch (e) { /* ignore */ }
+      pool = null;
+      console.log('[MySQL] Pool destroyed, will recreate on next query');
+    }
+
+    // 尝试独立连接验证 MySQL 服务是否可用
+    try {
+      const standalone = await mysql.createConnection({
+        host: DB_CONFIG.host,
+        port: DB_CONFIG.port,
+        user: DB_CONFIG.user,
+        password: DB_CONFIG.password,
+        database: DB_CONFIG.database,
+        connectTimeout: timeout
+      });
+      try {
+        await standalone.execute('SELECT 1');
+        console.log('[MySQL] ✅ Standalone connection works (pool has issues), threadId:', standalone.threadId);
+        return true;
+      } finally {
+        await standalone.end();
+      }
+    } catch(e2) {
+      console.error('[MySQL] ❌ MySQL server unreachable:', e2.code, e2.message);
+      return false;
+    }
   }
 }
 
@@ -115,19 +168,34 @@ async function reconnect() {
   console.log(`[MySQL] Attempting reconnection (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
 
   try {
+    // 先销毁旧池
     if (pool) {
       await pool.end().catch(() => {});
       pool = null;
+      isConnected = false;
     }
-    getPool();
-    const healthy = await healthCheck();
-    if (healthy) {
-      console.log('[MySQL] Reconnection successful');
-      reconnectAttempts = 0;
-    }
-    return healthy;
+
+    // 先用独立连接验证 MySQL 可达
+    const testConn = await mysql.createConnection({
+      host: DB_CONFIG.host,
+      port: DB_CONFIG.port,
+      user: DB_CONFIG.user,
+      password: DB_CONFIG.password,
+      database: DB_CONFIG.database,
+      connectTimeout: 15000
+    });
+    await testConn.end();
+    console.log('[MySQL] ✅ Standalone test connection successful');
+
+    // MySQL 可达，重建连接池
+    const newPool = getPool();
+    await newPool.execute('SELECT 1');
+    isConnected = true;
+    reconnectAttempts = 0;
+    console.log('[MySQL] Reconnection successful');
+    return true;
   } catch (error) {
-    console.error('[MySQL] Reconnection failed:', error.message);
+    console.error('[MySQL] Reconnection failed:', error.code, error.message);
     return false;
   }
 }
@@ -409,6 +477,22 @@ const db = {
     }));
   },
 
+  async getExamRecordsByPaperId(paperId, status = null) {
+    let sql = 'SELECT * FROM exam_records WHERE paper_id = ?';
+    const params = [paperId];
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    sql += ' ORDER BY id DESC';
+    const rows = await findAll(sql, params);
+    return rows.map(r => ({
+      ...r,
+      answers: parseJSONField(r.answers),
+      essay_answers: parseJSONField(r.essay_answers)
+    }));
+  },
+
   async getExamRecordById(id) {
     const r = await findOne('SELECT * FROM exam_records WHERE id = ?', [id]);
     if (r) {
@@ -650,17 +734,88 @@ const db = {
     return true;
   },
 
+  async ensureIndexes() {
+    // 兼容所有 MySQL 版本：先查出已有索引，再批量创建缺失的
+    const indexes = [
+      { name: 'idx_users_username', table: 'users', columns: 'username' },
+      { name: 'idx_users_role', table: 'users', columns: 'role' },
+      { name: 'idx_questions_category_id', table: 'questions', columns: 'category_id' },
+      { name: 'idx_questions_type', table: 'questions', columns: 'type' },
+      { name: 'idx_questions_difficulty', table: 'questions', columns: 'difficulty' },
+      { name: 'idx_questions_user_id', table: 'questions', columns: 'user_id' },
+      { name: 'idx_questions_status', table: 'questions', columns: 'status' },
+      { name: 'idx_papers_user_id', table: 'papers', columns: 'user_id' },
+      { name: 'idx_papers_status', table: 'papers', columns: 'status' },
+      { name: 'idx_exam_records_paper_id', table: 'exam_records', columns: 'paper_id' },
+      { name: 'idx_exam_records_user_id', table: 'exam_records', columns: 'user_id' },
+      { name: 'idx_exam_records_status', table: 'exam_records', columns: 'status' },
+      { name: 'idx_essay_scores_exam_record_id', table: 'essay_scores', columns: 'exam_record_id' },
+      { name: 'idx_essay_scores_graded_by', table: 'essay_scores', columns: 'graded_by' },
+      { name: 'idx_promotions_created_by', table: 'promotions', columns: 'created_by' },
+      { name: 'idx_promotions_status', table: 'promotions', columns: 'status' },
+      { name: 'idx_promotion_signups_promotion_id', table: 'promotion_signups', columns: 'promotion_id' },
+      { name: 'idx_promotion_signups_phone', table: 'promotion_signups', columns: 'phone' },
+    ];
+
+    try {
+      // 一次性查出所有已有索引（比逐个查询快得多）
+      const existing = await getPool().execute(
+        'SELECT TABLE_NAME, INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ?',
+        [DB_CONFIG.database]
+      );
+      const existingSet = new Set();
+      for (const row of existing[0]) {
+        const key = (row.TABLE_NAME || row.table_name) + '.' + (row.INDEX_NAME || row.index_name);
+        existingSet.add(key);
+      }
+
+      // 只创建缺失的索引
+      const toCreate = indexes.filter(idx => !existingSet.has(idx.table + '.' + idx.name));
+      if (toCreate.length === 0) return;
+
+      // 按表分组，同表的索引用一条 ALTER TABLE 批量创建
+      const byTable = {};
+      for (const idx of toCreate) {
+        if (!byTable[idx.table]) byTable[idx.table] = [];
+        byTable[idx.table].push(`ADD INDEX ${idx.name} (${idx.columns})`);
+      }
+
+      let created = 0;
+      for (const [table, addStatements] of Object.entries(byTable)) {
+        try {
+          await getPool().execute(`ALTER TABLE ${table} ${addStatements.join(', ')}`);
+          created += addStatements.length;
+        } catch (e) {
+          if (e.code === 'ER_DUP_KEYNAME' || e.code === 'ER_DUP_ENTRY') {
+            // 并发创建导致重复，忽略
+          } else {
+            console.warn(`[MySQL] Failed to create indexes on ${table}:`, e.message);
+          }
+        }
+      }
+      if (created > 0) console.log(`[MySQL] ${created} indexes created`);
+    } catch (e) {
+      console.warn('[MySQL] ensureIndexes failed:', e.message);
+    }
+  },
+
   async init() {
     try {
-      await initializeCounters();
       const healthy = await healthCheck();
-      if (healthy) {
-        console.log('[MySQL] Database connection established successfully');
-      } else {
+      if (!healthy) {
         console.warn('[MySQL] Database connection failed, will retry on demand');
+        return;
       }
+      // 计数器初始化失败不影响连接
+      await initializeCounters().catch(e => console.warn('[MySQL] Counter init skipped:', e.message));
+      // 索引创建失败不影响连接
+      await this.ensureIndexes().catch(e => console.warn('[MySQL] Index creation skipped:', e.message));
+      // 再次确认连接状态
+      isConnected = true;
+      console.log('[MySQL] Database connection established successfully');
     } catch (error) {
       console.error('[MySQL] Initialization failed:', error.message);
+      isConnected = false;
     }
   }
 };

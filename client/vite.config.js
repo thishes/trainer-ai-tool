@@ -2,9 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import fs from 'fs'
-import yaml from 'js-yaml'
 import { vitePluginForArco } from '@arco-plugins/vite-vue'
-import viteCompression from 'vite-plugin-compression'
 
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
 
@@ -13,27 +11,9 @@ export default defineConfig({
     vue(),
     vitePluginForArco({
       style: 'css'
-    }),
-    // Gzip 压缩
-    viteCompression({
-      algorithm: 'gzip',
-      ext: '.gz',
-      threshold: 1024,
-      deleteOriginFile: false,
-      filter: (file) => {
-        return !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
-      }
-    }),
-    // Brotli 压缩（更好的压缩率）
-    viteCompression({
-      algorithm: 'brotliCompress',
-      ext: '.br',
-      threshold: 1024,
-      deleteOriginFile: false,
-      filter: (file) => {
-        return !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
-      }
     })
+    // 压缩插件暂时禁用 - 由 Express 预压缩中间件在运行时处理
+    // 重新启用时确保 filter 排除 .gz/.br 文件避免递归压缩
   ],
   resolve: {
     alias: {

@@ -1,5 +1,6 @@
 <template>
   <div class="exam-page">
+    <!-- 阶段1: 考试须知/开始页 -->
     <div v-if="!examStarted" class="start-exam">
       <div class="start-card">
         <div class="start-card-icon">
@@ -26,6 +27,23 @@
               <span>{{ formatDateTime(paperInfo.start_time) }} 至 {{ formatDateTime(paperInfo.end_time) }}</span>
             </a-descriptions-item>
           </a-descriptions>
+        </div>
+
+        <!-- 考试须知 -->
+        <div class="exam-notice">
+          <div class="notice-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            考试须知
+          </div>
+          <ul class="notice-list">
+            <li>点击「开始考试」后计时开始，中途不可暂停</li>
+            <li>系统每 30 秒自动保存答题进度</li>
+            <li>倒计时结束将自动交卷，请合理分配时间</li>
+            <li>剩余 5 分钟时将出现时间预警提示</li>
+            <li>交卷前请确认所有题目已作答</li>
+          </ul>
         </div>
 
         <div v-if="countdownTime > 0" class="countdown-section">
@@ -55,21 +73,50 @@
           <h3>公告</h3>
           <div v-for="a in announcements" :key="a.id" class="announcement-item">
             <h4>{{ a.title }}</h4>
-            <div class="announcement-content" v-html="a.content"></div>
+            <SafeHtml :html="a.content" class="announcement-content" />
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 阶段2: 答题中 -->
     <div v-else class="exam-container">
+      <!-- 离线横幅 -->
+      <div v-if="!isOnline" class="offline-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+        网络已断开，答题进度将在本地暂存，恢复网络后自动同步
+      </div>
+
+      <!-- 5分钟预警横幅 -->
+      <div v-if="timeLeft <= 300 && timeLeft > 0" class="time-warning-banner" :class="{ urgent: timeLeft <= 60 }">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span v-if="timeLeft <= 60">⚠️ 最后 {{ timeLeft }} 秒，即将自动交卷！</span>
+        <span v-else>⏰ 距离考试结束还有 {{ Math.ceil(timeLeft / 60) }} 分钟</span>
+      </div>
+
       <div class="exam-header">
-        <h2>{{ examInfo.title }}</h2>
-        <div class="exam-timer" :class="{ warning: timeLeft < 300 }">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-          {{ formatTime(timeLeft) }}
+        <h2>{{ examInfo.title || paperInfo.title }}</h2>
+        <div class="exam-header-right">
+          <!-- 自动保存指示器 -->
+          <div class="save-indicator" :class="saveStatus">
+            <svg v-if="saveStatus === 'saved'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg v-else-if="saveStatus === 'saving'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span v-if="saveStatus === 'saved'">已保存</span>
+            <span v-else-if="saveStatus === 'saving'">保存中...</span>
+            <span v-else>保存失败</span>
+          </div>
+          <div class="exam-timer" :class="{ warning: timeLeft < 300, urgent: timeLeft <= 60 }" role="timer" :aria-label="`剩余时间 ${formatTime(timeLeft)}`" aria-live="polite">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {{ formatTime(timeLeft) }}
+          </div>
         </div>
       </div>
 
@@ -85,52 +132,72 @@
 
           <div class="question-title">{{ currentQuestion.title }}</div>
 
-          <div v-if="currentQuestion.type === 'single'" class="options">
+          <div v-if="currentQuestion.type === 'single'" class="options" role="radiogroup" :aria-label="`第${currentIndex + 1}题 - 单选`">
             <div
               v-for="(option, index) in currentQuestion.options"
               :key="index"
               class="option-item"
               :class="{ selected: answers[currentQuestion.id] === option.key }"
+              role="radio"
+              :aria-checked="answers[currentQuestion.id] === option.key"
+              tabindex="0"
               @click="selectAnswer(option.key)"
+              @keydown.enter="selectAnswer(option.key)"
+              @keydown.space.prevent="selectAnswer(option.key)"
             >
               <span class="option-key">{{ option.key }}</span>
               <span class="option-text">{{ option.value }}</span>
             </div>
           </div>
 
-          <div v-if="currentQuestion.type === 'multiple'" class="options">
+          <div v-if="currentQuestion.type === 'multiple'" class="options" role="group" :aria-label="`第${currentIndex + 1}题 - 多选`">
             <div
               v-for="(option, index) in currentQuestion.options"
               :key="index"
               class="option-item"
               :class="{ selected: (answers[currentQuestion.id] || []).includes(option.key) }"
+              role="checkbox"
+              :aria-checked="(answers[currentQuestion.id] || []).includes(option.key)"
+              tabindex="0"
               @click="toggleMultipleAnswer(option.key)"
+              @keydown.enter="toggleMultipleAnswer(option.key)"
+              @keydown.space.prevent="toggleMultipleAnswer(option.key)"
             >
               <span class="option-key">{{ option.key }}</span>
               <span class="option-text">{{ option.value }}</span>
             </div>
           </div>
 
-          <div v-if="currentQuestion.type === 'judge'" class="options judge">
+          <div v-if="currentQuestion.type === 'judge'" class="options judge" role="radiogroup" :aria-label="`第${currentIndex + 1}题 - 判断`">
             <div
               class="option-item"
               :class="{ selected: answers[currentQuestion.id] === 'true' }"
+              role="radio"
+              :aria-checked="answers[currentQuestion.id] === 'true'"
+              tabindex="0"
               @click="selectAnswer('true')"
+              @keydown.enter="selectAnswer('true')"
+              @keydown.space.prevent="selectAnswer('true')"
             >
-              <span class="option-key">T</span>
-              <span class="option-text">正确</span>
+              <span class="option-key">✓</span>
+              <span class="option-text">对</span>
             </div>
             <div
               class="option-item"
               :class="{ selected: answers[currentQuestion.id] === 'false' }"
+              role="radio"
+              :aria-checked="answers[currentQuestion.id] === 'false'"
+              tabindex="0"
               @click="selectAnswer('false')"
+              @keydown.enter="selectAnswer('false')"
+              @keydown.space.prevent="selectAnswer('false')"
             >
-              <span class="option-key">F</span>
-              <span class="option-text">错误</span>
+              <span class="option-key">✗</span>
+              <span class="option-text">错</span>
             </div>
           </div>
 
-          <div v-if="currentQuestion.type === 'subjective' || currentQuestion.type === 'essay' || currentQuestion.type === 'question'" class="subjective-answer">
+          <div v-if="isSubjective(currentQuestion.type)" class="subjective-answer">
             <div class="answer-instruction">请在下方输入你的答案：</div>
             <a-textarea 
               v-model="answers[currentQuestion.id]" 
@@ -138,23 +205,39 @@
               :rows="8"
               class="answer-textarea"
             />
+            <div class="word-count">已输入 {{ essayWordCount }} 字</div>
           </div>
         </a-card>
 
+        <!-- 分组题目导航 -->
         <div class="question-nav">
           <a-button class="nav-btn" :disabled="currentIndex === 0" @click="prevQuestion">
             <template #icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg></template>
             上一题
           </a-button>
 
-          <div class="question-dots">
-            <span
-              v-for="(q, idx) in questions"
-              :key="q.id"
-              class="dot"
-              :class="{ current: idx === currentIndex, answered: isAnswered(q.id) }"
-              @click="goToQuestion(idx)"
-            ></span>
+          <div class="nav-center">
+            <div v-if="questionTypeGroups.length > 1" class="type-tabs">
+              <button
+                v-for="group in questionTypeGroups"
+                :key="group.type"
+                class="type-tab"
+                :class="{ active: currentTypeGroup === group.type }"
+                @click="goToTypeGroup(group.type)"
+              >
+                {{ group.label }}({{ group.count }})
+              </button>
+            </div>
+            <div class="question-dots">
+              <span
+                v-for="q in currentGroupQuestions"
+                :key="q.id"
+                class="dot"
+                :class="{ current: q.id === currentQuestion.id, answered: isAnswered(q.id) }"
+                @click="goToQuestion(q._originalIndex)"
+                :title="`第${q._originalIndex + 1}题`"
+              ></span>
+            </div>
           </div>
 
           <a-button v-if="currentIndex < questions.length - 1" type="primary" @click="nextQuestion">
@@ -166,26 +249,51 @@
           </a-button>
         </div>
 
-        <a-alert v-if="unansweredCount > 0" type="warning" style="margin-top: 16px">
-          已答题: {{ answeredCount }} / {{ questions.length }}，还有 {{ unansweredCount }} 道题未作答
-        </a-alert>
-        <a-alert v-else type="success" style="margin-top: 16px">
-          已答题: {{ answeredCount }} / {{ questions.length }}
-        </a-alert>
+        <div class="progress-bar-wrapper">
+          <div class="progress-info">
+            <span>答题进度</span>
+            <span>{{ answeredCount }} / {{ questions.length }}</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <a-modal v-model:visible="submitDialogVisible" title="确认交卷" :width="400"
-      @before-ok="submitExam" @cancel="submitDialogVisible = false"
-      :ok-text="'确认交卷'" :cancel-text="'再检查一下'">
-      <div style="text-align: center; padding: 20px 0">
-        <p style="font-size: 15px; color: var(--text-secondary); margin-bottom: 16px">你确定要交卷吗？</p>
-        <a-statistic :value="answeredCount" :value-from="0" :to="questions.length" title="已答题">
-          <template #suffix>/ {{ questions.length }}</template>
-        </a-statistic>
-        <a-alert v-if="unansweredCount > 0" type="warning" style="margin-top: 16px">
-          还有 {{ unansweredCount }} 道题未作答
+    <!-- 交卷确认弹窗 - 增强版 -->
+    <a-modal v-model:visible="submitDialogVisible" title="确认交卷" :width="440"
+      @before-ok="submitExam" @cancel="onSubmitCancel"
+      :ok-text="'确认交卷'" :cancel-text="'再检查一下'"
+      :ok-button-props="{ status: unansweredCount > 0 ? 'warning' : 'primary' }">
+      <div style="padding: 12px 0">
+        <div style="text-align: center; margin-bottom: 20px">
+          <div style="font-size: 48px; font-weight: 700; margin-bottom: 4px" :style="{ color: unansweredCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' }">
+            {{ answeredCount }} / {{ questions.length }}
+          </div>
+          <div style="color: var(--text-secondary); font-size: 14px">已答题数</div>
+        </div>
+
+        <a-alert v-if="unansweredCount > 0" type="warning" style="margin-bottom: 16px">
+          <template #icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></template>
+          还有 <strong style="color: var(--color-danger); font-size: 16px">{{ unansweredCount }}</strong> 道题未作答，交卷后将无法修改！
         </a-alert>
+        <a-alert v-else type="success">
+          所有题目已作答，确认无误后请交卷
+        </a-alert>
+
+        <!-- 未答题快速跳转 -->
+        <div v-if="unansweredList.length > 0" class="unanswered-links">
+          <span style="color: var(--text-secondary); font-size: 13px">点击跳转到未答题：</span>
+          <a-button v-for="q in displayUnanswered" :key="q.id" size="mini" type="outline" status="warning"
+            @click="jumpToUnanswered(q._index)">
+            第{{ q._index + 1 }}题
+          </a-button>
+          <a-button v-if="unansweredList.length > 10" size="mini" type="text"
+            @click="showAllUnanswered = !showAllUnanswered">
+            {{ showAllUnanswered ? '收起' : `还有 ${unansweredList.length - 10} 题...` }}
+          </a-button>
+        </div>
       </div>
     </a-modal>
 
@@ -200,11 +308,13 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import DOMPurify from 'dompurify'
+import SafeHtml from '@/components/SafeHtml.vue'
 import { getPaperPublic, startExamApi, getExamQuestions, saveProgress, submitExam as submitExamApi, getAnnouncements } from '@/api'
 import { formatDateTime } from '@/utils/date'
 
 export default {
   name: 'ExamPage',
+  components: { SafeHtml },
   setup() {
     const route = useRoute()
     const router = useRouter()
@@ -227,6 +337,10 @@ export default {
       access_code: route.query.code || ''
     })
     const announcements = ref([])
+    const saveStatus = ref('saved') // 'saved' | 'saving' | 'error'
+    const isOnline = ref(navigator.onLine !== false)
+    const currentTypeGroup = ref('')
+    const showAllUnanswered = ref(false)
     let timer = null
     let countdownTimer = null
     const countdownTime = ref(0)
@@ -267,6 +381,74 @@ export default {
     })
 
     const unansweredCount = computed(() => questions.value.length - answeredCount.value)
+
+    const progressPercent = computed(() => {
+      if (questions.value.length === 0) return 0
+      return Math.round((answeredCount.value / questions.value.length) * 100)
+    })
+
+    const unansweredList = computed(() => {
+      return questions.value
+        .map((q, index) => ({ ...q, _index: index }))
+        .filter(q => !isAnswered(q.id))
+    })
+
+    // 未答题列表：默认最多显示10项，展开后显示全部
+    const displayUnanswered = computed(() => {
+      if (showAllUnanswered.value || unansweredList.value.length <= 10) {
+        return unansweredList.value
+      }
+      return unansweredList.value.slice(0, 10)
+    })
+
+    // 主观题字数统计
+    const essayWordCount = computed(() => {
+      const val = answers.value[currentQuestion.value.id]
+      if (!val || typeof val !== 'string') return 0
+      return val.length
+    })
+
+    // 判断是否为主观题
+    const isSubjective = (type) => {
+      return type === 'subjective' || type === 'essay' || type === 'question'
+    }
+
+    // 分组导航：按题型分组
+    const questionTypeGroups = computed(() => {
+      const typeMap = {}
+      questions.value.forEach((q, index) => {
+        const type = q.type || 'unknown'
+        if (!typeMap[type]) {
+          typeMap[type] = {
+            type,
+            label: questionTypeName(type),
+            count: 0,
+            questions: []
+          }
+        }
+        typeMap[type].count++
+        typeMap[type].questions.push({ ...q, _originalIndex: index })
+      })
+      // 按固定顺序排列
+      const order = ['single', 'multiple', 'judge', 'subjective', 'essay', 'question', 'unknown']
+      const groups = order
+        .filter(t => typeMap[t])
+        .map(t => typeMap[t])
+      // 如果有不在 order 中的类型也加上
+      Object.values(typeMap).forEach(g => {
+        if (!groups.find(gg => gg.type === g.type)) groups.push(g)
+      })
+      return groups
+    })
+
+    const currentGroupQuestions = computed(() => {
+      if (questionTypeGroups.value.length <= 1) {
+        // 只有一种题型或没有分组，显示所有题
+        return questions.value.map((q, i) => ({ ...q, _originalIndex: i }))
+      }
+      const group = questionTypeGroups.value.find(g => g.type === currentTypeGroup.value)
+      return group ? group.questions : []
+    })
 
     const questionTypeName = (type) => {
       const map = { 
@@ -320,8 +502,27 @@ export default {
       currentIndex.value = index
     }
 
+    const goToTypeGroup = (type) => {
+      currentTypeGroup.value = type
+      // 跳转到该组第一题
+      const group = questionTypeGroups.value.find(g => g.type === type)
+      if (group && group.questions.length > 0) {
+        currentIndex.value = group.questions[0]._originalIndex
+      }
+    }
+
     const showSubmitConfirm = () => {
       submitDialogVisible.value = true
+    }
+
+    // 从交卷弹窗跳转到未答题
+    const jumpToUnanswered = (index) => {
+      submitDialogVisible.value = false
+      currentIndex.value = index
+    }
+
+    const onSubmitCancel = () => {
+      submitDialogVisible.value = false
     }
 
     const beginExam = async () => {
@@ -360,6 +561,11 @@ export default {
 
         examStarted.value = true
         startError.value = ''
+
+        // 初始化分组导航
+        if (questionTypeGroups.value.length > 0) {
+          currentTypeGroup.value = questionTypeGroups.value[0].type
+        }
       } catch (error) {
         const msg = error.response?.data?.message || '加载试卷信息失败，请检查链接是否正确'
         startError.value = msg
@@ -374,13 +580,42 @@ export default {
         if (timeLeft.value > 0) {
           timeLeft.value--
           if (timeLeft.value % 30 === 0) {
-            saveProgress({ exam_id: examId.value, answers: answers.value }).catch(() => {})
+            doSaveProgress()
+          }
+          // 5分钟和1分钟声音提醒（如果浏览器允许）
+          if (timeLeft.value === 300 || timeLeft.value === 60) {
+            try {
+              const ac = new AudioContext()
+              const osc = ac.createOscillator()
+              const gain = ac.createGain()
+              osc.connect(gain)
+              gain.connect(ac.destination)
+              osc.frequency.value = timeLeft.value === 60 ? 880 : 660
+              gain.gain.value = 0.15
+              osc.start()
+              osc.stop(ac.currentTime + 0.3)
+            } catch (e) { /* 静默失败 */ }
           }
         } else {
           clearInterval(timer)
           submitExam(true)
         }
       }, 1000)
+    }
+
+    const doSaveProgress = async () => {
+      if (!examId.value) return
+      saveStatus.value = 'saving'
+      try {
+        await saveProgress({ exam_id: examId.value, answers: answers.value })
+        saveStatus.value = 'saved'
+      } catch (e) {
+        saveStatus.value = 'error'
+        // 5秒后重置状态，避免一直显示错误
+        setTimeout(() => {
+          if (saveStatus.value === 'error') saveStatus.value = 'saved'
+        }, 5000)
+      }
     }
 
     const submitExam = async () => {
@@ -392,20 +627,34 @@ export default {
         })
 
         if (res.success !== false && res.data) {
-          const resultData = res.data || res
-          const queryData = encodeURIComponent(JSON.stringify(resultData))
-          router.push(`/exam/result/${examId.value}?data=${queryData}`)
+          // 只传 examId，结果页通过 API 获取数据
+          router.push(`/exam/result/${examId.value}`)
           submitDialogVisible.value = false
           return true
         } else {
           Message.error(res.message || '提交失败')
+          // 重新启动计时器
+          if (timeLeft.value > 0) startTimer()
           return false
         }
       } catch (error) {
         console.error('提交失败:', error)
         Message.error('提交失败，请重试')
+        // 重新启动计时器
+        if (timeLeft.value > 0) startTimer()
         return false
       }
+    }
+
+    // 网络状态监听
+    const handleOnline = () => {
+      isOnline.value = true
+      // 恢复网络后尝试同步进度
+      doSaveProgress()
+      Message.success('网络已恢复，进度已同步')
+    }
+    const handleOffline = () => {
+      isOnline.value = false
     }
 
     onMounted(async () => {
@@ -419,6 +668,10 @@ export default {
         Message.error('加载试卷信息失败，请检查链接是否正确')
       }
       loadAnnouncements()
+
+      // 监听网络状态
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
     })
 
     const startCountdown = () => {
@@ -450,18 +703,31 @@ export default {
       }
     })
 
+    // 当切换题目时，同步当前分组
+    watch(currentIndex, (idx) => {
+      const q = questions.value[idx]
+      if (q && questionTypeGroups.value.length > 1) {
+        currentTypeGroup.value = q.type || 'unknown'
+      }
+    })
+
     onUnmounted(() => {
       if (timer) clearInterval(timer)
       if (countdownTimer) clearInterval(countdownTimer)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     })
 
     return {
       paperInfo, examInfo, examStarted, questions, currentIndex, currentQuestion,
       answers, timeLeft, submitDialogVisible, loading, startForm, startError,
-      answeredCount, unansweredCount, questionTypeName, formatTime, isAnswered,
+      answeredCount, unansweredCount, progressPercent, questionTypeName, formatTime,
+      isAnswered, isSubjective, essayWordCount, saveStatus, isOnline,
       selectAnswer, toggleMultipleAnswer, prevQuestion, nextQuestion, goToQuestion,
-      showSubmitConfirm, beginExam, submitExam, announcements,
-      countdownTime, formatDateTime, formatCountdown
+      showSubmitConfirm, beginExam, submitExam, announcements, onSubmitCancel,
+      countdownTime, formatDateTime, formatCountdown, jumpToUnanswered, unansweredList,
+      displayUnanswered, showAllUnanswered,
+      questionTypeGroups, currentTypeGroup, currentGroupQuestions, goToTypeGroup
     }
   }
 }
@@ -531,6 +797,36 @@ export default {
   color: var(--color-primary);
   font-weight: 500;
 }
+
+/* 考试须知 */
+.exam-notice {
+  background: rgba(var(--arcoblue-1), 0.5);
+  border: 1px solid rgba(var(--arcoblue-3), 0.3);
+  border-radius: var(--radius-base);
+  padding: 14px 16px;
+  margin: 16px 0;
+  text-align: left;
+}
+.notice-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 10px;
+}
+.notice-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+.notice-list li {
+  list-style-type: disc;
+}
+
 .question-card {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
@@ -545,6 +841,13 @@ export default {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+}
+.question-header .arco-tag {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 16px;
+  border-radius: var(--radius-base);
 }
 .question-title {
   font-size: 16px;
@@ -631,17 +934,11 @@ export default {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
 }
-.question-header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.question-header .arco-tag {
-  font-size: 14px;
-  font-weight: 500;
-  padding: 4px 16px;
-  border-radius: var(--radius-base);
+.word-count {
+  text-align: right;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 .exam-container {
   max-width: 800px;
@@ -663,7 +960,48 @@ export default {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.exam-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* 自动保存指示器 */
+.save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-small);
+  background: var(--bg-color);
+  transition: all var(--transition-base);
+}
+.save-indicator.saved {
+  color: var(--color-success);
+}
+.save-indicator.saving {
+  color: var(--color-primary);
+}
+.save-indicator.error {
+  color: var(--color-danger);
+}
+.save-indicator .spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .exam-timer {
   display: flex;
   align-items: center;
@@ -678,15 +1016,63 @@ export default {
   height: 20px;
 }
 .exam-timer.warning {
+  color: var(--color-warning);
+}
+.exam-timer.urgent {
   color: var(--color-danger);
 }
-.exam-timer.warning svg {
+.exam-timer.warning svg,
+.exam-timer.urgent svg {
   animation: pulse 1s infinite;
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* 离线横幅 */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-base);
+  margin-bottom: 12px;
+  animation: slideDown 0.3s ease;
+}
+
+/* 5分钟预警横幅 */
+.time-warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 125, 0, 0.1);
+  border: 1px solid rgba(255, 125, 0, 0.3);
+  color: var(--color-warning);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-base);
+  margin-bottom: 12px;
+  animation: slideDown 0.3s ease;
+}
+.time-warning-banner.urgent {
+  background: rgba(245, 63, 63, 0.1);
+  border-color: rgba(245, 63, 63, 0.3);
+  color: var(--color-danger);
+  animation: pulse 1.5s infinite;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .question-nav {
   display: flex;
   justify-content: space-between;
@@ -697,30 +1083,106 @@ export default {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
+.nav-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 分组标签页导航 */
+.type-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-color);
+  padding: 3px;
+  border-radius: var(--radius-base);
+  margin-bottom: 4px;
+}
+.type-tab {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-small);
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+.type-tab:hover {
+  color: var(--text-primary);
+}
+.type-tab.active {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 500;
+}
+
 .question-dots {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   max-width: 400px;
 }
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--border-color);
   cursor: pointer;
   transition: all var(--transition-base);
+  border: 2px solid transparent;
 }
 .dot:hover {
   transform: scale(1.2);
+  border-color: var(--color-primary);
 }
 .dot.current {
   background: var(--color-primary);
   transform: scale(1.3);
+  border-color: var(--color-primary);
 }
 .dot.answered {
   background: var(--color-success);
+}
+
+/* 答题进度条 */
+.progress-bar-wrapper {
+  margin-top: 12px;
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.progress-bar {
+  height: 4px;
+  background: var(--border-color-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* 未答题快速跳转 */
+.unanswered-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color-light);
 }
 
 .exam-page .footer {
@@ -764,6 +1226,11 @@ export default {
   line-height: 1.6;
 }
 
+.announcement-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
 
 @media screen and (max-width: 767.98px) {
   .exam-container {
@@ -786,16 +1253,18 @@ export default {
 
   .exam-header {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     padding: 12px 16px;
   }
 
   .exam-header h2 {
     font-size: 16px;
+    text-align: center;
   }
 
-  .exam-timer {
-    font-size: 16px;
+  .exam-header-right {
+    width: 100%;
+    justify-content: center;
   }
 
   .question-title {
@@ -808,6 +1277,17 @@ export default {
 
   .option-text {
     font-size: 13px;
+  }
+
+  .type-tabs {
+    font-size: 11px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .type-tab {
+    padding: 3px 8px;
+    font-size: 11px;
   }
 
   .question-dots {
@@ -829,8 +1309,20 @@ export default {
     width: 100%;
   }
 
+  .nav-center {
+    width: 100%;
+  }
+
   .exam-info {
     padding: 12px;
+  }
+
+  .exam-notice {
+    padding: 10px 12px;
+  }
+
+  .notice-list {
+    font-size: 12px;
   }
 
   .exam-page .footer {
@@ -849,10 +1341,9 @@ export default {
   .countdown-time {
     font-size: 24px;
   }
+
+  .save-indicator {
+    font-size: 11px;
+  }
 }
 </style>
-.announcement-content img {
-  max-width: 100%;
-  height: auto;
-  margin-top: 8px;
-}

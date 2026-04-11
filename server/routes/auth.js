@@ -1,14 +1,18 @@
-// server/routes/auth.js - 认证路由 (MySQL优先)
+// server/routes/auth.js - 认证路由 (统一数据访问层)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const db = require('../db');
-const mysqlDb = require('../db-mysql');
+const repo = require('../repository');
 const config = require('../config');
 const authenticate = require('../middleware/auth');
 const redis = require('../redis');
+const { rateLimiters } = require('../middleware/rateLimiter');
+const { validate } = require('../middleware/validate');
+const schemas = require('../middleware/schemas');
+const resp = require('../utils/response');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 const JWT_SECRET = config.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -16,7 +20,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const CAPTCHA_PREFIX = 'captcha:';
 const CAPTCHA_TTL = 300;
 
-router.get('/captcha', async (req, res) => {
+router.get('/captcha', rateLimiters.strict, async (req, res) => {
   const captchaId = crypto.randomBytes(16).toString('hex');
   const code = crypto.randomInt(100000, 999999).toString();
 
@@ -26,240 +30,196 @@ router.get('/captcha', async (req, res) => {
     CAPTCHA_TTL
   );
 
-  res.json({ success: true, data: { captchaId, code } });
+  // 生成SVG验证码图片，不返回明文code
+  const svgCaptcha = generateSvgCaptcha(code);
+
+  res.json({ success: true, data: { captchaId, svg: svgCaptcha } });
 });
 
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password, captchaId, captchaCode } = req.body;
+/**
+ * 生成SVG验证码图片
+ */
+function generateSvgCaptcha(code) {
+  const width = 120;
+  const height = 40;
+  const fontSize = 28;
+  const colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c'];
 
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
-    }
+  let textElements = '';
+  for (let i = 0; i < code.length; i++) {
+    const x = 15 + i * 17;
+    const y = 28 + Math.random() * 6 - 3;
+    const rotate = Math.random() * 20 - 10;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    textElements += `<text x="${x}" y="${y}" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="bold" fill="${color}" transform="rotate(${rotate}, ${x}, ${y})">${code[i]}</text>`;
+  }
 
-    if (!captchaId || !captchaCode) {
-      return res.status(400).json({ success: false, message: '请输入验证码' });
-    }
+  // 干扰线
+  let lineElements = '';
+  for (let i = 0; i < 4; i++) {
+    const x1 = Math.random() * width;
+    const y1 = Math.random() * height;
+    const x2 = Math.random() * width;
+    const y2 = Math.random() * height;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    lineElements += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1" opacity="0.5"/>`;
+  }
 
-    const storedCaptcha = await redis.get(`${CAPTCHA_PREFIX}${captchaId}`);
-    if (!storedCaptcha) {
-      return res.status(400).json({ success: false, message: '验证码已过期，请重新获取' });
-    }
-    if (storedCaptcha.attempts >= 3) {
-      await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
-      return res.status(400).json({ success: false, message: '验证码错误次数过多，请重新获取' });
-    }
-    if (storedCaptcha.code !== captchaCode) {
-      storedCaptcha.attempts++;
-      await redis.setWithExpiry(`${CAPTCHA_PREFIX}${captchaId}`, storedCaptcha, CAPTCHA_TTL);
-      return res.status(400).json({ success: false, message: '验证码错误' });
-    }
+  // 干扰点
+  let dotElements = '';
+  for (let i = 0; i < 30; i++) {
+    const cx = Math.random() * width;
+    const cy = Math.random() * height;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    dotElements += `<circle cx="${cx}" cy="${cy}" r="1" fill="${color}" opacity="0.6"/>`;
+  }
 
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#f0f0f0" rx="4"/>${lineElements}${dotElements}${textElements}</svg>`;
+}
+
+router.post('/login', rateLimiters.login, validate(schemas.login), asyncHandler(async (req, res) => {
+  const { username, password, captchaId, captchaCode } = req.body;
+
+  console.log(`[Auth] Login attempt: username="${username}", hasCaptchaId=${!!captchaId}, captchaCode="${captchaCode}"`);
+
+  if (!captchaId || !captchaCode) {
+    return resp.error(res, '请输入验证码');
+  }
+
+  const storedCaptcha = await redis.get(`${CAPTCHA_PREFIX}${captchaId}`);
+  if (!storedCaptcha) {
+    return resp.error(res, '验证码已过期，请重新获取');
+  }
+  if (storedCaptcha.attempts >= 3) {
     await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
-
-    // 检查用户缓存
-    const cacheKey = `user:login:${username}`;
-    let user = await redis.get(cacheKey);
-    
-    if (!user) {
-      if (mysqlDb.isConnected()) {
-        try {
-          const users = await mysqlDb.getUsers();
-          user = users.find(u => u.username === username);
-        } catch (e) {
-          user = await db.users.findByUsername(username);
-        }
-      } else {
-        user = await db.users.findByUsername(username);
-      }
-      // 缓存用户信息5分钟
-      if (user) {
-        await redis.setWithExpiry(cacheKey, user, 300);
-      }
-    }
-
-    if (!user) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
-    }
-
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    const isSecureCookie = config.SECURE_COOKIE;
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: isSecureCookie,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    res.json({
-      success: true,
-      data: {
-        token,
-        user: { id: user.id, username: user.username, role: user.role, status: user.status, avatar: user.avatar }
-      }
-    });
-  } catch (error) {
-    console.error('登录错误:', error);
-    res.status(500).json({ success: false, message: '登录失败' });
+    return resp.error(res, '验证码错误次数过多，请重新获取');
   }
-});
-
-router.post('/register', async (req, res) => {
-  try {
-    const { username, password, phone, role = 'trainer', captchaId, captchaCode } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: '用户名和密码不能为空' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: '密码至少6位' });
-    }
-
-    if (!captchaId || !captchaCode) {
-      return res.status(400).json({ success: false, message: '请输入验证码' });
-    }
-
-    const storedCaptcha = await redis.get(`${CAPTCHA_PREFIX}${captchaId}`);
-    if (!storedCaptcha || storedCaptcha.code !== captchaCode) {
-      if (storedCaptcha) await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
-      return res.status(400).json({ success: false, message: '验证码错误' });
-    }
-
-    await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
-
-    let existingUser;
-    if (mysqlDb.isConnected()) {
-      try {
-        const users = await mysqlDb.getUsers();
-        existingUser = users.find(u => u.username === username);
-      } catch (e) {
-        existingUser = await db.users.findByUsername(username);
-      }
-    } else {
-      existingUser = await db.users.findByUsername(username);
-    }
-
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: '用户名已存在' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.createUser({
-          username,
-          password: hashedPassword,
-          phone: phone || null,
-          role: role || 'trainer'
-        });
-      } catch (e) {
-        user = await db.users.create({
-          username,
-          password: hashedPassword,
-          phone: phone || null,
-          role: role || 'trainer'
-        });
-      }
-    } else {
-      user = await db.users.create({
-        username,
-        password: hashedPassword,
-        phone: phone || null,
-        role: role || 'trainer'
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    res.json({
-      success: true,
-      data: {
-        token,
-        user: { id: user.id, username: user.username, role: user.role, avatar: user.avatar }
-      }
-    });
-  } catch (error) {
-    console.error('注册错误:', error);
-    res.status(500).json({ success: false, message: '注册失败' });
+  if (storedCaptcha.code !== captchaCode) {
+    storedCaptcha.attempts++;
+    await redis.setWithExpiry(`${CAPTCHA_PREFIX}${captchaId}`, storedCaptcha, CAPTCHA_TTL);
+    return resp.error(res, '验证码错误');
   }
-});
 
-router.get('/me', authenticate, async (req, res) => {
-  try {
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.getUserById(req.user.id);
-      } catch (e) {
-        user = await db.getUserById(req.user.id);
-      }
-    } else {
-      user = await db.getUserById(req.user.id);
-    }
+  await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
+  // 查找用户（通过统一数据层）— 不缓存含密码哈希的完整信息
+  const user = await repo.getUserByUsername(username);
 
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        avatar: user.avatar,
-        status: user.status
-      }
-    });
-  } catch (error) {
-    console.error('获取用户信息错误:', error);
-    res.status(500).json({ success: false, message: '获取失败' });
+  if (!user) {
+    console.warn(`[Auth] Login failed: user not found - username="${username}"`);
+    return resp.unauthorized(res, '用户名或密码错误');
   }
-});
 
-router.put('/profile', authenticate, async (req, res) => {
-  try {
-    const { avatar, phone } = req.body;
-
-    let user;
-    if (mysqlDb.isConnected()) {
-      try {
-        user = await mysqlDb.updateUser(req.user.id, { avatar, phone });
-      } catch (e) {
-        user = await db.updateUser(req.user.id, { avatar, phone });
-      }
-    } else {
-      user = await db.updateUser(req.user.id, { avatar, phone });
-    }
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: '用户不存在' });
-    }
-
-    res.json({
-      success: true,
-      data: { id: user.id, username: user.username, role: user.role, avatar: user.avatar, phone: user.phone }
-    });
-  } catch (error) {
-    console.error('更新个人资料错误:', error);
-    res.status(500).json({ success: false, message: '更新失败' });
+  const isValidPassword = await bcrypt.compare(password, user.password);
+  if (!isValidPassword) {
+    console.warn(`[Auth] Login failed: wrong password - username="${username}", user.id=${user.id}, password prefix="${password.substring(0,3)}***", hash prefix="${user.password?.substring(0, 10)}..."`);
+    return resp.unauthorized(res, '用户名或密码错误');
   }
-});
+  console.log(`[Auth] Login success: username="${username}", user.id=${user.id}, role=${user.role}`);
+
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+
+  const isSecureCookie = config.SECURE_COOKIE;
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isSecureCookie,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/'
+  });
+
+  // 不再在 response body 中返回 token，仅通过 HttpOnly Cookie 传输
+  resp.success(res, {
+    user: { id: user.id, username: user.username, role: user.role, status: user.status, avatar: user.avatar }
+  });
+}));
+
+router.post('/register', rateLimiters.register, validate(schemas.register), asyncHandler(async (req, res) => {
+  const { username, password, phone, role = 'trainer', captchaId, captchaCode } = req.body;
+
+  if (!captchaId || !captchaCode) {
+    return resp.error(res, '请输入验证码');
+  }
+
+  const storedCaptcha = await redis.get(`${CAPTCHA_PREFIX}${captchaId}`);
+  if (!storedCaptcha || storedCaptcha.code !== captchaCode) {
+    if (storedCaptcha) await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
+    return resp.error(res, '验证码错误');
+  }
+
+  await redis.del(`${CAPTCHA_PREFIX}${captchaId}`);
+
+  const existingUser = await repo.getUserByUsername(username);
+
+  if (existingUser) {
+    return resp.error(res, '用户名已存在');
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = await repo.createUser({
+    username,
+    password: hashedPassword,
+    phone: phone || null,
+    role: role || 'trainer'
+  });
+
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+
+  const isSecureCookie = config.SECURE_COOKIE;
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isSecureCookie,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/'
+  });
+
+  // 不再在 response body 中返回 token
+  resp.success(res, {
+    user: { id: user.id, username: user.username, role: user.role, avatar: user.avatar }
+  });
+}));
+
+router.get('/me', authenticate, asyncHandler(async (req, res) => {
+  const user = await repo.getUserById(req.user.id);
+
+  if (!user) {
+    return resp.notFound(res, '用户不存在');
+  }
+
+  resp.success(res, {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    avatar: user.avatar,
+    status: user.status
+  });
+}));
+
+router.put('/profile', authenticate, asyncHandler(async (req, res) => {
+  const { avatar, phone } = req.body;
+
+  const user = await repo.updateUser(req.user.id, { avatar, phone });
+
+  if (!user) {
+    return resp.notFound(res, '用户不存在');
+  }
+
+  resp.success(res, { id: user.id, username: user.username, role: user.role, avatar: user.avatar, phone: user.phone });
+}));
+
+// 登出 - 清除 HttpOnly Cookie
+router.post('/logout', asyncHandler(async (req, res) => {
+  res.clearCookie('token', { path: '/' });
+  resp.success(res, null, '已退出登录');
+}));
 
 module.exports = router;

@@ -22,7 +22,7 @@
         <a-button type="primary" @click="openCreateDialog">+ 新建文案</a-button>
       </div>
       <div class="toolbar-right">
-        <a-input v-model="searchKeyword" placeholder="搜索标题..." style="width: 200px" @input="handleSearch" allow-clear>
+        <a-input v-model="searchKeyword" placeholder="搜索标题..." style="width: 200px" @clear="searchKeyword = ''" allow-clear>
           <template #prefix>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
               <circle cx="11" cy="11" r="8"/>
@@ -52,7 +52,7 @@
               <th width="100">报名</th>
               <th width="100">锁定</th>
               <th width="140">创建时间</th>
-              <th width="180">操作</th>
+              <th width="140">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -70,14 +70,44 @@
               </td>
               <td>{{ p.created_at ? new Date(p.created_at).toLocaleString() : '-' }}</td>
               <td>
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;">
-                  <a-link @click="openPreview(p)">预览</a-link>
-                  <a-link @click="openSignupList(p)">名单</a-link>
-                  <a-link @click="openEditDialog(p)" :disabled="p.locked && !isAdmin">编辑</a-link>
-                  <a-button type="text" size="small" @click="toggleLock(p)" :disabled="!isAdmin">
-                    {{ p.locked ? '解锁' : '锁定' }}
+                <div class="action-group">
+                  <a-button type="text" size="small" @click="openStats(p)">
+                    <template #icon><icon-bar-chart /></template>
+                    统计
                   </a-button>
-                  <a-button type="text" status="danger" size="small" @click="handleDelete(p.id)" :disabled="p.locked && !isAdmin">删除</a-button>
+                  <a-button type="text" size="small" @click="openPreview(p)">
+                    <template #icon><icon-eye /></template>
+                    预览
+                  </a-button>
+                  <a-dropdown trigger="click" position="bottom">
+                    <a-button type="text" size="small">
+                      <template #icon><icon-more /></template>
+                      更多
+                    </a-button>
+                    <template #content>
+                      <a-doption @click="openSignupList(p)">
+                        <template #icon><icon-user-group /></template>
+                        名单管理
+                      </a-doption>
+                      <a-doption @click="openSignupConfig(p)">
+                        <template #icon><icon-settings /></template>
+                        报名配置
+                      </a-doption>
+                      <a-doption @click="openEditDialog(p)" :disabled="p.locked && !isAdmin">
+                        <template #icon><icon-edit /></template>
+                        编辑文案
+                      </a-doption>
+                      <a-divider style="margin: 4px 0" />
+                      <a-doption @click="toggleLock(p)" :disabled="!isAdmin">
+                        <template #icon><icon-lock v-if="!p.locked" /><icon-unlock v-else /></template>
+                        {{ p.locked ? '解锁文案' : '锁定文案' }}
+                      </a-doption>
+                      <a-doption status="danger" @click="handleDelete(p.id)" :disabled="p.locked && !isAdmin">
+                        <template #icon><icon-delete /></template>
+                        删除文案
+                      </a-doption>
+                    </template>
+                  </a-dropdown>
                 </div>
               </td>
             </tr>
@@ -130,6 +160,19 @@
       :promotion="selectedPromotion"
       @refresh="loadPromotions"
     />
+
+    <!-- 报名配置弹窗 -->
+    <SignupConfigDialog
+      v-model:visible="signupConfigVisible"
+      :promotion="selectedPromotion"
+      @success="loadPromotions"
+    />
+
+    <!-- 数据统计弹窗 -->
+    <PromotionStats
+      v-model:visible="statsVisible"
+      :promotion="selectedPromotion"
+    />
   </div>
 </template>
 
@@ -140,6 +183,9 @@ import E from 'wangeditor'
 import { getPromotions, createPromotion, updatePromotion, deletePromotion, lockPromotion, unlockPromotion } from '@/api'
 import PreviewDialog from '@/components/promotion/PreviewDialog.vue'
 import SignupListDialog from '@/components/promotion/SignupListDialog.vue'
+import SignupConfigDialog from '@/components/promotion/SignupConfigDialog.vue'
+import PromotionStats from '@/components/promotion/PromotionStats.vue'
+import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
 
 const props = defineProps({
   isAdmin: {
@@ -151,12 +197,14 @@ const props = defineProps({
 const loading = ref(false)
 const saving = ref(false)
 const promotions = ref([])
-const searchKeyword = ref('')
+const { keyword: searchKeyword, debouncedKeyword: debouncedSearchKeyword } = useDebouncedSearch(300)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const dialogVisible = ref(false)
 const previewDialogVisible = ref(false)
 const signupListVisible = ref(false)
+const signupConfigVisible = ref(false)
+const statsVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref(null)
 const selectedPromotionId = ref(null)
@@ -232,8 +280,8 @@ watch(dialogVisible, async (visible) => {
 })
 
 const filteredPromotions = computed(() => {
-  if (!searchKeyword.value) return promotions.value
-  const keyword = searchKeyword.value.toLowerCase()
+  if (!debouncedSearchKeyword.value) return promotions.value
+  const keyword = debouncedSearchKeyword.value.toLowerCase()
   return promotions.value.filter(p => p.title.toLowerCase().includes(keyword))
 })
 
@@ -254,9 +302,6 @@ const getStatusText = (status) => {
   return texts[status] || status
 }
 
-const handleSearch = () => {
-  currentPage.value = 1
-}
 
 const loadPromotions = async () => {
   loading.value = true
@@ -304,6 +349,16 @@ const openPreview = (item) => {
 const openSignupList = (item) => {
   selectedPromotion.value = item
   signupListVisible.value = true
+}
+
+const openSignupConfig = (item) => {
+  selectedPromotion.value = item
+  signupConfigVisible.value = true
+}
+
+const openStats = (item) => {
+  selectedPromotion.value = item
+  statsVisible.value = true
 }
 
 const handleSave = async () => {
@@ -475,5 +530,54 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* 操作按钮组 */
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-group :deep(.arco-btn-text) {
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.action-group :deep(.arco-btn-text:hover) {
+  background-color: var(--color-fill-2);
+}
+
+.action-group :deep(.arco-btn-text .arco-icon) {
+  margin-right: 2px;
+  font-size: 14px;
+}
+
+/* 下拉菜单样式 */
+:deep(.arco-dropdown-list) {
+  padding: 4px 0;
+}
+
+:deep(.arco-dropdown-option) {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+:deep(.arco-dropdown-option .arco-icon) {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+:deep(.arco-dropdown-option-danger) {
+  color: var(--color-danger);
+}
+
+:deep(.arco-dropdown-option-danger:hover) {
+  background-color: var(--color-danger-light-1);
+}
+
+:deep(.arco-divider-horizontal) {
+  margin: 4px 0;
+  min-width: auto;
 }
 </style>

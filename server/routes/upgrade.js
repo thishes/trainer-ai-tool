@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const authenticate = require('../middleware/auth');
+const { ValidationError, ForbiddenError, asyncHandler } = require('../middleware/errorHandler');
 
 function getCurrentVersion() {
   try {
@@ -21,90 +22,107 @@ function getCurrentVersion() {
 
 const GITHUB_REPO = 'thishes/trainer-ai-tool';
 
-router.get('/check', authenticate, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
+/**
+ * 严格验证版本号格式：仅允许 x.y.z 格式（数字+点号）
+ * 防止命令注入攻击
+ */
+function isValidVersion(version) {
+  return /^\d+\.\d+\.\d+$/.test(version);
+}
 
-    const currentVersion = getCurrentVersion();
-    const latestVersion = await fetchLatestVersion();
-    const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
-
-    res.json({
-      success: true,
-      data: {
-        currentVersion: currentVersion,
-        latestVersion: latestVersion,
-        hasUpdate: hasUpdate
-      }
-    });
-  } catch (error) {
-    console.error('检查版本失败:', error);
-    res.status(500).json({ success: false, message: '检查版本失败' });
+// 检查更新
+router.get('/check', authenticate, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    throw new ForbiddenError('无权限');
   }
-});
 
-router.post('/upgrade', authenticate, async (req, res) => {
+  const currentVersion = getCurrentVersion();
+  const latestVersion = await fetchLatestVersion();
+  const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
+
+  res.json({
+    success: true,
+    data: {
+      currentVersion,
+      latestVersion,
+      hasUpdate
+    }
+  });
+}));
+
+// 执行升级
+router.post('/upgrade', authenticate, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    throw new ForbiddenError('无权限');
+  }
+
+  const { version } = req.body;
+
+  // 严格验证版本号格式，防止命令注入
+  if (!version || !isValidVersion(version)) {
+    throw new ValidationError('版本号格式无效，仅支持 x.y.z 格式（如 1.2.3）');
+  }
+
+  const projectRoot = path.join(__dirname, '../../');
+
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: '无权限' });
-    }
+    console.log('开始升级到版本:', version);
 
-    const { version } = req.body;
-    if (!version) {
-      return res.status(400).json({ success: false, message: '版本号不能为空' });
-    }
+    // 使用 execFile 替代 execSync，参数不经过 shell 解释
+    await execFileAsync('git', ['fetch', 'origin'], { cwd: projectRoot });
 
-    const projectRoot = path.join(__dirname, '../../');
+    const tags = await execFileAsync('git', ['tag', '-l'], { cwd: projectRoot });
+    console.log('现有标签:', tags);
+
+    const currentBranch = (await execFileAsync('git', ['branch', '--show-current'], { cwd: projectRoot })).trim();
+    console.log('当前分支:', currentBranch);
 
     try {
-      console.log('开始升级到版本:', version);
-
-      execSync('git fetch origin', { cwd: projectRoot, stdio: 'pipe' });
-
-      const tags = execSync('git tag -l', { cwd: projectRoot, encoding: 'utf8' });
-      console.log('现有标签:', tags);
-
-      const currentBranch = execSync('git branch --show-current', { cwd: projectRoot, encoding: 'utf8' }).trim();
-      console.log('当前分支:', currentBranch);
-
-      try {
-        execSync(`git checkout tags/v${version}`, { cwd: projectRoot, stdio: 'pipe' });
-        console.log('已切换到标签 v' + version);
-      } catch (tagErr) {
-        console.log('标签不存在，尝试直接拉取:', tagErr.message);
-        execSync(`git pull origin ${currentBranch}`, { cwd: projectRoot, stdio: 'pipe' });
-      }
-
-      const packagePath = path.join(projectRoot, 'package.json');
-      if (fs.existsSync(packagePath)) {
-        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-        packageJson.version = version;
-        fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-      }
-
-      console.log('升级成功');
-      res.json({ success: true, message: '升级成功，请重启服务' });
-
-    } catch (gitErr) {
-      console.error('Git操作失败:', gitErr.message);
-
-      const packagePath = path.join(projectRoot, 'package.json');
-      if (fs.existsSync(packagePath)) {
-        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-        packageJson.version = version;
-        fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-      }
-
-      res.json({ success: true, message: '版本已更新，Git操作跳过（可能无权限），请手动拉取最新代码' });
+      await execFileAsync('git', ['checkout', `tags/v${version}`], { cwd: projectRoot });
+      console.log('已切换到标签 v' + version);
+    } catch (tagErr) {
+      console.log('标签不存在，尝试直接拉取:', tagErr.message);
+      await execFileAsync('git', ['pull', 'origin', currentBranch], { cwd: projectRoot });
     }
 
-  } catch (error) {
-    console.error('升级失败:', error);
-    res.status(500).json({ success: false, message: '升级失败' });
+    const packagePath = path.join(projectRoot, 'package.json');
+    if (fs.existsSync(packagePath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      packageJson.version = version;
+      fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+    }
+
+    console.log('升级成功');
+    res.json({ success: true, message: '升级成功，请重启服务' });
+
+  } catch (gitErr) {
+    console.error('Git操作失败:', gitErr.message);
+
+    const packagePath = path.join(projectRoot, 'package.json');
+    if (fs.existsSync(packagePath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      packageJson.version = version;
+      fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+    }
+
+    res.json({ success: true, message: '版本已更新，Git操作跳过（可能无权限），请手动拉取最新代码' });
   }
-});
+}));
+
+/**
+ * execFile 的 Promise 封装
+ */
+function execFileAsync(command, args, options) {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, options, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(stdout);
+    });
+  });
+}
 
 function fetchLatestVersion() {
   return new Promise((resolve, reject) => {
