@@ -112,7 +112,7 @@ async function remove(sql, params = []) {
 }
 
 async function healthCheck() {
-  const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT) || 30000;
+  const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT) || 5000;
   try {
     const pool = getPool();
     const result = await Promise.race([
@@ -147,12 +147,14 @@ async function healthCheck() {
       try {
         await standalone.execute('SELECT 1');
         console.log('[MySQL] ✅ Standalone connection works (pool has issues), threadId:', standalone.threadId);
+        isConnected = true;
         return true;
       } finally {
         await standalone.end();
       }
     } catch(e2) {
       console.error('[MySQL] ❌ MySQL server unreachable:', e2.code, e2.message);
+      isConnected = false;
       return false;
     }
   }
@@ -293,6 +295,17 @@ const db = {
     return this.getUserById(id);
   },
 
+  async changePassword(id, oldPassword, newPassword) {
+    const user = await this.getUserById(id);
+    if (!user) return null;
+    const bcrypt = require('bcryptjs');
+    const valid = await bcrypt.compare(oldPassword, user.password);
+    if (!valid) return null;
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await update('UPDATE users SET password = ? WHERE id = ?', [hashed, id]);
+    return user;
+  },
+
   async deleteUser(id) {
     await remove('DELETE FROM users WHERE id = ?', [id]);
     return true;
@@ -310,8 +323,8 @@ const db = {
   async createCategory(category) {
     const id = nextId('categories');
     await insert(
-      'INSERT INTO categories (id, name, description) VALUES (?, ?, ?)',
-      [id, category.name, category.description || null]
+      'INSERT INTO categories (id, name, description, user_id) VALUES (?, ?, ?, ?)',
+      [id, category.name, category.description || null, category.user_id || null]
     );
     return { id, ...category };
   },
@@ -708,11 +721,32 @@ const db = {
 
   async createPromotionSignup(signup) {
     const id = nextId('promotion_signups');
-    await insert(
-      'INSERT INTO promotion_signups (id, promotion_id, name, unit, phone, class_id, class_name, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, signup.promotion_id, signup.name, signup.unit || '', signup.phone, signup.class_id, signup.class_name || '', signup.status || 'approved', signup.source || 'online', signup.created_at || new Date().toISOString()]
-    );
-    return { id, ...signup };
+    const now = new Date();
+    const createdAt = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + ' ' +
+      String(now.getHours()).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0') + ':' +
+      String(now.getSeconds()).padStart(2, '0');
+    const customFieldsJson = JSON.stringify(signup.custom_fields || {});
+
+    try {
+      await insert(
+        'INSERT INTO promotion_signups (id, promotion_id, user_id, name, unit, phone, class_id, class_name, status, source, custom_fields, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, signup.promotion_id, signup.user_id || 0, signup.name, signup.unit || '', signup.phone, signup.class_id, signup.class_name || '', signup.status || 'approved', signup.source || 'online', customFieldsJson, createdAt]
+      );
+    } catch (e) {
+      if (e.message && e.message.includes("Unknown column")) {
+        console.log('[MySQL] custom_fields column not found, inserting without it');
+        await insert(
+          'INSERT INTO promotion_signups (id, promotion_id, user_id, name, unit, phone, class_id, class_name, status, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [id, signup.promotion_id, signup.user_id || 0, signup.name, signup.unit || '', signup.phone, signup.class_id, signup.class_name || '', signup.status || 'approved', signup.source || 'online', createdAt]
+        );
+      } else {
+        throw e;
+      }
+    }
+    return { id, ...signup, custom_fields: signup.custom_fields || {} };
   },
 
   async updatePromotionSignup(id, updates) {
@@ -810,6 +844,8 @@ const db = {
       await initializeCounters().catch(e => console.warn('[MySQL] Counter init skipped:', e.message));
       // 索引创建失败不影响连接
       await this.ensureIndexes().catch(e => console.warn('[MySQL] Index creation skipped:', e.message));
+      // 自动添加缺失的列
+      await this.ensureColumns().catch(e => console.warn('[MySQL] Column check skipped:', e.message));
       // 再次确认连接状态
       isConnected = true;
       console.log('[MySQL] Database connection established successfully');
@@ -817,7 +853,43 @@ const db = {
       console.error('[MySQL] Initialization failed:', error.message);
       isConnected = false;
     }
-  }
+  },
+
+  async ensureColumns() {
+    try {
+      const requiredColumns = [
+        { table: 'promotion_signups', column: 'custom_fields', type: 'TEXT', defaultVal: null },
+        { table: 'promotion_signups', column: 'unit', type: 'VARCHAR(255)', defaultVal: "''" }
+      ];
+
+      for (const col of requiredColumns) {
+        try {
+          const [rows] = await getPool().execute(
+            `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+            [DB_CONFIG.database, col.table, col.column]
+          );
+          if (rows[0].cnt === 0) {
+            let sql;
+            if (col.defaultVal === null) {
+              sql = `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.type}`;
+            } else {
+              sql = `ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.type} DEFAULT ${col.defaultVal}`;
+            }
+            await getPool().execute(sql);
+            console.log(`[MySQL] ✅ Added column ${col.column} to ${col.table}`);
+          }
+        } catch (e) {
+          if (e.code === 'ER_DUP_COLUMN') {
+            // 列已存在，忽略
+          } else {
+            console.warn(`[MySQL] ⚠️ Failed to check/add column ${col.column}:`, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[MySQL] ensureColumns failed:', e.message);
+    }
+  },
 };
 
 module.exports = db;

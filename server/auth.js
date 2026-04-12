@@ -42,8 +42,9 @@ router.post('/login', async (req, res) => {
     const cookieOptions = {
       httpOnly: true,
       secure: isSecureCookie,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
     };
     
     res.cookie('token', token, cookieOptions);
@@ -233,8 +234,9 @@ router.post('/refresh', async (req, res) => {
     res.cookie('token', newToken, {
       httpOnly: true,
       secure: config.SECURE_COOKIE,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
     });
     
     res.json({

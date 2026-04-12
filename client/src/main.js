@@ -7,6 +7,7 @@ import ArcoVue from '@arco-design/web-vue'
 import '@arco-design/web-vue/dist/arco.css'
 import './styles/variables.css'
 import './styles/utilities.css'
+import { initCsrfToken } from './api'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -16,6 +17,9 @@ app.use(router)
 app.use(ArcoVue)
 
 app.mount('#app')
+
+// 初始化 CSRF Token
+initCsrfToken()
 
 // 标记 Vue 已加载，隐藏骨架屏
 document.body.classList.add('vue-loaded')

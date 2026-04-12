@@ -25,147 +25,51 @@
 
       <SafeHtml :html="promotion.content" class="promotion-content" />
 
-      <!-- 报名区域 -->
-      <div class="signup-area" v-if="promotion.enable_signup">
-        <!-- 报名成功状态 -->
-        <div v-if="signupSuccess" class="signup-section">
-          <a-divider />
-          <a-result
-            status="success"
-            :title="autoReply?.title || '报名成功！'"
-            :subtitle="autoReply?.content || '我们会通过手机号与您联系，请保持电话畅通'"
-          >
-            <template #extra>
-              <a-button type="primary" @click="signupSuccess = false; autoReply = null">继续报名</a-button>
-            </template>
+      <!-- 报名状态区域 -->
+      <div class="signup-entry-area">
+        <a-divider />
+
+        <!-- 报名未开启 -->
+        <div v-if="!promotion.enable_signup" class="signup-disabled-info">
+          <a-result status="info" title="报名暂未开放">
+            <template #subtitle>该活动暂未开启报名功能，敬请期待</template>
           </a-result>
         </div>
 
-        <div v-else-if="promotion.status === 'published' && !promotion.signup_ended" class="signup-section">
-          <a-divider />
-          <div class="signup-header">
-            <h3>报名信息</h3>
-            <p class="signup-desc">请填写以下信息完成报名</p>
-          </div>
-
-          <a-form :model="formData" layout="vertical" class="signup-form">
-            <a-form-item label="姓名" required>
-              <a-input v-model="formData.name" placeholder="请输入您的姓名" size="large" />
-            </a-form-item>
-            <a-form-item label="手机号码" required>
-              <a-input v-model="formData.phone" placeholder="请输入您的手机号码" size="large" />
-            </a-form-item>
-            <a-form-item label="报名班次" required>
-              <a-select v-model="formData.class_id" placeholder="请选择报名班次" size="large">
-                <a-option
-                  v-for="cls in availableClasses"
-                  :key="cls.id"
-                  :value="cls.id"
-                  :disabled="cls.max_count && cls.current_count >= cls.max_count"
-                >
-                  {{ cls.name }}
-                  <span v-if="cls.max_count" class="class-quota">
-                    ({{ cls.current_count || 0 }}/{{ cls.max_count }})
-                  </span>
-                  <span v-if="cls.max_count && cls.current_count >= cls.max_count" class="class-full">已满</span>
-                </a-option>
-              </a-select>
-            </a-form-item>
-
-            <!-- 自定义表单字段 -->
-            <template v-for="field in customFields" :key="field.name">
-              <a-form-item :label="field.label" :required="field.required">
-                <!-- 文本输入 -->
-                <a-input
-                  v-if="field.type === 'text' || field.type === 'email'"
-                  v-model="formData.custom_fields[field.name]"
-                  :placeholder="`请输入${field.label}`"
-                  size="large"
-                  :type="field.type"
-                />
-                <!-- 多行文本 -->
-                <a-textarea
-                  v-else-if="field.type === 'textarea'"
-                  v-model="formData.custom_fields[field.name]"
-                  :placeholder="`请输入${field.label}`"
-                  size="large"
-                  :auto-size="{ minRows: 3 }"
-                />
-                <!-- 数字 -->
-                <a-input-number
-                  v-else-if="field.type === 'number'"
-                  v-model="formData.custom_fields[field.name]"
-                  :placeholder="`请输入${field.label}`"
-                  size="large"
-                  style="width: 100%"
-                />
-                <!-- 下拉选择 -->
-                <a-select
-                  v-else-if="field.type === 'select'"
-                  v-model="formData.custom_fields[field.name]"
-                  :placeholder="`请选择${field.label}`"
-                  size="large"
-                >
-                  <a-option v-for="opt in field.options" :key="opt" :value="opt">
-                    {{ opt }}
-                  </a-option>
-                </a-select>
-                <!-- 单选 -->
-                <a-radio-group
-                  v-else-if="field.type === 'radio'"
-                  v-model="formData.custom_fields[field.name]"
-                  direction="vertical"
-                >
-                  <a-radio v-for="opt in field.options" :key="opt" :value="opt">
-                    {{ opt }}
-                  </a-radio>
-                </a-radio-group>
-                <!-- 多选 -->
-                <a-checkbox-group
-                  v-else-if="field.type === 'checkbox'"
-                  v-model="formData.custom_fields[field.name]"
-                  direction="vertical"
-                >
-                  <a-checkbox v-for="opt in field.options" :key="opt" :value="opt">
-                    {{ opt }}
-                  </a-checkbox>
-                </a-checkbox-group>
-                <!-- 日期 -->
-                <a-date-picker
-                  v-else-if="field.type === 'date'"
-                  v-model="formData.custom_fields[field.name]"
-                  :placeholder="`请选择${field.label}`"
-                  size="large"
-                  style="width: 100%"
-                />
-              </a-form-item>
-            </template>
-            <a-form-item>
-              <a-button
-                type="primary"
-                size="large"
-                block
-                :loading="submitting"
-                @click="handleSubmit"
-              >
-                立即报名
-              </a-button>
-            </a-form-item>
-          </a-form>
-        </div>
-
-        <div v-else-if="promotion.signup_ended" class="signup-ended">
-          <a-divider />
-          <a-result status="info" title="报名已截止">
+        <!-- 报名已截止 -->
+        <div v-else-if="promotion.signup_ended" class="signup-ended-info">
+          <a-result status="warning" title="报名已截止">
             <template #subtitle>该项目的报名已经结束，感谢您的关注</template>
           </a-result>
         </div>
 
-        <div v-else-if="promotion.status === 'archived'" class="signup-ended">
-          <a-divider />
-          <a-result status="info" title="项目已结束报名">
+        <!-- 项目已归档 -->
+        <div v-else-if="promotion.status === 'archived'" class="signup-ended-info">
+          <a-result status="info" title="项目已结束">
             <template #subtitle>该项目已归档，不再接受报名</template>
           </a-result>
+        </div>
+
+        <!-- 可以报名 -->
+        <div v-else class="signup-action-area">
+          <div class="signup-action-content">
+            <div class="signup-icon-wrapper">
+              <icon-user-group size="32" />
+            </div>
+            <div class="signup-text">
+              <h3>立即参与报名</h3>
+              <p>{{ getSignupHint() }}</p>
+            </div>
+          </div>
+          <a-button
+            type="primary"
+            size="large"
+            class="signup-btn"
+            @click="goToSignup"
+          >
+            立即报名
+            <icon-right />
+          </a-button>
         </div>
       </div>
     </div>
@@ -173,34 +77,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { Message } from '@arco-design/web-vue'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { IconUserGroup, IconRight } from '@arco-design/web-vue/es/icon'
 import SafeHtml from '@/components/SafeHtml.vue'
-import { getPromotionPublic, createPromotionSignup } from '@/api'
+import { getPromotionPublic } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(true)
 const error = ref(null)
 const promotion = ref(null)
-const submitting = ref(false)
-const signupSuccess = ref(false)
-const autoReply = ref(null)
-
-const formData = reactive({
-  name: '',
-  phone: '',
-  class_id: '',
-  custom_fields: {}
-})
-
-const availableClasses = computed(() => {
-  return promotion.value?.signup_config?.classes || []
-})
-
-const customFields = computed(() => {
-  return promotion.value?.signup_config?.fields || []
-})
 
 const getStatusColor = (status) => {
   const colors = {
@@ -229,6 +116,21 @@ const formatDate = (date) => {
   })
 }
 
+const getSignupHint = () => {
+  const classes = promotion.value?.signup_config?.classes || []
+  if (classes.length > 0) {
+    return `当前开放 ${classes.length} 个班次可供选择`
+  }
+  return '填写信息即可完成报名'
+}
+
+const goToSignup = () => {
+  router.push({
+    name: 'PromotionSignup',
+    params: { id: route.params.id }
+  })
+}
+
 const fetchPromotion = async () => {
   const id = route.params.id
   if (!id) {
@@ -252,46 +154,6 @@ const fetchPromotion = async () => {
   }
 }
 
-const handleSubmit = async () => {
-  if (!formData.name || !formData.phone || !formData.class_id) {
-    Message.warning('请填写必填项')
-    return
-  }
-
-  const phoneRegex = /^1[3-9]\d{9}$/
-  if (!phoneRegex.test(formData.phone)) {
-    Message.warning('请输入正确的手机号码')
-    return
-  }
-
-  submitting.value = true
-  try {
-    const submitData = {
-      name: formData.name,
-      phone: formData.phone,
-      class_id: formData.class_id,
-      ...formData.custom_fields
-    }
-    const res = await createPromotionSignup(promotion.value.id, submitData)
-    if (res.success) {
-      signupSuccess.value = true
-      // 保存自动回复信息
-      if (res.data?.auto_reply) {
-        autoReply.value = res.data.auto_reply
-      }
-      // 清空表单
-      formData.name = ''
-      formData.phone = ''
-      formData.class_id = ''
-      formData.custom_fields = {}
-    }
-  } catch (err) {
-    Message.error(err.message || '报名失败')
-  } finally {
-    submitting.value = false
-  }
-}
-
 onMounted(() => {
   fetchPromotion()
 })
@@ -300,7 +162,7 @@ onMounted(() => {
 <style scoped>
 .promotion-public-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 40px 20px;
 }
 
@@ -308,24 +170,26 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
 .promotion-header {
   text-align: center;
   margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid #eee;
+  padding: 40px 40px 24px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-bottom: none;
 }
 
 .promotion-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #333;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
   margin-bottom: 16px;
   line-height: 1.4;
+  letter-spacing: -0.5px;
 }
 
 .promotion-meta {
@@ -337,65 +201,111 @@ onMounted(() => {
 
 .publish-time {
   font-size: 14px;
-  color: #999;
+  color: #666;
 }
 
 .promotion-content {
   font-size: 16px;
   line-height: 1.8;
   color: #333;
+  padding: 40px;
 }
 
 .promotion-content :deep(img) {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
 }
 
 .promotion-content :deep(p) {
+  margin-bottom: 18px;
+}
+
+.promotion-content :deep(h2),
+.promotion-content :deep(h3) {
+  margin-top: 28px;
   margin-bottom: 16px;
+  color: #1a1a1a;
 }
 
-.signup-area {
-  margin-top: 40px;
+.signup-entry-area {
+  background: #fafbfc;
+  padding: 40px;
 }
 
-.signup-header {
+.signup-disabled-info,
+.signup-ended-info {
   text-align: center;
-  margin-bottom: 24px;
+  padding: 20px 0;
 }
 
-.signup-header h3 {
-  font-size: 20px;
+.signup-action-area {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px;
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  border-radius: 12px;
+  border: 2px solid #e8ecf1;
+  transition: all 0.3s ease;
+}
+
+.signup-action-area:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.signup-action-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+}
+
+.signup-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.signup-text h3 {
+  font-size: 22px;
   font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
 }
 
-.signup-desc {
+.signup-text p {
   font-size: 14px;
   color: #666;
+  margin: 0;
 }
 
-.signup-form {
-  max-width: 400px;
-  margin: 0 auto;
+.signup-btn {
+  min-width: 160px;
+  height: 52px;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
-.signup-ended {
-  margin-top: 40px;
-}
-
-.class-quota {
-  margin-left: 8px;
-  color: #999;
-  font-size: 12px;
-}
-
-.class-full {
-  margin-left: 8px;
-  color: #f53f3f;
-  font-size: 12px;
+.signup-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
 }
 
 @media (max-width: 768px) {
@@ -407,11 +317,36 @@ onMounted(() => {
   .promotion-container {
     border-radius: 0;
     box-shadow: none;
-    padding: 24px 16px;
+  }
+
+  .promotion-header {
+    padding: 32px 24px 20px;
   }
 
   .promotion-title {
-    font-size: 22px;
+    font-size: 26px;
+  }
+
+  .promotion-content {
+    padding: 24px 16px;
+  }
+
+  .signup-entry-area {
+    padding: 24px 16px;
+  }
+
+  .signup-action-area {
+    flex-direction: column;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .signup-action-content {
+    flex-direction: column;
+  }
+
+  .signup-btn {
+    width: 100%;
   }
 }
 </style>

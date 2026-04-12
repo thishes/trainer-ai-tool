@@ -310,7 +310,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { getPapers, createPaper, publishPaper, unpublishPaper, deletePaper as deletePaperApi, getPaperExamUrl, getExamRecords, getPaperStudents, addPaperStudents, removePaperStudent, createStudent, exportPaperStudents, importStudents, createRandomPaper } from '../api'
 import { IconDown, IconPlus, IconUpload, IconDownload } from '@arco-design/web-vue/es/icon'
@@ -615,6 +615,11 @@ export default {
         examRecordsPagination.value = res.data?.pagination || null
       } catch (e) { console.error(e) }
     }
+
+    // 组件挂载时自动加载数据
+    onMounted(() => {
+      loadPapers()
+    })
 
     return {
       papers, papersLoading, papersPage, papersPageSize, paginatedPapers,

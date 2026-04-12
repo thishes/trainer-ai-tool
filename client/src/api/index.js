@@ -22,6 +22,22 @@ const RETRY_CONFIG = {
 
 let retryCounts = new Map()
 
+// CSRF Token 管理
+let csrfToken = null
+
+// 获取 CSRF Token
+export async function initCsrfToken() {
+  try {
+    const response = await api.get('/auth/csrf-token')
+    if (response.success) {
+      csrfToken = response.csrfToken
+      console.log('[API] CSRF Token initialized')
+    }
+  } catch (error) {
+    console.warn('[API] Failed to get CSRF token:', error.message)
+  }
+}
+
 function getRetryCount(config) {
   const key = `${config.method}_${config.url}`
   return retryCounts.get(key) || 0
@@ -50,9 +66,12 @@ async function sleep(ms) {
 }
 
 api.interceptors.request.use(config => {
-  // Token 通过 HttpOnly Cookie 自动发送，不再使用 localStorage
   if (config._retryCount === undefined) {
     config._retryCount = 0
+  }
+  // 添加 CSRF Token 到请求头
+  if (csrfToken && !config.skipCsrf) {
+    config.headers['X-CSRF-Token'] = csrfToken
   }
   return config
 })
@@ -118,12 +137,16 @@ api.interceptors.response.use(
         break
       case 401:
         const wasLoggedIn = localStorage.getItem('loggedIn') === 'true'
+        console.warn('[API] 401 Unauthorized:', message, 'wasLoggedIn:', wasLoggedIn, 'path:', error.config?.url)
         localStorage.removeItem('user')
         localStorage.removeItem('loggedIn')
         localStorage.removeItem('token')
         errorMsg = message || '登录已过期，请重新登录'
         if (!window.location.pathname.includes('/login') && wasLoggedIn) {
-          window.location.href = '/login'
+          // 延迟跳转，避免在 axios 拦截器中动态 import router 造成循环依赖
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 100)
         }
         break
       case 403:

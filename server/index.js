@@ -6,7 +6,7 @@ const http = require('http');
 
 console.log('正在启动后端服务...');
 
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const config = require('./config');
 console.log('配置加载完成');
@@ -27,7 +27,7 @@ const DEBUG = config.DEBUG;
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const BASE_URL = process.env.BASE_URL || `http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`;
+const BASE_URL = process.env.BASE_URL || process.env.FRONTEND_URL || config.FRONTEND_URL || `http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`;
 app.locals.BASE_URL = BASE_URL;
 
 console.log('Socket.IO 已初始化');
@@ -202,10 +202,15 @@ const csrfExclude = [
   '/api/auth/logout',
   '/api/auth/captcha',
   '/api/auth/me',
+  '/api/auth/csrf-token',
   '/api/students/verify',
   '/api/exam/start',
   '/api/exam/save-progress',
-  '/api/exam/submit'
+  '/api/exam/submit',
+  '/api/promotions',
+  '/api/promotions/:id/signups',
+  '/api/announcements/upload',
+  '/api/upload'
 ];
 
 app.use((req, res, next) => {
@@ -296,12 +301,18 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: '服务正常运行', timestamp: new Date().toISOString() });
 });
 
+
+// CSRF Token 端点（用于前端获取token）
+app.get('/api/auth/csrf-token', csrfProtection, (req, res) => {
+  res.json({ success: true, csrfToken: req.csrfToken() });
+});
 const authRoutes = require('./routes/auth');
 const questionRoutes = require('./routes/questions');
 const paperRoutes = require('./routes/papers');
 const examRoutes = require('./routes/exam');
 const announcementRoutes = require('./routes/announcements');
 const studentRoutes = require('./routes/students');
+const uploadRoutes = require('./routes/upload');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -309,6 +320,7 @@ app.use('/api/papers', paperRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 分类路由
 const categoryRoutes = require('./routes/categories');

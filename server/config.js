@@ -18,7 +18,9 @@ const config = {
   NODE_ENV: getEnv('NODE_ENV', 'development'),
   SECURE_COOKIE: getEnv('SECURE_COOKIE', null) === 'true' || isProduction,
 
-  CORS_ORIGINS: getEnv('ALLOWED_ORIGINS', isProduction ? '' : 'http://localhost:3000,http://localhost:3002,http://localhost:5173'),
+  CORS_ORIGINS: getEnv('ALLOWED_ORIGINS', isProduction ? '' : 'http://localhost:3000,http://localhost:5173'),
+
+  FRONTEND_URL: getEnv('FRONTEND_URL', isProduction ? '' : 'http://localhost:3000'),
 
   DB_HOST: getEnv('DB_HOST', 'localhost'),
   DB_PORT: parseInt(getEnv('DB_PORT', '3306')),

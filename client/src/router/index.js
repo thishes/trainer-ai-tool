@@ -13,6 +13,7 @@ const Exam = () => import('../views/Exam.vue')
 const ExamResult = () => import('../views/ExamResult.vue')
 const PromotionView = () => import('../views/PromotionView.vue')
 const PromotionPublic = () => import('../views/PromotionPublic.vue')
+const PromotionSignup = () => import('../views/PromotionSignup.vue')
 const PromotionSignupQuery = () => import('../views/promotion/PromotionSignupQuery.vue')
 
 const routes = [
@@ -99,6 +100,14 @@ const routes = [
     }
   },
   {
+    path: '/promotion/:id/signup',
+    name: 'PromotionSignup',
+    component: PromotionSignup,
+    meta: {
+      title: '活动报名'
+    }
+  },
+  {
     path: '/promotion/:id/query',
     name: 'PromotionSignupQuery',
     component: PromotionSignupQuery,
@@ -123,12 +132,18 @@ router.beforeEach(async (to, from, next) => {
     if (!loggedIn) {
       next('/login')
     } else {
-      // 验证 token 有效性（通过服务端验证）
+      // 验证 token 有效性（双重认证：Cookie + Authorization header）
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' })
+        const token = localStorage.getItem('token')
+        const headers = {}
+        if (token) {
+          headers['Authorization'] = 'Bearer ' + token
+        }
+        const res = await fetch('/api/auth/me', { credentials: 'include', headers })
         if (!res.ok) {
           localStorage.removeItem('user')
           localStorage.removeItem('loggedIn')
+          localStorage.removeItem('token')
           next('/login')
           return
         }
@@ -140,7 +155,12 @@ router.beforeEach(async (to, from, next) => {
   } else if (to.path === '/login' && loggedIn) {
     // 已登录用户访问登录页，验证 token 后重定向
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      const token = localStorage.getItem('token')
+      const headers = {}
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token
+      }
+      const res = await fetch('/api/auth/me', { credentials: 'include', headers })
       if (res.ok) {
         next('/dashboard')
         return
@@ -148,6 +168,7 @@ router.beforeEach(async (to, from, next) => {
     } catch (e) { /* ignore */ }
     localStorage.removeItem('user')
     localStorage.removeItem('loggedIn')
+    localStorage.removeItem('token')
     next()
   } else {
     next()

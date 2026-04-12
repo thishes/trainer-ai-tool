@@ -256,6 +256,7 @@ const changePassword = () => {
         if (res.success) {
           localStorage.removeItem('loggedIn')
           localStorage.removeItem('user')
+          localStorage.removeItem('token')
           Message.success('密码修改成功，请重新登录')
           passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
           setTimeout(() => {

@@ -16,7 +16,7 @@
         <p class="subtitle">请认真阅读考试信息，准备好后开始答题</p>
         <div class="exam-info">
           <a-descriptions :column="1" size="small">
-            <a-descriptions-item label="时间限制">{{ paperInfo.time_limit }} 分钟</a-descriptions-item>
+            <a-descriptions-item label="时间限制">{{ paperInfo.duration || paperInfo.time_limit }} 分钟</a-descriptions-item>
             <a-descriptions-item label="总分">{{ paperInfo.total_score }} 分</a-descriptions-item>
             <a-descriptions-item v-if="paperInfo.trainer" label="出题人">{{ paperInfo.trainer?.username }}</a-descriptions-item>
             <a-descriptions-item label="考生范围">

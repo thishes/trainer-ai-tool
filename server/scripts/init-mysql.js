@@ -4,10 +4,10 @@ async function initDatabase() {
   console.log('[DB Init] 开始初始化数据库...');
 
   const conn = await mysql.createConnection({
-    host: process.env.DB_HOST || 'kb.thishe.com',
+    host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 33060,
-    user: process.env.DB_USER || 'lankong',
-    password: process.env.DB_PASSWORD || 'Hejinqiang860612!',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'trainer_ai_tool'
   });
 

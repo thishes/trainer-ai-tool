@@ -180,17 +180,13 @@ router.post('/:id/unlock', authenticate, asyncHandler(async (req, res) => {
 
 // ==================== 预览功能 ====================
 
-router.get('/:id/preview', authenticate, asyncHandler(async (req, res) => {
+router.get('/:id/preview', asyncHandler(async (req, res) => {
   const promotion = await repo.getPromotionById(req.params.id);
   if (!promotion) {
     return resp.notFound(res, '文案不存在');
   }
 
-  if (req.user.role !== 'admin' && promotion.created_by !== req.user.id) {
-    return resp.forbidden(res, '无权限预览此文案');
-  }
-
-  const publicUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/promotion/${promotion.id}`;
+  const publicUrl = `${process.env.FRONTEND_URL || process.env.BASE_URL || 'http://localhost:3000'}/promotion/${promotion.id}`;
   const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
     width: 200,
     margin: 2,
@@ -332,8 +328,8 @@ router.get('/:id/signups', authenticate, asyncHandler(async (req, res) => {
   });
 }));
 
-// 提交报名（学员）- 增加限流防止刷报名
-router.post('/:id/signups', rateLimiters.strict, asyncHandler(async (req, res) => {
+// 提交报名（学员）
+router.post('/:id/signups', asyncHandler(async (req, res) => {
   const promotion = await repo.getPromotionById(req.params.id);
   if (!promotion) {
     return resp.notFound(res, '文案不存在');

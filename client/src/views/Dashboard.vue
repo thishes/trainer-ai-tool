@@ -127,7 +127,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import { checkUpgrade, doUpgrade, getPapers, logout } from '@/api'
@@ -157,7 +157,7 @@ export default {
     const initialTab = route.hash.slice(1)
     const activeTab = ref(validTabs.includes(initialTab) ? initialTab : 'questions')
     // 懒加载：首次切换到某 Tab 才渲染其组件
-    const activatedTabs = ref({ [activeTab.value]: true })
+    const activatedTabs = reactive({ [activeTab.value]: true })
     const sidebarOpen = ref(false)
     const currentVersion = ref(APP_VERSION)
     const upgradeInfo = ref({})
@@ -207,7 +207,7 @@ export default {
 
     const switchTab = (tab) => {
       activeTab.value = tab
-      activatedTabs.value[tab] = true  // 首次激活后不再销毁
+      activatedTabs[tab] = true  // 首次激活后不再销毁
       sidebarOpen.value = false
       // 同步 URL hash，不触发导航
       router.replace({ hash: `#${tab}` }).catch(() => {})

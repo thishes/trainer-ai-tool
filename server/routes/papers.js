@@ -50,8 +50,8 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.get('/public/:id', asyncHandler(async (req, res) => {
-  const paper = await repo.getPublicPaper(req.params.id);
-  if (!paper) {
+  const paper = await repo.getPaperById(req.params.id);
+  if (!paper || paper.status !== 'published') {
     return resp.notFound(res, '试卷不存在或未发布');
   }
 
@@ -190,7 +190,7 @@ router.post('/:id/publish', authenticate, asyncHandler(async (req, res) => {
     return resp.error(res, '试卷暂无题目');
   }
 
-  const baseUrl = req.app.locals.BASE_URL;
+  const baseUrl = req.app.locals.BASE_URL || process.env.FRONTEND_URL || config.FRONTEND_URL;
   const accessUrl = baseUrl ? `${baseUrl}/exam/${paper.id}` : `http://localhost:${process.env.PORT || 3000}/exam/${paper.id}`;
   const qrcodeDataUrl = await QRCode.toDataURL(accessUrl);
 
@@ -299,7 +299,7 @@ router.get('/:id/exam-url', authenticate, asyncHandler(async (req, res) => {
     return resp.error(res, '试卷未发布');
   }
 
-  const baseUrl = req.app.locals.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const baseUrl = req.app.locals.BASE_URL || process.env.FRONTEND_URL || config.FRONTEND_URL || `http://localhost:${process.env.PORT || 3000}`;
   const accessUrl = `${baseUrl}/exam/${paper.id}`;
 
   resp.success(res, { paper_id: paper.id, access_url: accessUrl });

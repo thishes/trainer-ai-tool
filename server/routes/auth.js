@@ -112,7 +112,7 @@ router.post('/login', rateLimiters.login, validate(schemas.login), asyncHandler(
 
   const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
-    console.warn(`[Auth] Login failed: wrong password - username="${username}", user.id=${user.id}, password prefix="${password.substring(0,3)}***", hash prefix="${user.password?.substring(0, 10)}..."`);
+    console.warn(`[Auth] Login failed: wrong password - username="${username}", user.id=${user.id}`);
     return resp.unauthorized(res, '用户名或密码错误');
   }
   console.log(`[Auth] Login success: username="${username}", user.id=${user.id}, role=${user.role}`);
@@ -123,6 +123,9 @@ router.post('/login', rateLimiters.login, validate(schemas.login), asyncHandler(
     { expiresIn: JWT_EXPIRES_IN }
   );
 
+  // 先清除旧 token Cookie（防止旧 secret 签发的 token 残留）
+  res.clearCookie('token', { path: '/' });
+
   const isSecureCookie = config.SECURE_COOKIE;
   res.cookie('token', token, {
     httpOnly: true,
@@ -132,9 +135,10 @@ router.post('/login', rateLimiters.login, validate(schemas.login), asyncHandler(
     path: '/'
   });
 
-  // 不再在 response body 中返回 token，仅通过 HttpOnly Cookie 传输
+  // 同时返回 token 用于 Authorization header（双重保障）
   resp.success(res, {
-    user: { id: user.id, username: user.username, role: user.role, status: user.status, avatar: user.avatar }
+    user: { id: user.id, username: user.username, role: user.role, status: user.status, avatar: user.avatar },
+    token
   });
 }));
 
@@ -174,6 +178,8 @@ router.post('/register', rateLimiters.register, validate(schemas.register), asyn
   );
 
   const isSecureCookie = config.SECURE_COOKIE;
+  // 先清除旧 token Cookie
+  res.clearCookie('token', { path: '/' });
   res.cookie('token', token, {
     httpOnly: true,
     secure: isSecureCookie,
@@ -184,7 +190,8 @@ router.post('/register', rateLimiters.register, validate(schemas.register), asyn
 
   // 不再在 response body 中返回 token
   resp.success(res, {
-    user: { id: user.id, username: user.username, role: user.role, avatar: user.avatar }
+    user: { id: user.id, username: user.username, role: user.role, avatar: user.avatar },
+    token
   });
 }));
 

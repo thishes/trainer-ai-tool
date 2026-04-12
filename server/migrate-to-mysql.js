@@ -1,16 +1,20 @@
 const mysql = require('mysql2/promise');
 
+function getEnv(name, defaultValue = null) {
+  return process.env[name] || defaultValue;
+}
+
 const DB_CONFIG = {
-  host: 'kb.thishe.com',
-  port: 33060,
-  user: 'lankong',
-  password: 'Hejinqiang860612!',
+  host: getEnv('DB_HOST', 'localhost'),
+  port: parseInt(getEnv('DB_PORT', '33060')),
+  user: getEnv('DB_USER', 'root'),
+  password: getEnv('DB_PASSWORD', ''),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 };
 
-const DB_NAME = 'trainer-ai-tool';
+const DB_NAME = getEnv('DB_NAME', 'trainer_ai_tool');
 
 const db = require('./db.json');
 

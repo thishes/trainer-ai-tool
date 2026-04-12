@@ -14,27 +14,33 @@ if (!JWT_SECRET && config.NODE_ENV === 'production') {
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   let token = null;
+  let tokenSource = 'none';
   
   if (authHeader) {
     const parts = authHeader.split(' ');
     if (parts.length === 2 && parts[0] === 'Bearer') {
       token = parts[1];
+      tokenSource = 'header';
     }
   }
   
   if (!token && req.cookies && req.cookies.token) {
     token = req.cookies.token;
+    tokenSource = 'cookie';
   }
   
   if (!token) {
+    console.log(`[Auth] ${req.method} ${req.path} → NO_TOKEN (no cookie, no header)`);
     return res.status(401).json({ success: false, message: '未登录', code: 'NO_TOKEN' });
   }
-  
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
+    const tokenPreview = token ? token.substring(0, 20) + '...' : 'null';
+    console.log(`[Auth] ${req.method} ${req.path} → ${error.name}: ${error.message} (source=${tokenSource}, token=${tokenPreview}, secret=${JWT_SECRET?.substring(0, 10)}...)`);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ success: false, message: 'token已过期', code: 'TOKEN_EXPIRED' });
     }

@@ -55,12 +55,8 @@ router.post('/upload', authenticate, requireAdmin, upload.single('image'), async
 
 router.get('/', asyncHandler(async (req, res) => {
   const { status } = req.query;
-  const cacheKey = cache.namespaces.auth('announcements:' + (status || 'all'));
-  const { data } = await cache.withCache(cacheKey, async () => {
-    const announcements = await repo.getAnnouncements(status);
-    return { list: announcements, total: announcements.length };
-  }, { ttl: 120 });
-  resp.success(res, data);
+  const announcements = await repo.getAnnouncements(status);
+  resp.success(res, { list: announcements, total: announcements.length });
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {

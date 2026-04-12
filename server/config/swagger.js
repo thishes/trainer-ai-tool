@@ -5,6 +5,7 @@
 
 const swaggerJsdoc = require('swagger-jsdoc');
 const path = require('path');
+const isProduction = process.env.NODE_ENV === 'production';
 
 const options = {
   definition: {
@@ -19,12 +20,8 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3001',
-        description: '开发环境'
-      },
-      {
-        url: 'https://api.example.com',
-        description: '生产环境'
+        url: process.env.SWAGGER_URL || (isProduction ? 'https://api.example.com' : 'http://localhost:3001'),
+        description: isProduction ? '生产环境' : '开发环境'
       }
     ],
     components: {

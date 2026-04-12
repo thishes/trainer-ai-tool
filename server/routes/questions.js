@@ -75,7 +75,8 @@ router.post('/', authenticate, validate(schemas.questionCreate), asyncHandler(as
     score: score || 10,
     tags: tags || [],
     category_id: category_id ? parseInt(category_id) : null,
-    status: status || 'draft'
+    status: status || 'draft',
+    user_id: req.user.id
   };
 
   const question = await repo.createQuestion(questionData);
@@ -85,7 +86,7 @@ router.post('/', authenticate, validate(schemas.questionCreate), asyncHandler(as
 }));
 
 // 更新题目
-router.put('/:id', authenticate, validate(schemas.questionUpdate), asyncHandler(async (req, res) => {
+router.put('/:id', authenticate, asyncHandler(async (req, res) => {
   const question = await repo.getQuestionById(req.params.id);
   if (!question) {
     return resp.notFound(res, '题目不存在');
@@ -138,7 +139,8 @@ router.post('/import', authenticate, validate(schemas.questionImport), asyncHand
       score: q.score || 10,
       tags: q.tags || [],
       category_id: category_id ? parseInt(category_id) : (q.category_id ? parseInt(q.category_id) : null),
-      status: 'draft'
+      status: 'draft',
+      user_id: req.user.id
     };
 
     await repo.createQuestion(questionData);

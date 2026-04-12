@@ -1,5 +1,5 @@
 // src/stores/user.js - 用户状态管理
-// Token 通过 HttpOnly Cookie 管理，不再存储在 JS 可访问的 localStorage
+// Token 通过 HttpOnly Cookie + Authorization header 双重保障
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi, register as registerApi, getCaptcha, getUserInfo, logout as logoutApi } from '@/api'
@@ -17,9 +17,12 @@ export const useUserStore = defineStore('user', () => {
     if (res.data && res.data.user) {
       user.value = res.data.user
       loggedIn.value = true
-      // Token 由服务端通过 HttpOnly Cookie 设置，前端无法读取
       localStorage.setItem('user', JSON.stringify(res.data.user))
       localStorage.setItem('loggedIn', 'true')
+      // 同时保存 token 用于 Authorization header（双重保障）
+      if (res.data.token) {
+        localStorage.setItem('token', res.data.token)
+      }
     }
     return res
   }
@@ -46,6 +49,7 @@ export const useUserStore = defineStore('user', () => {
     loggedIn.value = false
     localStorage.removeItem('user')
     localStorage.removeItem('loggedIn')
+    localStorage.removeItem('token')
   }
 
   function getAvatarColor() {

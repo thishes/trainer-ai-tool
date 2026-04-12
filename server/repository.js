@@ -6,6 +6,15 @@ const jsonDb = require('./db');
 const redis = require('./redis');
 const { encrypt, decrypt, maskPhone } = require('./utils/crypto');
 
+// JSON 字段解析（MySQL 存储 JSON 字段为字符串，需要解析）
+function parseJSONField(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return value; }
+  }
+  return value;
+}
+
 // 检测是否配置了 MySQL（有 DB_HOST 环境变量）
 const MYSQL_CONFIGURED = !!process.env.DB_HOST;
 
@@ -24,22 +33,39 @@ const MYSQL_CONFIGURED = !!process.env.DB_HOST;
 async function withFallback(mysqlFn, jsonFn, label = 'Repo', cacheKey = null) {
   // 未配置 MySQL，走 JSON 模式
   if (!MYSQL_CONFIGURED) {
+    console.log(`[${label}] MySQL not configured, using JSON fallback`);
     return jsonFn();
+  }
+
+  // MySQL 已配置但未连接，尝试建立连接（带超时）
+  if (!mysqlDb.isConnected()) {
+    console.log(`[${label}] MySQL not connected, attempting health check with 8s timeout...`);
+    try {
+      const result = await Promise.race([
+        mysqlDb.healthCheck(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), 8000))
+      ]);
+      console.log(`[${label}] Health check result:`, result, ', isConnected:', mysqlDb.isConnected());
+    } catch (e) {
+      console.warn(`[${label}] Health check failed:`, e.message, ', isConnected:', mysqlDb.isConnected());
+    }
   }
 
   // MySQL 已配置，尝试走 MySQL
   if (mysqlDb.isConnected()) {
+    console.log(`[${label}] MySQL connected, executing query...`);
     try {
       const result = await Promise.race([
         mysqlFn(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('MySQL query timeout')), 5000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('MySQL query timeout')), 8000))
       ]);
+      console.log(`[${label}] Query successful, returned`, Array.isArray(result) ? result.length : 'non-array', 'items');
       return result;
     } catch (e) {
       if (e.message !== 'MySQL query timeout') {
-        console.warn(`[${label}] MySQL failed:`, e.message);
+        console.warn(`[${label}] MySQL query failed:`, e.message);
       } else {
-        console.warn(`[${label}] MySQL query timeout (5s)`);
+        console.warn(`[${label}] MySQL query timeout (15s)`);
       }
       // 尝试缓存降级
       if (cacheKey) {
@@ -54,21 +80,12 @@ async function withFallback(mysqlFn, jsonFn, label = 'Repo', cacheKey = null) {
       // 无缓存可用，抛出错误
       throw new Error(`${label}: 数据暂时不可用`);
     }
-  }
-
-  // MySQL 已配置但未连接，尝试缓存降级
-  if (cacheKey) {
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached !== null) {
-        console.log('[{label}] MySQL disconnected, serving from cache');
-        return cached;
-      }
-    } catch (redisErr) { /* ignore */ }
+  } else {
+    console.log(`[${label}] MySQL still not connected, falling back to JSON`);
   }
 
   // 最后兜底：走 JSON（仅用于读取，不用于写入）
-  console.warn('[{label}] All fallbacks exhausted, trying JSON (read-only)');
+  console.warn(`[${label}] All fallbacks exhausted, trying JSON (read-only)`);
   return jsonFn();
 }
 
@@ -83,6 +100,7 @@ const repository = {
   ),
   createUser: (data) => withFallback(() => mysqlDb.createUser(data), () => jsonDb.createUser(data), 'createUser'),
   updateUser: (id, updates) => withFallback(() => mysqlDb.updateUser(id, updates), () => jsonDb.updateUser(id, updates), 'updateUser'),
+  changePassword: (id, oldPassword, newPassword) => withFallback(() => mysqlDb.changePassword(id, oldPassword, newPassword), () => { throw new Error('JSON fallback not supported'); }, 'changePassword'),
   deleteUser: (id) => withFallback(() => mysqlDb.deleteUser(id), () => jsonDb.deleteUser(id), 'deleteUser'),
 
   // ========== 分类 ==========
@@ -102,15 +120,115 @@ const repository = {
   createQuestion: (data) => withFallback(() => mysqlDb.createQuestion(data), () => jsonDb.createQuestion(data), 'createQuestion'),
   updateQuestion: (id, updates) => withFallback(() => mysqlDb.updateQuestion(id, updates), () => jsonDb.updateQuestion(id, updates), 'updateQuestion'),
   deleteQuestion: (id) => withFallback(() => mysqlDb.deleteQuestion(id), () => jsonDb.deleteQuestion(id), 'deleteQuestion'),
+  getQuestionsByIds: (ids) => withFallback(
+    async () => {
+      if (!ids || ids.length === 0) return [];
+      const placeholders = ids.map(() => '?').join(',');
+      const rows = await mysqlDb.findAll(`SELECT * FROM questions WHERE id IN (${placeholders})`, ids);
+      return rows.map(q => ({ ...q, options: parseJSONField(q.options) }));
+    },
+    () => {
+      return ids.map(id => jsonDb.getQuestionById(id)).filter(Boolean);
+    },
+    'getQuestionsByIds'
+  ),
+  searchQuestions: async ({ page = 1, pageSize = 20, category_id, type, keyword, status } = {}) => {
+    if (!MYSQL_CONFIGURED) {
+      // JSON 模式
+      let questions = jsonDb.getQuestions();
+      if (category_id) questions = questions.filter(q => q.category_id === parseInt(category_id));
+      if (type) questions = questions.filter(q => q.type === type);
+      if (status) questions = questions.filter(q => q.status === status);
+      if (keyword) {
+        const kw = keyword.toLowerCase();
+        questions = questions.filter(q => q.title && q.title.toLowerCase().includes(kw));
+      }
+      const total = questions.length;
+      const start = (page - 1) * pageSize;
+      return { list: questions.slice(start, start + pageSize), total, page, pageSize };
+    }
+
+    // MySQL 模式
+    let sql = 'SELECT * FROM questions WHERE 1=1';
+    const params = [];
+    if (category_id) { sql += ' AND category_id = ?'; params.push(parseInt(category_id)); }
+    if (type) { sql += ' AND type = ?'; params.push(type); }
+    if (status) { sql += ' AND status = ?'; params.push(status); }
+    if (keyword) {
+      const escapedKeyword = keyword.replace(/[%_\\]/g, '\\$&');
+      sql += ' AND title LIKE ?';
+      params.push('%' + escapedKeyword + '%');
+    }
+
+    // Count
+    const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as total');
+    const countRows = await mysqlDb.findAll(countSql, params);
+    const total = countRows[0]?.total || 0;
+
+    // Paginate - LIMIT/OFFSET 不能用占位符（mysql2 会传字符串导致类型错误）
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    const limitVal = parseInt(pageSize);
+    sql += ' ORDER BY id DESC LIMIT ' + limitVal + ' OFFSET ' + offset;
+    const rows = await mysqlDb.findAll(sql, params);
+    const list = rows.map(q => ({ ...q, options: parseJSONField(q.options) }));
+
+    return { list, total, page: parseInt(page), pageSize: parseInt(pageSize) };
+  },
+  randomQuestions: async ({ category_ids, question_types, difficulty, count } = {}) => {
+    const numQuestions = Math.min(parseInt(count) || 10, 100);
+
+    if (!MYSQL_CONFIGURED) {
+      let questions = jsonDb.getQuestions();
+      if (category_ids && category_ids.length) questions = questions.filter(q => category_ids.includes(q.category_id));
+      if (question_types && question_types.length) questions = questions.filter(q => question_types.includes(q.type));
+      if (difficulty) questions = questions.filter(q => q.difficulty === difficulty);
+      // Shuffle and take count
+      for (let i = questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+      }
+      return questions.slice(0, numQuestions);
+    }
+
+    // MySQL mode
+    let sql = 'SELECT * FROM questions WHERE status = ?';
+    const params = ['published'];
+    if (category_ids && category_ids.length) {
+      sql += ' AND category_id IN (' + category_ids.map(() => '?').join(',') + ')';
+      params.push(...category_ids.map(id => parseInt(id)));
+    }
+    if (question_types && question_types.length) {
+      sql += ' AND type IN (' + question_types.map(() => '?').join(',') + ')';
+      params.push(...question_types);
+    }
+    if (difficulty) { sql += ' AND difficulty = ?'; params.push(difficulty); }
+    sql += ' ORDER BY RAND() LIMIT ' + numQuestions;
+    const rows = await mysqlDb.findAll(sql, params);
+    return rows.map(q => ({ ...q, options: parseJSONField(q.options) }));
+  },
 
   // ========== 试卷 ==========
-  getPapers: () => withFallback(() => mysqlDb.getPapers(), () => jsonDb.getPapers(), 'getPapers'),
+  getPapers: (ownerId) => withFallback(() => mysqlDb.getPapers(ownerId), () => jsonDb.getPapers(ownerId), 'getPapers'),
   getPaperById: (id) => withFallback(() => mysqlDb.getPaperById(id), () => jsonDb.getPaperById(id), 'getPaperById'),
   createPaper: (data) => withFallback(() => mysqlDb.createPaper(data), () => jsonDb.createPaper(data), 'createPaper'),
   updatePaper: (id, updates) => withFallback(() => mysqlDb.updatePaper(id, updates), () => jsonDb.updatePaper(id, updates), 'updatePaper'),
   deletePaper: (id) => withFallback(() => mysqlDb.deletePaper(id), () => jsonDb.deletePaper(id), 'deletePaper'),
 
   // ========== 考试记录 ==========
+  getExamRecordCountByIp: (paperId, ip, status = null) => withFallback(
+    async () => {
+      let sql = 'SELECT COUNT(*) as count FROM exam_records WHERE paper_id = ? AND ip_address = ?';
+      const params = [paperId, ip];
+      if (status) { sql += ' AND status = ?'; params.push(status); }
+      const rows = await mysqlDb.findAll(sql, params);
+      return rows[0]?.count || 0;
+    },
+    () => {
+      // JSON 模式没有 IP 字段，返回 0
+      return 0;
+    },
+    'getExamRecordCountByIp'
+  ),
   getExamRecords: (studentId, paperId) => withFallback(
     () => mysqlDb.getExamRecords(studentId, paperId),
     () => jsonDb.getExamRecords(studentId, paperId),
@@ -144,7 +262,7 @@ const repository = {
 
   // ========== 公告 ==========
   getAnnouncements: (filters = {}) => withFallback(
-    () => mysqlDb.getAnnouncements(filters),
+    () => mysqlDb.getAnnouncements(filters?.status || null),
     () => jsonDb.announcements.findAll(filters),
     'getAnnouncements'
   ),

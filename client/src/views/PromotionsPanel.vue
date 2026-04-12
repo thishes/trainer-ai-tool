@@ -403,11 +403,13 @@ const toggleLock = async (item) => {
     if (item.locked) {
       await unlockPromotion(item.id)
       Message.success('解锁成功')
+      item.locked = false
     } else {
       await lockPromotion(item.id)
       Message.success('锁定成功')
+      item.locked = true
     }
-    loadPromotions()
+    setTimeout(() => loadPromotions(), 500)
   } catch (e) {
     Message.error('操作失败: ' + (e.message || '操作失败'))
   }

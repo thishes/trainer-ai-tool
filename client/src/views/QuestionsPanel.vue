@@ -20,6 +20,10 @@
         <a-button type="primary" @click="showQuestionDialog = true">+ 新建题目</a-button>
         <a-button @click="showImportDialog = true">批量导入</a-button>
         <a-button @click="showCategoryDialog = true">类别管理</a-button>
+        <a-button v-if="selectedIds.length > 0" status="danger" @click="batchDeleteQuestions">
+          <template #icon><icon-delete /></template>
+          删除选中 ({{ selectedIds.length }})
+        </a-button>
         <div class="search-wrapper">
           <a-input v-model="questionSearch" placeholder="搜索题目内容..." style="width: 200px" allow-clear>
             <template #prefix><icon-search /></template>
@@ -45,7 +49,60 @@
     <a-card class="content-card">
       <a-tabs v-model:active-key="activeCategory" @change="questionPage = 1">
         <a-tab-pane key="all" title="全部">
-          <question-table :questions="paginatedQuestions" :loading="questionsLoading" :page="questionPage" :page-size="questionPageSize" @edit="editQuestion" @delete="deleteQuestion" />
+          <div style="overflow-x: auto; max-width: 100%;">
+            <table class="data-table" style="min-width: 680px;">
+              <thead>
+                <tr>
+                  <th style="width: 50px; min-width: 50px;">
+                    <a-checkbox :model-value="isAllSelected" :indeterminate="isIndeterminate" @change="toggleSelectAll" />
+                  </th>
+                  <th style="width: 60px; min-width: 60px;">ID</th>
+                  <th style="min-width: 200px;">题目内容</th>
+                  <th style="width: 80px; min-width: 80px;">类型</th>
+                  <th style="width: 80px; min-width: 80px;">难度</th>
+                  <th style="width: 60px; min-width: 60px;">分值</th>
+                  <th style="width: 120px; min-width: 120px;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="questionsLoading">
+                  <td colspan="7">
+                    <a-skeleton :animation="true">
+                      <a-skeleton-line :widths="['100%', '80%', '60%', '70%', '50%']" :rows="5" />
+                    </a-skeleton>
+                  </td>
+                </tr>
+                <tr v-else-if="paginatedQuestions.length === 0">
+                  <td colspan="7">
+                    <a-empty description="暂无题目" />
+                  </td>
+                </tr>
+                <tr v-else v-for="(q, index) in paginatedQuestions" :key="q.id">
+                  <td><a-checkbox :model-value="selectedIds.includes(q.id)" @change="(val) => toggleSelect(q.id, val)" /></td>
+                  <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
+                  <td class="title-cell" v-html="q.title"></td>
+                  <td>
+                    <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
+                    <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
+                    <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
+                    <span v-else class="tag tag-green">问答</span>
+                  </td>
+                  <td>
+                    <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
+                    <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
+                    <span v-else class="tag tag-red">困难</span>
+                  </td>
+                  <td>{{ q.score }}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                      <a-link @click="editQuestion(q)">编辑</a-link>
+                      <a-button type="text" status="danger" size="small" @click="deleteQuestion(q.id)">删除</a-button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="pagination" v-if="totalQuestionPages > 1">
             <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
             <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
@@ -62,7 +119,60 @@
           </div>
         </a-tab-pane>
         <a-tab-pane v-for="c in categories" :key="String(c.id)" :title="c.name">
-          <question-table :questions="paginatedQuestions" :loading="questionsLoading" :page="questionPage" :page-size="questionPageSize" @edit="editQuestion" @delete="deleteQuestion" />
+          <div style="overflow-x: auto; max-width: 100%;">
+            <table class="data-table" style="min-width: 680px;">
+              <thead>
+                <tr>
+                  <th style="width: 50px; min-width: 50px;">
+                    <a-checkbox :model-value="isAllSelected" :indeterminate="isIndeterminate" @change="toggleSelectAll" />
+                  </th>
+                  <th style="width: 60px; min-width: 60px;">ID</th>
+                  <th style="min-width: 200px;">题目内容</th>
+                  <th style="width: 80px; min-width: 80px;">类型</th>
+                  <th style="width: 80px; min-width: 80px;">难度</th>
+                  <th style="width: 60px; min-width: 60px;">分值</th>
+                  <th style="width: 120px; min-width: 120px;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="questionsLoading">
+                  <td colspan="7">
+                    <a-skeleton :animation="true">
+                      <a-skeleton-line :widths="['100%', '80%', '60%', '70%', '50%']" :rows="5" />
+                    </a-skeleton>
+                  </td>
+                </tr>
+                <tr v-else-if="paginatedQuestions.length === 0">
+                  <td colspan="7">
+                    <a-empty description="暂无题目" />
+                  </td>
+                </tr>
+                <tr v-else v-for="(q, index) in paginatedQuestions" :key="q.id">
+                  <td><a-checkbox :model-value="selectedIds.includes(q.id)" @change="(val) => toggleSelect(q.id, val)" /></td>
+                  <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
+                  <td class="title-cell" v-html="q.title"></td>
+                  <td>
+                    <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
+                    <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
+                    <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
+                    <span v-else class="tag tag-green">问答</span>
+                  </td>
+                  <td>
+                    <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
+                    <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
+                    <span v-else class="tag tag-red">困难</span>
+                  </td>
+                  <td>{{ q.score }}</td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                      <a-link @click="editQuestion(q)">编辑</a-link>
+                      <a-button type="text" status="danger" size="small" @click="deleteQuestion(q.id)">删除</a-button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="pagination" v-if="totalQuestionPages > 1">
             <span class="page-info">共 {{ filteredQuestions.length }} 条</span>
             <a-select v-model="questionPageSize" style="width: 80px" @change="questionPage = 1">
@@ -223,80 +333,16 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { getQuestions, createQuestion, updateQuestion, deleteQuestion as deleteQuestionApi, getCategories, createCategory, deleteCategory } from '../api'
 import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
 import { IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus } from '@arco-design/web-vue/es/icon'
 import * as XLSX from 'xlsx'
 
-// 内联题目表格组件（避免再创建一个文件）
-const QuestionTable = {
-  name: 'QuestionTable',
-  props: {
-    questions: Array,
-    loading: Boolean,
-    page: Number,
-    pageSize: Number
-  },
-  emits: ['edit', 'delete'],
-  template: `
-    <div style="overflow-x: auto; max-width: 100%;">
-      <table class="data-table" style="min-width: 600px;">
-        <thead>
-          <tr>
-            <th style="width: 60px; min-width: 60px;">ID</th>
-            <th style="min-width: 200px;">题目内容</th>
-            <th style="width: 80px; min-width: 80px;">类型</th>
-            <th style="width: 80px; min-width: 80px;">难度</th>
-            <th style="width: 60px; min-width: 60px;">分值</th>
-            <th style="width: 120px; min-width: 120px;">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="6">
-              <a-skeleton :animation="true">
-                <a-skeleton-line :widths="['100%', '80%', '60%', '70%', '50%']" :rows="5" />
-              </a-skeleton>
-            </td>
-          </tr>
-          <tr v-else-if="questions.length === 0">
-            <td colspan="6">
-              <a-empty description="暂无题目" />
-            </td>
-          </tr>
-          <tr v-else v-for="(q, index) in questions" :key="q.id">
-            <td>{{ (page - 1) * pageSize + index + 1 }}</td>
-            <td class="title-cell">{{ q.title }}</td>
-            <td>
-              <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
-              <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
-              <span v-else-if="q.type === 'judge'" class="tag tag-gray">判断</span>
-              <span v-else class="tag tag-green">问答</span>
-            </td>
-            <td>
-              <span v-if="q.difficulty === 'easy'" class="tag tag-green">简单</span>
-              <span v-else-if="q.difficulty === 'medium'" class="tag tag-orange">中等</span>
-              <span v-else class="tag tag-red">困难</span>
-            </td>
-            <td>{{ q.score }}</td>
-            <td>
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-                <a-link @click="$emit('edit', q)">编辑</a-link>
-                <a-button type="text" status="danger" size="small" @click="$emit('delete', q.id)">删除</a-button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `
-}
-
 export default {
   name: 'QuestionsPanel',
-  components: { QuestionTable, IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus },
+  components: { IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus },
   emits: ['questionsUpdated'],
   setup(props, { emit }) {
     const questions = ref([])
@@ -313,6 +359,7 @@ export default {
     const newCategoryName = ref('')
     const categories = ref([])
     const editingQuestion = ref(null)
+    const selectedIds = ref([])
     const questionForm = ref({
       title: '', type: 'single', difficulty: 'medium', score: 10,
       options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: '', category_id: null
@@ -424,11 +471,90 @@ export default {
           try {
             await deleteQuestionApi(id)
             Message.success('删除成功')
+            selectedIds.value = selectedIds.value.filter(sid => sid !== id)
             loadQuestions()
             emit('questionsUpdated')
           } catch (e) {
             Message.error(e.message || '删除失败')
           }
+        }
+      })
+    }
+
+    const isAllSelected = computed(() => {
+      if (filteredQuestions.value.length === 0) return false
+      return filteredQuestions.value.every(q => selectedIds.value.includes(q.id))
+    })
+
+    const isIndeterminate = computed(() => {
+      if (filteredQuestions.value.length === 0) return false
+      const selectedCount = filteredQuestions.value.filter(q => selectedIds.value.includes(q.id)).length
+      return selectedCount > 0 && selectedCount < filteredQuestions.value.length
+    })
+
+    const toggleSelectAll = (val) => {
+      if (val) {
+        const newIds = [...selectedIds.value]
+        filteredQuestions.value.forEach(q => {
+          if (!newIds.includes(q.id)) newIds.push(q.id)
+        })
+        selectedIds.value = newIds
+      } else {
+        selectedIds.value = []
+      }
+    }
+
+    const toggleSelect = (id, val) => {
+      if (val) {
+        if (!selectedIds.value.includes(id)) selectedIds.value.push(id)
+      } else {
+        selectedIds.value = selectedIds.value.filter(sid => sid !== id)
+      }
+    }
+
+    const batchDeleteQuestions = () => {
+      if (selectedIds.value.length === 0) return
+      Modal.confirm({
+        title: '批量删除确认',
+        content: `确定要删除选中的 ${selectedIds.value.length} 道题目吗？此操作不可撤销。`,
+        okText: '确认删除',
+        cancelText: '取消',
+        type: 'warning',
+        okButtonProps: { status: 'danger', loading: false },
+        onOk: () => {
+          return new Promise(async (resolve, reject) => {
+            try {
+              const loadingMsg = Message.loading(`正在删除 ${selectedIds.value.length} 道题目...`, { duration: 0 })
+              let successCount = 0
+              let failCount = 0
+              
+              for (const id of selectedIds.value) {
+                try {
+                  await deleteQuestionApi(id)
+                  successCount++
+                } catch (e) {
+                  console.warn('删除题目失败:', id, e.message)
+                  failCount++
+                }
+              }
+              
+              loadingMsg.close()
+              
+              if (failCount > 0) {
+                Message.warning({ content: `成功删除 ${successCount} 道题目，失败 ${failCount} 道`, duration: 5000 })
+              } else {
+                Message.success(`成功删除 ${successCount} 道题目`)
+              }
+              
+              selectedIds.value = []
+              loadQuestions()
+              emit('questionsUpdated')
+              resolve(true)
+            } catch (e) {
+              Message.error(e.message || '批量删除失败')
+              reject(e)
+            }
+          })
         }
       })
     }
@@ -560,7 +686,7 @@ export default {
         importResult.value = {
           success: successCount > 0,
           title: successCount > 0 ? `成功导入${successCount}道题目` : '导入失败',
-          subtitle: failCount > 0 ? `失败${failCount}道` + (errors.length > 0 ? `\n${errors.slice(0, 3).join('\n')}` : '') : '所有题目已成功导入到题库'
+          subtitle: failCount > 0 ? ('失败' + failCount + '道' + (errors.length > 0 ? '\n' + errors.slice(0, 3).join('\n') : '')) : '所有题目已成功导入到题库'
         }
       } catch (e) {
         console.error('导入失败:', e)
@@ -575,15 +701,66 @@ export default {
       }
     }
 
+    // 组件挂载时自动加载数据
+    onMounted(() => {
+      loadQuestions()
+      loadCategories()
+    })
+
     // 暴露给父组件
     return {
       questions, questionsLoading, questionSearch, searchType, searchDifficulty,
       activeCategory, questionPage, questionPageSize, paginatedQuestions, filteredQuestions, totalQuestionPages,
       showQuestionDialog, showImportDialog, showCategoryDialog, newCategoryName,
       categories, editingQuestion, questionForm, importing, importResult,
+      selectedIds, isAllSelected, isIndeterminate,
       loadQuestions, loadCategories, resetSearch, saveQuestion, editQuestion, deleteQuestion,
+      toggleSelectAll, toggleSelect, batchDeleteQuestions,
       handleAddCategory, handleDeleteCategory, downloadTemplate, handleImportQuestions
     }
   }
 }
 </script>
+
+<style scoped>
+.question-form .options-label .arco-form-item-wrapper {
+  margin-bottom: 0;
+}
+.question-form .options-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.question-form .options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.question-form .option-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.question-form .option-key-tag {
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+  font-weight: 600;
+}
+.question-form .option-input {
+  flex: 1;
+}
+.question-form .option-delete {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.question-form .option-delete:hover {
+  opacity: 1;
+}
+.question-form .add-option-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+</style>

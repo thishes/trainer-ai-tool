@@ -1,12 +1,13 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 async function check() {
   const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'kb.thishe.com',
+    host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 33060,
-    user: process.env.DB_USER || 'lankong',
-    password: process.env.DB_PASSWORD || 'Hejinqiang860612!',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'trainer_ai_tool'
   });
 

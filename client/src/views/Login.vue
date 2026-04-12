@@ -189,10 +189,44 @@ export default {
         console.log('[Login] res.data:', res?.data)
         console.log('[Login] res.data.user:', res?.data?.user)
         if (res?.data?.user) {
-          // 清除旧的 localStorage token（已改为 HttpOnly Cookie，不再需要）
-          localStorage.removeItem('token')
+          // 保存 token 到 localStorage（用于 Authorization header，双重保障）
+          if (res.data.token) {
+            localStorage.setItem('token', res.data.token)
+          } else {
+            localStorage.removeItem('token')
+          }
           localStorage.setItem('user', JSON.stringify(res.data.user))
           localStorage.setItem('loggedIn', 'true')
+          
+          // 验证认证是否生效（Cookie 或 Authorization header）
+          try {
+            const verifyRes = await fetch('/api/auth/me', { credentials: 'include' })
+            if (!verifyRes.ok) {
+              console.error('[Login] Cookie verification failed:', verifyRes.status)
+              // Cookie 方式失败，尝试 Authorization header 方式
+              if (res.data.token) {
+                const headerRes = await fetch('/api/auth/me', {
+                  headers: { 'Authorization': 'Bearer ' + res.data.token }
+                })
+                if (headerRes.ok) {
+                  console.log('[Login] Authorization header works, proceeding')
+                  Message.success('登录成功')
+                  router.push('/dashboard')
+                  return
+                }
+              }
+              Message.error('登录验证失败，请重试')
+              localStorage.removeItem('loggedIn')
+              localStorage.removeItem('user')
+              localStorage.removeItem('token')
+              return
+            }
+            const verifyData = await verifyRes.json()
+            console.log('[Login] Auth verified, user:', verifyData.data?.username)
+          } catch (e) {
+            console.warn('[Login] Auth verification error:', e.message)
+          }
+          
           Message.success('登录成功')
           router.push('/dashboard')
         } else {

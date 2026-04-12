@@ -91,6 +91,21 @@ router.patch('/:id/status', authenticate, requireAdmin, asyncHandler(async (req,
   }, status === 'active' ? '解锁成功' : '锁定成功');
 }));
 
+router.post('/change-password', authenticate, asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) {
+    return resp.error(res, '旧密码和新密码都是必填项');
+  }
+  if (newPassword.length < 6) {
+    return resp.error(res, '新密码长度不能少于6位');
+  }
+  const user = await repo.changePassword(req.user.id, oldPassword, newPassword);
+  if (!user) {
+    return resp.error(res, '旧密码不正确');
+  }
+  resp.success(res, null, '密码修改成功');
+}));
+
 router.delete('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
   await repo.deleteUser(req.params.id);
   resp.success(res, null, '删除成功');

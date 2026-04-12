@@ -166,10 +166,10 @@ export default {
 
     const loadAllQuestions = async () => {
       try {
-        const res = await getQuestions({ limit: 100 })
+        const res = await getQuestions({ pageSize: 100 })
         const usedIds = new Set(paperQuestions.value.map(q => q.id))
         allQuestions.value = (res.data?.list || []).filter(q => !usedIds.has(q.id))
-      } catch (e) { Message.error('加载题库失败') }
+      } catch (e) { Message.error('加载题库失败: ' + (e.message || '未知错误')) }
     }
 
     const handleSelection = (selection) => {
@@ -188,18 +188,63 @@ export default {
     const addFromBank = () => {
       (async () => {
         if (selectedQuestions.value.length === 0) {
-          Message.warning('请选择题目')
+          Message.warning('请先选择要添加的题目')
           return
         }
-        try {
-          const questionIds = selectedQuestions.value.map(q => q.id)
-          await addQuestionsToPaper(paperId, questionIds)
-          Message.success(`成功添加 ${questionIds.length} 道题目`)
-          showAddFromBank.value = false
-          selectedQuestions.value = []
-          loadPaperQuestions()
-          loadAllQuestions()
-        } catch (e) { Message.error('添加失败') }
+
+        Modal.confirm({
+          title: '确认添加题目',
+          content: `确定要将选中的 ${selectedQuestions.value.length} 道题目添加到试卷中吗？`,
+          okText: '确认添加',
+          cancelText: '取消',
+          type: 'info',
+          onOk: async () => {
+            try {
+              const loadingMsg = Message.loading(`正在添加 ${selectedQuestions.value.length} 道题目到试卷...`, { duration: 0 })
+
+              const questionIds = selectedQuestions.value.map(q => q.id)
+              const res = await addQuestionsToPaper(paperId, questionIds)
+
+              loadingMsg.close()
+
+              if (res && res.success !== false) {
+                Message.success({
+                  content: `✅ 成功添加 ${questionIds.length} 道题目到试卷`,
+                  duration: 3000,
+                  closable: true
+                })
+
+                showAddFromBank.value = false
+                selectedQuestions.value = []
+                loadPaperQuestions()
+                loadAllQuestions()
+              } else {
+                throw new Error(res?.message || '添加失败')
+              }
+            } catch (e) {
+              console.error('添加题目失败:', e)
+              let errorMsg = '添加失败'
+              
+              try {
+                if (e && typeof e === 'object') {
+                  errorMsg = (e.response && e.response.data && e.response.data.message) 
+                    || e.message 
+                    || JSON.stringify(e).substring(0, 100)
+                } else if (typeof e === 'string') {
+                  errorMsg = e
+                }
+              } catch (parseErr) {
+                errorMsg = '添加失败（未知错误）'
+              }
+
+              Message.error({
+                content: `❌ 添加失败: ${errorMsg}`,
+                duration: 5000,
+                closable: true
+              })
+            }
+          }
+        })
       })()
     }
 
