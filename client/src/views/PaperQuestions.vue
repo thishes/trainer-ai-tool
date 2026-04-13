@@ -268,31 +268,30 @@ export default {
       })
     }
 
-    const createQuestionAndAdd = (done) => {
-      (async () => {
-        try {
-          const data = { ...questionForm.value }
-          if (data.type === 'multiple') {
-            data.answer = data.answer.split(',').map(a => a.trim())
-          }
-          const res = await createQuestion(data)
-
-          await addQuestionsToPaper(paperId, [res.data.id])
-
-          Message.success('创建成功并已添加到试卷')
-          showNewQuestion.value = false
-          questionForm.value = {
-            title: '', type: 'single', difficulty: 'medium', score: 10,
-            options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: ''
-          }
-          loadPaperQuestions()
-          loadAllQuestions()
-          done(true)
-        } catch (e) {
-          Message.error('创建失败')
-          done(false)
+    const createQuestionAndAdd = async (done) => {
+      try {
+        const data = { ...questionForm.value }
+        if (data.type === 'multiple') {
+          data.answer = data.answer.split(',').map(a => a.trim())
         }
-      })()
+        const res = await createQuestion(data)
+
+        await addQuestionsToPaper(paperId, [res.data.id])
+
+        Message.success('创建成功并已添加到试卷')
+        showNewQuestion.value = false
+        questionForm.value = {
+          title: '', type: 'single', difficulty: 'medium', score: 10,
+          options: [{ key: 'A', value: '' }, { key: 'B', value: '' }], answer: '', explanation: ''
+        }
+        loadPaperQuestions()
+        loadAllQuestions()
+        done(true)
+      } catch (e) {
+        console.error('创建题目失败:', e)
+        Message.error('创建失败: ' + (e.message || e.toString()))
+        done(false)
+      }
     }
 
     const batchImport = (done) => {
