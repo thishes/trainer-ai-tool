@@ -210,6 +210,7 @@ const repository = {
   // ========== 试卷 ==========
   getPapers: (ownerId) => withFallback(() => mysqlDb.getPapers(ownerId), () => jsonDb.getPapers(ownerId), 'getPapers'),
   getPaperById: (id) => withFallback(() => mysqlDb.getPaperById(id), () => jsonDb.getPaperById(id), 'getPaperById'),
+  getPublicPaper: (id) => withFallback(() => mysqlDb.getPaperById(id), () => jsonDb.getPaperById(id), 'getPublicPaper'),
   createPaper: (data) => withFallback(() => mysqlDb.createPaper(data), () => jsonDb.createPaper(data), 'createPaper'),
   updatePaper: (id, updates) => withFallback(() => mysqlDb.updatePaper(id, updates), () => jsonDb.updatePaper(id, updates), 'updatePaper'),
   deletePaper: (id) => withFallback(() => mysqlDb.deletePaper(id), () => jsonDb.deletePaper(id), 'deletePaper'),
