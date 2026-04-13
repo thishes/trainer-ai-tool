@@ -208,6 +208,8 @@ function normalizeQuestionType(type) {
 }
 
 const counters = { users: 1, categories: 1, questions: 1, papers: 1, exam_records: 1, essay_scores: 1, announcements: 1, promotions: 1, promotion_signups: 1 };
+const counterLocks = new Map();
+const counterPromises = new Map();
 
 async function initializeCounters() {
   try {
@@ -230,8 +232,30 @@ async function initializeCounters() {
   }
 }
 
-function nextId(collection) {
-  return counters[collection]++;
+async function nextId(collection) {
+  if (counterPromises.has(collection)) {
+    return counterPromises.get(collection);
+  }
+
+  const promise = (async () => {
+    try {
+      const [rows] = await getPool().execute(`SELECT COALESCE(MAX(id), 0) as maxId FROM ${collection}`);
+      const maxId = rows[0] ? rows[0].maxId : 0;
+      const newId = maxId + 1;
+      counters[collection] = newId + 1;
+      return newId;
+    } catch (e) {
+      console.warn(`[nextId] Failed to get max id for ${collection}, using counter:`, e.message);
+      const fallbackId = counters[collection]++;
+      return fallbackId;
+    }
+  })();
+
+  counterPromises.set(collection, promise);
+  return promise.then(result => {
+    counterPromises.delete(collection);
+    return result;
+  });
 }
 
 function parseJSONField(value) {
@@ -273,7 +297,7 @@ const db = {
   },
 
   async createUser(user) {
-    const id = nextId('users');
+    const id = await nextId('users');
     await insert(
       'INSERT INTO users (id, username, password, role, avatar) VALUES (?, ?, ?, ?, ?)',
       [id, user.username, user.password, user.role || 'user', user.avatar || null]
@@ -321,7 +345,7 @@ const db = {
   },
 
   async createCategory(category) {
-    const id = nextId('categories');
+    const id = await nextId('categories');
     await insert(
       'INSERT INTO categories (id, name, description, user_id) VALUES (?, ?, ?, ?)',
       [id, category.name, category.description || null, category.user_id || null]
@@ -372,7 +396,7 @@ const db = {
   },
 
   async createQuestion(question) {
-    const id = nextId('questions');
+    const id = await nextId('questions');
     const type = normalizeQuestionType(question.type);
     await insert(
       'INSERT INTO questions (id, title, type, options, answer, difficulty, score, explanation, category_id, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -438,8 +462,23 @@ const db = {
     return p;
   },
 
+  async getPaperByKeyId(keyId) {
+    const p = await findOne('SELECT * FROM papers WHERE key_id = ?', [keyId]);
+    if (p) {
+      p.question_ids = parseJSONField(p.question_ids);
+      p.random_config = parseJSONField(p.random_config);
+    }
+    return p;
+  },
+
+  async getPaperQuestionsByPaperKeyId(keyId) {
+    const paper = await this.getPaperByKeyId(keyId);
+    if (!paper) return [];
+    return this.getPaperQuestions(paper.id);
+  },
+
   async createPaper(paper) {
-    const id = nextId('papers');
+    const id = await nextId('papers');
     await insert(
       'INSERT INTO papers (id, title, description, owner_id, duration, total_score, question_ids, random_config, status, passing_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, paper.title, paper.description || '', paper.owner_id, paper.duration || 60, paper.total_score || 100, JSON.stringify(paper.question_ids || []), JSON.stringify(paper.random_config || {}), paper.status || 'draft', paper.passing_score || 60]
@@ -466,7 +505,74 @@ const db = {
     return this.getPaperById(id);
   },
 
+  async addQuestionsToPaper(paperId, questionIds) {
+    let addedCount = 0;
+    const existingQuestions = await this.getPaperQuestions(paperId);
+    const existingIds = new Set(existingQuestions.map(q => q.question_id));
+
+    for (const questionId of questionIds) {
+      if (!existingIds.has(questionId)) {
+        try {
+          await insert(
+            `INSERT INTO paper_questions (paper_id, question_id, \`order\`, score) VALUES (?, ?, ?, ?)`,
+            [paperId, questionId, existingQuestions.length + addedCount + 1, 10]
+          );
+          addedCount++;
+          console.log(`[DB] Added question ${questionId} to paper ${paperId}`);
+        } catch (e) {
+          if (e.code !== 'ER_DUP_ENTRY') {
+            console.error(`[DB] Failed to add question ${questionId}:`, e.message);
+            throw e;
+          }
+        }
+      }
+    }
+
+    return { paperId, addedCount, total: existingQuestions.length + addedCount };
+  },
+
+  async getPaperQuestions(paperId) {
+    const rows = await findAll(
+      `SELECT * FROM paper_questions WHERE paper_id = ? ORDER BY \`order\` ASC`,
+      [paperId]
+    );
+    return rows || [];
+  },
+
+  async removeQuestionFromPaper(paperId, questionId) {
+    const result = await remove(
+      'DELETE FROM paper_questions WHERE paper_id = ? AND question_id = ?',
+      [paperId, questionId]
+    );
+    return result;
+  },
+
+  async getPaperStudentsByPaperKeyId(keyId) {
+    try {
+      const rows = await findAll(
+        `SELECT ps.*, s.name as student_name, s.student_no, s.id as student_id
+         FROM paper_students ps
+         LEFT JOIN students s ON ps.student_id = s.id
+         WHERE ps.paper_key_id = ?`,
+        [keyId]
+      );
+      return (rows || []).map(row => ({
+        ...row,
+        student: row.student_id ? {
+          id: row.student_id,
+          name: row.student_name,
+          student_no: row.student_no
+        } : null
+      }));
+    } catch (e) {
+      console.error('[getPaperStudentsByPaperKeyId] Error:', e.message);
+      return [];
+    }
+  },
+
   async deletePaper(id) {
+    await remove('DELETE FROM exam_records WHERE paper_id = ?', [id]);
+    await remove('DELETE FROM paper_questions WHERE paper_id = ?', [id]);
     await remove('DELETE FROM papers WHERE id = ?', [id]);
     return true;
   },
@@ -515,7 +621,7 @@ const db = {
   },
 
   async createExamRecord(record) {
-    const id = nextId('exam_records');
+    const id = await nextId('exam_records');
     await insert(
       'INSERT INTO exam_records (id, paper_id, student_id, student_name, objective_score, essay_score, total_score, start_time, end_time, answers, status, graded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, record.paper_id, record.student_id, record.student_name, record.objective_score || 0, record.essay_score || 0, record.total_score || 0, record.start_time || null, record.end_time || null, JSON.stringify(record.answers || {}), record.status || 'pending', record.graded || false]
@@ -574,7 +680,7 @@ const db = {
       );
       return { ...existing, score, feedback, graded_by: gradedBy };
     } else {
-      const id = nextId('essay_scores');
+      const id = await nextId('essay_scores');
       await insert(
         'INSERT INTO essay_scores (id, exam_record_id, question_id, score, feedback, graded_by) VALUES (?, ?, ?, ?, ?, ?)',
         [id, examRecordId, questionId, score, feedback, gradedBy]
@@ -599,7 +705,7 @@ const db = {
   },
 
   async createAnnouncement(announcement) {
-    const id = nextId('announcements');
+    const id = await nextId('announcements');
     await insert(
       'INSERT INTO announcements (id, title, content, author_id, importance, status) VALUES (?, ?, ?, ?, ?, ?)',
       [id, announcement.title, announcement.content || '', announcement.author_id || null, announcement.importance || 'normal', announcement.status || 'published']
@@ -662,7 +768,7 @@ const db = {
   },
 
   async createPromotion(promotion) {
-    const id = nextId('promotions');
+    const id = await nextId('promotions');
     const signupConfig = promotion.signup_config ? JSON.stringify(promotion.signup_config) : null;
     await insert(
       'INSERT INTO promotions (id, title, content, status, enable_signup, signup_config, locked, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -694,6 +800,7 @@ const db = {
   },
 
   async deletePromotion(id) {
+    await remove('DELETE FROM promotion_signups WHERE promotion_id = ?', [id]);
     await remove('DELETE FROM promotions WHERE id = ?', [id]);
     return true;
   },
@@ -720,7 +827,7 @@ const db = {
   },
 
   async createPromotionSignup(signup) {
-    const id = nextId('promotion_signups');
+    const id = await nextId('promotion_signups');
     const now = new Date();
     const createdAt = now.getFullYear() + '-' +
       String(now.getMonth() + 1).padStart(2, '0') + '-' +

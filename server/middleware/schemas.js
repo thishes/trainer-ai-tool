@@ -183,10 +183,10 @@ const randomPaper = {
 const examStart = {
   body: Joi.object({
     paper_id: Joi.number().integer().positive().required(),
-    student_name: Joi.string().max(100).allow(''),
+    student_name: Joi.string().max(100).allow('', null),
     user_id: Joi.number().integer().positive().allow(null),
-    access_code: Joi.string().max(50).allow(''),
-    student_no: Joi.string().max(50).allow('')
+    access_code: Joi.string().max(50).allow('', null),
+    student_no: Joi.string().max(50).allow('', null)
   })
 };
 

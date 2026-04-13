@@ -25,6 +25,7 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
+  console.log('[Upload] File filter:', file.fieldname, file.mimetype, file.originalname);
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -33,7 +34,14 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 10
+  }
+});
 
 // Multer 错误处理中间件
 router.use((err, req, res, next) => {
@@ -46,6 +54,10 @@ router.use((err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({ success: false, message: '一次只能上传一张图片' });
     }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      // wangEditor 可能发送多个字段，只取第一个图片文件
+      return res.status(400).json({ success: false, message: '上传格式错误: ' + err.message });
+    }
     return res.status(400).json({ success: false, message: '上传错误: ' + err.message });
   }
 
@@ -56,21 +68,45 @@ router.use((err, req, res, next) => {
   next(err);
 });
 
-router.post('/', authenticate, requireAdmin, upload.single('file'), (req, res) => {
+// 使用 .any() 接受任意字段名（兼容 wangEditor 的 UUID 字段名）
+router.post('/', authenticate, requireAdmin, upload.any(), (req, res) => {
+  console.log('[Upload] 📥 Request received:', {
+    hasFiles: !!req.files,
+    fileCount: req.files?.length || 0,
+    contentType: req.get('content-type'),
+    user: req.user?.username
+  });
+
   try {
-    if (!req.file) {
-      return resp.error(res, '请选择图片文件');
+    if (!req.files || req.files.length === 0) {
+      console.error('[Upload] ❌ No files in request');
+      return res.status(400).json({ success: false, message: '请选择图片文件' });
     }
 
-    const filename = req.file.filename;
+    const uploadedFile = req.files[0];
+    const filename = uploadedFile.filename;
     const fileUrl = `/uploads/${filename}`;
 
-    console.log('[Upload] File uploaded:', filename, 'by user:', req.user?.username);
+    console.log('[Upload] ✅ File uploaded:', {
+      filename,
+      field: uploadedFile.fieldname,
+      size: uploadedFile.size,
+      mimetype: uploadedFile.mimetype,
+      user: req.user?.username
+    });
 
-    resp.success(res, { url: fileUrl, filename });
+    res.json({
+      success: true,
+      url: fileUrl,
+      filename,
+      message: '上传成功'
+    });
   } catch (e) {
-    console.error('[Upload] Error:', e);
-    resp.error(res, e.message || '上传失败');
+    console.error('[Upload] ❌ Error:', e);
+    res.status(500).json({
+      success: false,
+      message: e.message || '上传失败'
+    });
   }
 });
 

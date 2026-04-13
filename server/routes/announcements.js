@@ -35,22 +35,35 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024, files: 10 } });
 
-const processImage = async (file) => {
-  const webpFilename = file.filename;
-  console.log('File uploaded:', webpFilename);
-  return webpFilename;
-};
+router.post('/upload', authenticate, requireAdmin, upload.any(), asyncHandler(async (req, res) => {
+  console.log('[Announcement Upload] 📥 Request received:', {
+    hasFiles: !!req.files,
+    fileCount: req.files?.length || 0,
+    user: req.user?.username
+  });
 
-router.post('/upload', authenticate, requireAdmin, upload.single('image'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return resp.error(res, '请选择图片文件');
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ success: false, message: '请选择图片文件' });
   }
 
-  const webpFilename = await processImage(req.file);
+  const uploadedFile = req.files[0];
+  const webpFilename = uploadedFile.filename;
   const fileUrl = `/uploads/${webpFilename}`;
-  resp.success(res, { url: fileUrl });
+
+  console.log('[Announcement Upload] ✅ File uploaded:', {
+    filename: webpFilename,
+    field: uploadedFile.fieldname,
+    size: uploadedFile.size,
+    user: req.user?.username
+  });
+
+  res.json({
+    success: true,
+    url: fileUrl,
+    message: '上传成功'
+  });
 }));
 
 router.get('/', asyncHandler(async (req, res) => {

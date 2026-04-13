@@ -52,7 +52,7 @@
               <th width="100">报名</th>
               <th width="100">锁定</th>
               <th width="140">创建时间</th>
-              <th width="140">操作</th>
+              <th width="180" style="min-width:180px">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -230,22 +230,45 @@ const initEditor = () => {
   editorInstance = new E(editorContainerRef.value)
   editorInstance.config.uploadImgServer = '/api/upload'
   editorInstance.config.uploadImgFileName = 'file'
+  editorInstance.config.uploadImgTimeout = 30000
+  editorInstance.config.uploadImgHeaders = {
+    'X-Requested-With': 'XMLHttpRequest'
+  }
   editorInstance.config.uploadImgHooks = {
-    before: () => { Message.info('图片上传中...') },
+    before: (xhr) => {
+      Message.info('图片上传中...')
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]')
+      if (csrfMeta) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfMeta.content)
+      }
+      return xhr
+    },
     success: () => {},
     fail: (xhr) => {
-      Message.error('图片上传失败')
-      console.error('Upload failed:', xhr)
+      let errorMsg = '图片上传失败'
+      try {
+        if (xhr && xhr.responseText) {
+          const res = JSON.parse(xhr.responseText)
+          errorMsg = res.message || errorMsg
+        }
+      } catch (e) {}
+      Message.error(errorMsg)
+      console.error('Upload failed:', xhr?.status, xhr?.statusText)
     },
-    error: () => {
-      Message.error('图片上传出错')
+    error: (xhr) => {
+      Message.error('图片上传出错: ' + (xhr?.message || '网络错误'))
     },
     customInsert: (insertFn, result) => {
-      if (result.success && result.url) {
-        insertFn(result.url)
-        Message.success('图片上传成功')
-      } else {
-        Message.error(result.message || '图片上传失败')
+      try {
+        const data = typeof result === 'string' ? JSON.parse(result) : result
+        if (data.success && data.url) {
+          insertFn(data.url)
+          Message.success('图片上传成功')
+        } else {
+          Message.error(data.message || '图片上传失败')
+        }
+      } catch (e) {
+        Message.error('图片上传响应解析失败')
       }
     }
   }

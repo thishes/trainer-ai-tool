@@ -524,7 +524,10 @@ export default {
         onOk: () => {
           return new Promise(async (resolve, reject) => {
             try {
-              const loadingMsg = Message.loading(`正在删除 ${selectedIds.value.length} 道题目...`, { duration: 0 })
+              const loadingMsg = Message.loading({
+                content: `正在删除 ${selectedIds.value.length} 道题目...`,
+                duration: 0
+              })
               let successCount = 0
               let failCount = 0
               

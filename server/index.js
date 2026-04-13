@@ -157,12 +157,24 @@ app.set('io', io);
 // ============================================
 const ALLOWED_ORIGINS = config.CORS_ORIGINS
   ? config.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
-  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:5173']);
+  : [];
+
+const LOCALHOST_ORIGINS = [
+  'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002',
+  'http://localhost:5173', 'http://localhost:5174', 'http://localhost:8080',
+  'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:8080'
+];
+
+console.log('[CORS] ALLOWED_ORIGINS:', JSON.stringify(ALLOWED_ORIGINS));
+console.log('[CORS] NODE_ENV:', process.env.NODE_ENV);
 
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else if (LOCALHOST_ORIGINS.includes(origin)) {
+      console.log(`[CORS] 允许本地开发来源: ${origin}`);
       callback(null, true);
     } else {
       console.warn(`[CORS] 拒绝来源: ${origin}`);
@@ -204,9 +216,11 @@ const csrfExclude = [
   '/api/auth/me',
   '/api/auth/csrf-token',
   '/api/students/verify',
+  '/api/papers/public',
   '/api/exam/start',
   '/api/exam/save-progress',
   '/api/exam/submit',
+  '/api/exam/',
   '/api/promotions',
   '/api/promotions/:id/signups',
   '/api/announcements/upload',

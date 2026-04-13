@@ -200,7 +200,10 @@ export default {
           type: 'info',
           onOk: async () => {
             try {
-              const loadingMsg = Message.loading(`正在添加 ${selectedQuestions.value.length} 道题目到试卷...`, { duration: 0 })
+              const loadingMsg = Message.loading({
+                content: `正在添加 ${selectedQuestions.value.length} 道题目到试卷...`,
+                duration: 0
+              })
 
               const questionIds = selectedQuestions.value.map(q => q.id)
               const res = await addQuestionsToPaper(paperId, questionIds)

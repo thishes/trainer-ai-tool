@@ -62,9 +62,11 @@ router.get('/public/:id', asyncHandler(async (req, res) => {
     title: paper.title,
     description: paper.description,
     duration: paper.duration,
+    time_limit: paper.duration || 60,
     status: paper.status,
-    total_score: paper.total_score,
-    passing_score: paper.passing_score,
+    total_score: paper.total_score || 0,
+    passing_score: paper.passing_score || 60,
+    allow_all_users: true,
     trainer: owner ? { id: owner.id, username: owner.username, avatar: owner.avatar } : null
   });
 }));
@@ -87,27 +89,48 @@ router.get('/:id', authenticate, asyncHandler(async (req, res) => {
   });
 }));
 
-router.get('/:id/questions', asyncHandler(async (req, res) => {
-  const paper = await repo.getPublicPaper(req.params.id);
+router.get('/:id/questions', authenticate, asyncHandler(async (req, res) => {
+  const paper = await repo.getPaperById(req.params.id);
   if (!paper) {
-    return resp.notFound(res, '试卷不存在或未发布');
+    return resp.notFound(res, '试卷不存在');
   }
 
-  const questions = await repo.getQuestions();
-  const questionIds = paper.question_ids || [];
+  if (req.user.role !== 'admin' && paper.owner_id !== req.user.id) {
+    return resp.forbidden(res, '无权限');
+  }
 
-  const paperQuestions = questionIds.map((qid, index) => {
-    const q = questions.find(q => q.id === qid);
-    if (!q) return null;
-    return { id: q.id, title: q.title, type: q.type, options: q.options, score: q.score, order: index };
-  }).filter(q => q !== null);
+  try {
+    const paperQuestionRelations = await repo.getPaperQuestions(req.params.id);
 
-  resp.success(res, {
-    paper_id: paper.id,
-    title: paper.title,
-    duration: paper.duration,
-    questions: paperQuestions
-  });
+    if (paperQuestionRelations.length === 0) {
+      return resp.success(res, { list: [], total: 0 });
+    }
+
+    const questionIds = paperQuestionRelations.map(r => r.question_id);
+    const allQuestions = await repo.getQuestions();
+    const questionsMap = {};
+    (allQuestions || []).forEach(q => { questionsMap[q.id] = q; });
+
+    const paperQuestions = paperQuestionRelations.map(r => {
+      const q = questionsMap[r.question_id];
+      if (!q) return null;
+      return {
+        id: q.id,
+        title: q.title,
+        type: q.type,
+        options: q.options,
+        answer: q.answer,
+        score: r.score || q.score || 10,
+        order: r.order,
+        explanation: q.explanation
+      };
+    }).filter(q => q !== null);
+
+    resp.success(res, { list: paperQuestions, total: paperQuestions.length });
+  } catch (e) {
+    console.error('[Papers] getPaperQuestions error:', e.message);
+    resp.error(res, e.message || '获取题目失败');
+  }
 }));
 
 router.post('/', authenticate, validate(schemas.paperCreate), asyncHandler(async (req, res) => {
@@ -209,16 +232,23 @@ router.delete('/:id/questions/:questionId', authenticate, asyncHandler(async (re
     return resp.forbidden(res, '无权限');
   }
 
-  const questionId = parseInt(req.params.questionId);
-  const questionIds = paper.question_ids || [];
-  const index = questionIds.indexOf(questionId);
-  if (index === -1) {
-    return resp.error(res, '题目不在试卷中');
-  }
+  try {
+    const questionId = parseInt(req.params.questionId);
+    if (isNaN(questionId)) {
+      return resp.error(res, '无效的题目ID');
+    }
 
-  questionIds.splice(index, 1);
-  await repo.updatePaper(paper.id, { question_ids: questionIds });
-  resp.success(res, null, '移除成功');
+    const result = await repo.removeQuestionFromPaper(req.params.id, questionId);
+
+    if (result && result.affectedRows > 0) {
+      resp.success(res, null, '移除成功');
+    } else {
+      resp.error(res, '题目不在试卷中');
+    }
+  } catch (e) {
+    console.error('[Papers] removeQuestion error:', e.message);
+    resp.error(res, e.message || '移除失败');
+  }
 }));
 
 // 批量添加题目到试卷
@@ -236,19 +266,13 @@ router.post('/:id/questions', authenticate, asyncHandler(async (req, res) => {
     return resp.error(res, 'question_ids 必须是数组');
   }
 
-  const existingIds = new Set(paper.question_ids || []);
-  const newIds = question_ids.filter(id => !existingIds.has(id));
-  const finalIds = [...paper.question_ids || [], ...newIds];
-
-  const questionsMap = await repo.getQuestionsByIds(finalIds);
-  let totalScore = 0;
-  for (const id of finalIds) {
-    const q = questionsMap[id];
-    if (q) totalScore += q.score || 10;
+  try {
+    const result = await repo.addQuestionsToPaper(paper.id, question_ids);
+    resp.success(res, result, `成功添加 ${result.addedCount} 道题目`);
+  } catch (e) {
+    console.error('[Papers] addQuestionsToPaper error:', e.message);
+    resp.error(res, e.message || '添加题目失败');
   }
-
-  await repo.updatePaper(paper.id, { question_ids: finalIds, total_score: totalScore });
-  resp.success(res, { question_ids: finalIds, total_score: totalScore }, '添加成功');
 }));
 
 router.delete('/:id', authenticate, asyncHandler(async (req, res) => {
