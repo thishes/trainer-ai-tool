@@ -156,6 +156,11 @@
         </div>
       </div>
     </a-card>
+
+    <div class="footer">
+      <span>© thishe.com</span>
+      <span style="margin-left: 12px; opacity: 0.6;">v{{ APP_VERSION }}</span>
+    </div>
   </div>
 </template>
 
@@ -164,6 +169,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getExamResult } from '@/api'
 import { formatDateTime } from '@/utils/date'
+import { EXAM_CONFIG } from '@/config/constants'
+import { APP_VERSION } from '@/version'
 
 export default {
   name: 'ExamResult',
@@ -183,7 +190,9 @@ export default {
           error.value = '缺少考试记录ID'
           return
         }
-        const res = await getExamResult(examId)
+        const studentName = route.query.student_name
+        const params = studentName ? { student_name: studentName } : {}
+        const res = await getExamResult(examId, { params })
         result.value = res.data
       } catch (e) {
         console.error('加载考试结果失败:', e)
@@ -240,7 +249,7 @@ export default {
       }
       if (score >= 90) return '优秀'
       if (score >= 70) return '良好'
-      if (score >= 60) return '及格'
+      if (score >= EXAM_CONFIG.PASS_SCORE) return '及格'
       return '不及格'
     })
 
@@ -573,6 +582,15 @@ export default {
 /* 错误状态 */
 .error-state {
   padding: 40px 0;
+}
+
+.result-page .footer {
+  text-align: center;
+  padding: 20px 16px;
+  color: var(--text-secondary, #86909c);
+  font-size: 13px;
+  border-top: 1px solid var(--border-color-light, #e5e6eb);
+  margin-top: 40px;
 }
 
 /* 响应式 */

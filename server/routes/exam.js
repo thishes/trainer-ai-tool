@@ -11,6 +11,27 @@ const resp = require('../utils/response');
 
 // 问答题类型判断函数
 const isEssayQuestion = (type) => ['subjective', 'essay', 'question'].includes(type);
+const PASS_SCORE = 60;
+
+const statsCache = new Map();
+const STATS_CACHE_TTL = 10000;
+
+function getCachedStats(paperId) {
+  const key = `stats:${paperId}`;
+  const cached = statsCache.get(key);
+  if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedStats(paperId, data) {
+  statsCache.set(`stats:${paperId}`, { data, timestamp: Date.now() });
+}
+
+function invalidateStatsCache(paperId) {
+  statsCache.delete(`stats:${paperId}`);
+}
 
 // 测试接口
 router.get('/test', authenticate, (req, res) => {
@@ -20,6 +41,10 @@ router.get('/test', authenticate, (req, res) => {
 // 开始考试
 router.post('/start', rateLimiters.api, validate(schemas.examStart), asyncHandler(async (req, res) => {
   const { paper_id, student_name, user_id, access_code } = req.body;
+
+  if (student_name && /<[^>]*>/.test(student_name)) {
+    return resp.error(res, '参数包含非法字符', 400);
+  }
 
   const paper = await repo.getPublicPaper(paper_id);
   if (!paper) {
@@ -64,13 +89,22 @@ router.post('/start', rateLimiters.api, validate(schemas.examStart), asyncHandle
   const examRecord = await repo.createExamRecord({
     paper_id: paper.id,
     paper_key_id: paper.key_id,
-    user_id: user_id ? parseInt(user_id) : null,
+    student_id: user_id ? parseInt(user_id) : null,
     student_name: student_name || '匿名学员',
     ip_address: req.ip,
     start_time: new Date().toISOString(),
     status: 'in_progress',
     answers: {}
   });
+
+  console.log('[EXAM_START] {', JSON.stringify({
+    paper_id: paper.id,
+    paper_title: paper.title,
+    student_name: student_name || '匿名学员',
+    ip: req.ip || req.headers['x-forwarded-for'] || 'unknown',
+    exam_id: examRecord.id,
+    timestamp: new Date().toISOString()
+  }), '}');
 
   res.json({
     success: true,
@@ -117,7 +151,11 @@ router.get('/:examId/questions', asyncHandler(async (req, res) => {
 
   // 批量获取题目 - 解决 N+1 查询问题
   const questionIds = paperQuestions.map(pq => pq.question_id).filter(Boolean);
-  const questionsMap = await repo.getQuestionsByIds(questionIds);
+  const questionsList = await repo.getQuestionsByIds(questionIds);
+  const questionsMap = {};
+  for (const q of questionsList) {
+    questionsMap[q.id] = q;
+  }
 
   let questions = [];
   for (const pq of paperQuestions) {
@@ -208,7 +246,11 @@ router.post('/submit', rateLimiters.api, validate(schemas.examSubmit), asyncHand
 
   // 批量获取题目 - 解决 N+1 查询（原来每道题一次查询）
   const questionIds = paperQuestions.map(pq => pq.question_id).filter(Boolean);
-  const questionsMap = await repo.getQuestionsByIds(questionIds);
+  const questionsList = await repo.getQuestionsByIds(questionIds);
+  const questionsMap = {};
+  for (const q of questionsList) {
+    questionsMap[q.id] = q;
+  }
 
   // 自动批改客观题
   let totalScore = 0;
@@ -283,23 +325,47 @@ router.post('/submit', rateLimiters.api, validate(schemas.examSubmit), asyncHand
     };
   }
 
-  // 计算客观题总分（从已缓存的 questionsMap，无需再查）
-  const objectiveTotalScore = paperQuestions
-    .filter(pq => {
-      const q = questionsMap[pq.question_id];
-      return q && !isEssayQuestion(q.type);
-    })
-    .reduce((sum, pq) => sum + pq.score, 0);
+  // ========== 科学计分算法：客观题/主观题分离 ==========
+  
+  // 1. 计算客观题得分和满分
+  const objectiveQuestions = paperQuestions.filter(pq => {
+    const q = questionsMap[pq.question_id];
+    return q && !isEssayQuestion(q.type);
+  });
+  const objectiveTotalScore = objectiveQuestions.reduce((sum, pq) => sum + (pq.score || 0), 0);
+  
+  // 2. 计算主观题满分（主观题不自动批改，待人工/AI评分）
+  const essayQuestions = paperQuestions.filter(pq => {
+    const q = questionsMap[pq.question_id];
+    return q && isEssayQuestion(q.type);
+  });
+  const subjectiveTotalScore = essayQuestions.reduce((sum, pq) => sum + (pq.score || 0), 0);
 
-  const finalPercentage = objectiveTotalScore > 0 ? Math.round((totalScore / objectiveTotalScore) * 100) : 0;
+  // 3. 计算最终百分比
+  let finalPercentage;
+  if (!hasEssay) {
+    // 纯客观题：百分比 = 客观题得分 / 客观题满分 × 100
+    finalPercentage = objectiveTotalScore > 0 ? Math.round((totalScore / objectiveTotalScore) * 100) : 0;
+  } else {
+    // 有主观题：当前只显示客观题部分得分率（标注"待评主观题"）
+    // 最终百分比需在主观题评分后重新计算
+    const totalPossible = objectiveTotalScore + subjectiveTotalScore;
+    if (totalPossible > 0) {
+      finalPercentage = Math.round((totalScore / totalPossible) * 100);
+    } else {
+      finalPercentage = Math.round((totalScore / objectiveTotalScore) * 100);
+    }
+  }
 
+  // 4. 更新考试记录（包含分离计分字段）
   await repo.updateExamRecord(exam_id, {
     answers,
-    essay_answers: Object.keys(essayAnswers).length > 0 ? essayAnswers : null,
     score: totalScore,
     percentage: finalPercentage,
     objective_score: totalScore,
     objective_total: objectiveTotalScore,
+    subjective_score: null, // 主观题待评分
+    subjective_total: subjectiveTotalScore || 0,
     end_time: new Date().toISOString(),
     status: hasEssay ? 'submitted' : 'graded'
   });
@@ -361,20 +427,40 @@ router.post('/submit', rateLimiters.api, validate(schemas.examSubmit), asyncHand
       title: paper.title,
       student_name: examRecord.student_name,
       score: totalScore,
-      total_score: objectiveTotalScore,
+      total_score: objectiveTotalScore + subjectiveTotalScore,
       objective_score: totalScore,
       objective_total: objectiveTotalScore,
+      subjective_score: null,
+      subjective_total: subjectiveTotalScore || 0,
       percentage: finalPercentage,
       correct_count: correctCount,
       total_count: paperQuestions.length,
       has_essay: hasEssay,
       has_essay_questions: hasEssay,
+      essay_count: essayQuestions.length,
+      status: hasEssay ? 'submitted' : 'graded',
       start_time: examRecord.start_time,
       end_time: new Date().toISOString(),
       show_score: paper.show_score,
       show_answer: paper.show_answer
     }
   });
+
+  console.log('[EXAM_SUBMIT] {', JSON.stringify({
+    exam_id: examRecord.id,
+    paper_id: examRecord.paper_id,
+    paper_title: paper.title,
+    student_name: examRecord.student_name,
+    score: totalScore,
+    percentage: finalPercentage,
+    ip: clientIp,
+    status: hasEssay ? 'submitted' : 'graded',
+    timestamp: new Date().toISOString()
+  }), '}');
+
+  if (examRecord.paper_id) {
+    invalidateStatsCache(examRecord.paper_id);
+  }
 }));
 
 // AI批改主观题
@@ -395,7 +481,11 @@ router.post('/ai-grade', authenticate, asyncHandler(async (req, res) => {
 
   // 批量获取题目
   const questionIds = paperQuestions.map(pq => pq.question_id).filter(Boolean);
-  const questionsMap = await repo.getQuestionsByIds(questionIds);
+  const questionsList = await repo.getQuestionsByIds(questionIds);
+  const questionsMap = {};
+  for (const q of questionsList) {
+    questionsMap[q.id] = q;
+  }
 
   const subjectiveQuestions = paperQuestions.filter(pq => {
     const q = questionsMap[pq.question_id];
@@ -417,27 +507,50 @@ router.post('/ai-grade', authenticate, asyncHandler(async (req, res) => {
 }));
 
 // 获取考试结果
-router.get('/:examId/result', authenticate, asyncHandler(async (req, res) => {
+router.get('/:examId/result', asyncHandler(async (req, res) => {
   const examRecord = await repo.getExamRecordById(req.params.examId);
   if (!examRecord) {
     return resp.notFound(res, '考试记录不存在');
   }
 
-  const isAdmin = req.user.role === 'admin';
-  const isTrainer = req.user.role === 'trainer';
   const queryName = req.query.student_name;
-  const isOwner = examRecord.student_name && examRecord.student_name === queryName;
 
-  if (!isAdmin && !isTrainer && !isOwner) {
-    return resp.forbidden(res, '无权限查看此考试结果');
+  if (queryName) {
+    if (/<[^>]*>/.test(queryName)) {
+      return resp.error(res, '参数包含非法字符', 400);
+    }
+  }
+
+  if (req.user) {
+    const isAdmin = req.user.role === 'admin';
+    const isTrainer = req.user.role === 'trainer';
+    const isOwner = examRecord.student_name && examRecord.student_name === queryName;
+
+    if (!isAdmin && !isTrainer && !isOwner) {
+      return resp.forbidden(res, '无权限查看此考试结果');
+    }
+  } else {
+    if (!queryName) {
+      return resp.error(res, '请提供考生姓名参数', 400);
+    }
+    if (examRecord.student_name && examRecord.student_name !== queryName) {
+      return resp.forbidden(res, '无权限查看此考试结果');
+    }
   }
 
   const paper = await repo.getPaperById(examRecord.paper_id);
+  if (!paper) {
+    return resp.notFound(res, '试卷不存在');
+  }
   const paperQuestions = await repo.getPaperQuestionsByPaperId(paper.id);
 
   // 批量获取题目 - 修复 N+1 查询
   const questionIds = paperQuestions.map(pq => pq.question_id).filter(Boolean);
-  const questionsMap = await repo.getQuestionsByIds(questionIds);
+  const questionsList = await repo.getQuestionsByIds(questionIds);
+  const questionsMap = {};
+  for (const q of questionsList) {
+    questionsMap[q.id] = q;
+  }
 
   const hasEssay = paperQuestions.some(pq => {
     const q = questionsMap[pq.question_id];
@@ -487,7 +600,7 @@ router.get('/:examId/result', authenticate, asyncHandler(async (req, res) => {
     if (p >= 90) distribution[0].count++;
     else if (p >= 80) distribution[1].count++;
     else if (p >= 70) distribution[2].count++;
-    else if (p >= 60) distribution[3].count++;
+    else if (p >= PASS_SCORE) distribution[3].count++;
     else distribution[4].count++;
   });
 
@@ -521,6 +634,12 @@ router.get('/:examId/result', authenticate, asyncHandler(async (req, res) => {
 // 获取大屏数据
 router.get('/stats/:paperId', authenticate, asyncHandler(async (req, res) => {
   const { paperId } = req.params;
+
+  const cached = getCachedStats(paperId);
+  if (cached) {
+    return res.json({ success: true, data: cached });
+  }
+
   const paper = await repo.getPaperById(paperId);
 
   if (!paper || (req.user.role !== "admin" && paper.user_id !== req.user.id)) {
@@ -549,22 +668,26 @@ router.get('/stats/:paperId', authenticate, asyncHandler(async (req, res) => {
     { range: '90-100', count: scores.filter(s => s >= 90).length },
     { range: '80-89', count: scores.filter(s => s >= 80 && s < 90).length },
     { range: '70-79', count: scores.filter(s => s >= 70 && s < 80).length },
-    { range: '60-69', count: scores.filter(s => s >= 60 && s < 70).length },
+    { range: '60-69', count: scores.filter(s => s >= PASS_SCORE && s < 70).length },
     { range: '0-59', count: scores.filter(s => s < 60).length }
   ];
 
+  const statsData = {
+    paper_id: paperId,
+    title: paper.title,
+    total_submitted: records.length,
+    avg_score: avgScore.toFixed(1),
+    pass_rate: passRate,
+    highest_score: scores.length > 0 ? Math.max(...scores).toFixed(1) : 0,
+    ranking,
+    distribution
+  };
+
+  setCachedStats(paperId, statsData);
+
   res.json({
     success: true,
-    data: {
-      paper_id: paperId,
-      title: paper.title,
-      total_submitted: records.length,
-      avg_score: avgScore.toFixed(1),
-      pass_rate: passRate,
-      highest_score: scores.length > 0 ? Math.max(...scores).toFixed(1) : 0,
-      ranking,
-      distribution
-    }
+    data: statsData
   });
 }));
 
@@ -650,34 +773,54 @@ router.get('/pending-grading/:paperId', authenticate, asyncHandler(async (req, r
     }
   }
 
-  // 过滤出有问答题答案的记录
+  // 过滤出需要评分的记录（有主观题且尚未完全评分）
   const pendingGrading = records.filter(r => {
-    if (!r.essay_answers) return false;
-    return Object.keys(r.essay_answers).length > 0;
+    if (r.subjective_total > 0 && r.subjective_score === null) return true;
+    if (r.essay_answers && Object.keys(r.essay_answers).length > 0) return true;
+    if (r.status === 'submitted') return true;
+    return false;
   });
 
   const total = pendingGrading.length;
   const startIndex = (page - 1) * pageSize;
   const paginatedRecords = pendingGrading.slice(startIndex, startIndex + pageSize);
 
-  const enrichedRecords = paginatedRecords.map(r => {
+  const enrichedRecords = await Promise.all(paginatedRecords.map(async (r) => {
     const essayList = [];
-    for (const qId of Object.keys(r.essay_answers || {})) {
-      const qIdNum = parseInt(qId);
-      if (essayQuestionIds.has(qIdNum)) {
-        const q = questionsMap.get(qIdNum);
-        if (q) {
+
+    if (r.essay_answers && Object.keys(r.essay_answers).length > 0) {
+      for (const qId of Object.keys(r.essay_answers)) {
+        const qIdNum = parseInt(qId);
+        if (essayQuestionIds.has(qIdNum)) {
+          const q = questionsMap.get(qIdNum);
+          if (q) {
+            essayList.push({
+              question_id: qIdNum,
+              title: q.title,
+              max_score: r.essay_answers[qId].max_score,
+              user_answer: r.essay_answers[qId].user_answer
+            });
+          }
+        }
+      }
+    } else if (r.status === 'submitted' || (r.subjective_total > 0 && r.subjective_score === null)) {
+      const recordPaperQuestions = await repo.getPaperQuestionsByPaperId(paperId);
+      const recordAnswers = r.answers || {};
+      for (const pq of recordPaperQuestions) {
+        const q = questionsMap.get(pq.question_id);
+        if (q && isEssayQuestion(q.type)) {
           essayList.push({
-            question_id: qIdNum,
+            question_id: pq.question_id,
             title: q.title,
-            max_score: r.essay_answers[qId].max_score,
-            user_answer: r.essay_answers[qId].user_answer
+            max_score: pq.score || 0,
+            user_answer: recordAnswers[pq.question_id] || ''
           });
         }
       }
     }
+
     return { ...r, essay_questions: essayList };
-  });
+  }));
 
   res.json({
     success: true,
@@ -717,10 +860,17 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
   let totalEssayScore = 0;
   let totalMaxScore = 0;
 
+  const gradePaperQuestions = paper.key_id ? await repo.getPaperQuestionsByPaperKeyId(paper.key_id) : await repo.getPaperQuestionsByPaperId(paper.id);
+
   // 保存每题评分
   for (const item of scores) {
     const { question_id, score, remark } = item;
-    const maxScore = examRecord.essay_answers?.[question_id]?.max_score || 0;
+    let maxScore = examRecord.essay_answers?.[question_id]?.max_score;
+    if (!maxScore) {
+      const pq = gradePaperQuestions.find(p => p.question_id === parseInt(question_id));
+      maxScore = pq?.score || 0;
+    }
+    maxScore = maxScore || 0;
 
     await repo.upsertEssayScore({
       exam_record_id,
@@ -736,8 +886,15 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
     totalMaxScore += maxScore;
   }
 
-  // 检查是否所有问答题都已评分
-  const essayQuestionIds = Object.keys(examRecord.essay_answers || {}).map(k => parseInt(k));
+  // 检查是否所有问答题都已评分（兼容新旧数据模型）
+  let essayQuestionIds = [];
+  if (examRecord.essay_answers && Object.keys(examRecord.essay_answers).length > 0) {
+    essayQuestionIds = Object.keys(examRecord.essay_answers).map(k => parseInt(k));
+  } else {
+    const gqIds = gradePaperQuestions.map(pq => pq.question_id).filter(Boolean);
+    const gqsList = await repo.getQuestionsByIds(gqIds);
+    essayQuestionIds = gqsList.filter(q => isEssayQuestion(q.type)).map(q => q.id);
+  }
   let allGraded = true;
   for (const qId of essayQuestionIds) {
     const existingScore = await repo.findEssayScoreByRecordAndQuestion(exam_record_id, qId);
@@ -748,17 +905,19 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
   }
 
   // 如果全部评分完成，更新总分和状态
-  if (allGraded && examRecord.essay_answers) {
+  if (allGraded) {
     const objectiveScore = examRecord.score || 0;
 
-    // 批量获取题目 - 修复直接引用 db.questions.findById
-    const allPaperQuestions = paper.key_id ? await repo.getPaperQuestionsByPaperKeyId(paper.key_id) : [];
-    const questionIds = allPaperQuestions.map(pq => pq.question_id).filter(Boolean);
-    const questionsMap = await repo.getQuestionsByIds(questionIds);
+    const gqIds2 = gradePaperQuestions.map(pq => pq.question_id).filter(Boolean);
+    const questionsList2 = await repo.getQuestionsByIds(gqIds2);
+    const questionsMap2 = {};
+    for (const q of questionsList2) {
+      questionsMap2[q.id] = q;
+    }
 
-    const totalObjectiveScore = allPaperQuestions
+    const totalObjectiveScore = gradePaperQuestions
       .filter(pq => {
-        const q = questionsMap[pq.question_id];
+        const q = questionsMap2[pq.question_id];
         return q && !isEssayQuestion(q.type);
       })
       .reduce((sum, pq) => sum + pq.score, 0);
@@ -771,6 +930,7 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
     await repo.updateExamRecord(exam_record_id, {
       score: finalScore,
       percentage: finalPercentage,
+      subjective_score: totalEssayScore,  // 更新主观题得分
       status: 'graded'
     });
   }
@@ -783,6 +943,18 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
       all_graded: allGraded
     }
   });
+
+  console.log('[ESSAY_GRADE] {', JSON.stringify({
+    exam_record_id,
+    paper_id: examRecord.paper_id,
+    student_name: examRecord.student_name,
+    graded_by: req.user.id,
+    graded_by_name: req.user.name || req.user.username,
+    total_essay_score: totalEssayScore,
+    questions_graded: scores.length,
+    all_graded: allGraded,
+    timestamp: new Date().toISOString()
+  }), '}');
 }));
 
 module.exports = router;

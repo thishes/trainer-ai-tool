@@ -80,7 +80,7 @@
                 <tr v-else v-for="(q, index) in paginatedQuestions" :key="q.id">
                   <td><a-checkbox :model-value="selectedIds.includes(q.id)" @change="(val) => toggleSelect(q.id, val)" /></td>
                   <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
-                  <td class="title-cell" v-html="q.title"></td>
+                  <td class="title-cell"><SafeHtml :html="q.title" /></td>
                   <td>
                     <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
                     <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
@@ -150,7 +150,7 @@
                 <tr v-else v-for="(q, index) in paginatedQuestions" :key="q.id">
                   <td><a-checkbox :model-value="selectedIds.includes(q.id)" @change="(val) => toggleSelect(q.id, val)" /></td>
                   <td>{{ (questionPage - 1) * questionPageSize + index + 1 }}</td>
-                  <td class="title-cell" v-html="q.title"></td>
+                  <td class="title-cell"><SafeHtml :html="q.title" /></td>
                   <td>
                     <span v-if="q.type === 'single'" class="tag tag-blue">单选</span>
                     <span v-else-if="q.type === 'multiple'" class="tag tag-orange">多选</span>
@@ -339,6 +339,7 @@ import { getQuestions, createQuestion, updateQuestion, deleteQuestion as deleteQ
 import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
 import { IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus } from '@arco-design/web-vue/es/icon'
 import * as XLSX from 'xlsx'
+import SafeHtml from '@/components/SafeHtml.vue'
 
 export default {
   name: 'QuestionsPanel',

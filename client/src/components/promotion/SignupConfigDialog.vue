@@ -204,12 +204,6 @@ const removeField = (index) => {
 const handleSave = async () => {
   if (!props.promotion?.id) return
 
-  // 验证班次
-  if (form.enable_signup && form.signup_config.classes.length === 0) {
-    Message.warning('请至少添加一个班次')
-    return
-  }
-
   // 验证自定义字段
   for (const field of form.signup_config.fields) {
     if (!field.name || !field.label) {
@@ -252,7 +246,7 @@ const handleClose = () => {
 watch(() => props.visible, (val) => {
   if (val && props.promotion) {
     const config = props.promotion.signup_config || {}
-    form.enable_signup = props.promotion.enable_signup || false
+    form.enable_signup = !!props.promotion.enable_signup
     form.signup_config.require_approval = config.require_approval || false
     form.signup_config.max_signups = config.max_signups || null
     form.signup_config.deadline = config.deadline || null

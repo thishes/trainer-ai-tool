@@ -46,7 +46,7 @@
           <tbody>
             <tr v-for="(a, index) in paginatedAnnouncements" :key="a.id">
               <td>{{ (announcementPage - 1) * announcementPageSize + index + 1 }}</td>
-              <td class="title-cell" v-html="a.title"></td>
+              <td class="title-cell"><SafeHtml :html="a.title" /></td>
               <td>
                 <span v-if="a.importance === 'high'" class="tag tag-red">重要</span>
                 <span v-else-if="a.importance === 'medium'" class="tag tag-orange">一般</span>
@@ -117,9 +117,11 @@ import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import E from 'wangeditor'
 import { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '@/api'
+import SafeHtml from '@/components/SafeHtml.vue'
 
 export default {
   name: 'AnnouncementsPanel',
+  components: { SafeHtml },
   setup() {
     const announcements = ref([])
     const announcementsLoading = ref(false)

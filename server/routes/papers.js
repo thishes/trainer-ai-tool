@@ -140,6 +140,7 @@ router.post('/', authenticate, validate(schemas.paperCreate), asyncHandler(async
     title,
     description: description || '',
     owner_id: req.user.id,
+    user_id: req.user.id,
     duration: duration || 60,
     total_score: 0,
     question_ids: question_ids || [],
@@ -152,7 +153,11 @@ router.post('/', authenticate, validate(schemas.paperCreate), asyncHandler(async
 
   if (question_ids && question_ids.length > 0) {
     // 批量获取题目 - 修复 N+1
-    const questionsMap = await repo.getQuestionsByIds(question_ids);
+    const questionsList = await repo.getQuestionsByIds(question_ids);
+    const questionsMap = {};
+    for (const q of questionsList) {
+      questionsMap[q.id] = q;
+    }
     let totalScore = 0;
     for (const qid of question_ids) {
       const q = questionsMap[qid];
@@ -186,7 +191,11 @@ router.put('/:id', authenticate, validate(schemas.paperUpdate), asyncHandler(asy
   if (question_ids !== undefined) {
     updates.question_ids = question_ids;
     // 批量获取题目
-    const questionsMap = await repo.getQuestionsByIds(question_ids);
+    const questionsList = await repo.getQuestionsByIds(question_ids);
+    const questionsMap = {};
+    for (const q of questionsList) {
+      questionsMap[q.id] = q;
+    }
     let totalScore = 0;
     for (const qid of question_ids) {
       const q = questionsMap[qid];
@@ -209,7 +218,8 @@ router.post('/:id/publish', authenticate, asyncHandler(async (req, res) => {
     return resp.forbidden(res, '无权限');
   }
 
-  if (!paper.question_ids || paper.question_ids.length === 0) {
+  const paperQuestions = await repo.getPaperQuestions(req.params.id);
+  if (!paperQuestions || paperQuestions.length === 0) {
     return resp.error(res, '试卷暂无题目');
   }
 

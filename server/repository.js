@@ -214,10 +214,12 @@ const repository = {
   getPaperByKeyId: (keyId) => withFallback(() => mysqlDb.getPaperByKeyId(keyId), () => null, 'getPaperByKeyId'),
   getPaperQuestionsByPaperKeyId: (keyId) => withFallback(() => mysqlDb.getPaperQuestionsByPaperKeyId(keyId), () => [], 'getPaperQuestionsByPaperKeyId'),
   getPaperStudentsByPaperKeyId: (keyId) => withFallback(() => mysqlDb.getPaperStudentsByPaperKeyId(keyId), () => [], 'getPaperStudentsByPaperKeyId'),
+  getPaperStudentsByPaperId: (paperId) => withFallback(() => mysqlDb.getPaperStudentsByPaperId(paperId), () => [], 'getPaperStudentsByPaperId'),
   createPaper: (data) => withFallback(() => mysqlDb.createPaper(data), () => jsonDb.createPaper(data), 'createPaper'),
   updatePaper: (id, updates) => withFallback(() => mysqlDb.updatePaper(id, updates), () => jsonDb.updatePaper(id, updates), 'updatePaper'),
   addQuestionsToPaper: (paperId, questionIds) => withFallback(() => mysqlDb.addQuestionsToPaper(paperId, questionIds), () => { throw new Error('JSON fallback not supported'); }, 'addQuestionsToPaper'),
   getPaperQuestions: (paperId) => withFallback(() => mysqlDb.getPaperQuestions(paperId), () => [], 'getPaperQuestions'),
+  getPaperQuestionsByPaperId: (paperId) => withFallback(() => mysqlDb.getPaperQuestionsByPaperId(paperId), () => [], 'getPaperQuestionsByPaperId'),
   removeQuestionFromPaper: (paperId, questionId) => withFallback(() => mysqlDb.removeQuestionFromPaper(paperId, questionId), () => { throw new Error('JSON fallback not supported'); }, 'removeQuestionFromPaper'),
   deletePaper: (id) => withFallback(() => mysqlDb.deletePaper(id), () => jsonDb.deletePaper(id), 'deletePaper'),
 

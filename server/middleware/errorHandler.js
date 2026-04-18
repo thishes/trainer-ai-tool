@@ -108,12 +108,14 @@ function errorHandler(err, req, res, next) {
 
   errorLog(err, req);
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   if (err.isOperational) {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
       code: err.code,
-      details: err.details || []
+      details: isProduction ? [] : (err.details || [])
     });
   }
 
@@ -130,7 +132,7 @@ function errorHandler(err, req, res, next) {
       success: false,
       message: err.message || '请求参数错误',
       code: 'VALIDATION_ERROR',
-      details: err.details || []
+      details: isProduction ? [] : (err.details || [])
     });
   }
 
@@ -153,10 +155,11 @@ function errorHandler(err, req, res, next) {
   console.error('[FATAL] Unhandled error:', err);
   return res.status(500).json({
     success: false,
-    message: process.env.NODE_ENV === 'production'
+    message: isProduction
       ? '服务器内部错误，请联系管理员'
       : err.message,
-    code: 'INTERNAL_ERROR'
+    code: 'INTERNAL_ERROR',
+    ...(isProduction ? {} : { stack: err.stack })
   });
 }
 

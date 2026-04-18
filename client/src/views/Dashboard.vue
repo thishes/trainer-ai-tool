@@ -103,7 +103,6 @@
         <AnnouncementsPanel />
       </div>
 
-      <!-- 待评分页面 - 使用 GradingPanel 子组件 -->
       <div v-if="activatedTabs.grading" v-show="activeTab === 'grading'" class="page-view">
         <GradingPanel ref="gradingPanelRef" @graded="onGraded" />
       </div>
@@ -127,22 +126,23 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Message, Modal } from '@arco-design/web-vue'
+import { Message, Modal, Spin } from '@arco-design/web-vue'
 import { checkUpgrade, doUpgrade, getPapers, logout } from '@/api'
 import { formatDateTime } from '@/utils/date'
 import { APP_VERSION } from '@/version'
 import { useUserStore } from '@/stores/user'
 import { useSocket, disconnectSocket } from '@/composables/useSocket'
-import SystemSettings from './SystemSettings.vue'
-import PromotionsPanel from './PromotionsPanel.vue'
-import GradingPanel from '@/views/GradingPanel.vue'
-import UsersPanel from '@/views/UsersPanel.vue'
-import AnnouncementsPanel from '@/views/AnnouncementsPanel.vue'
-import QuestionsPanel from '@/views/QuestionsPanel.vue'
-import PapersPanel from '@/views/PapersPanel.vue'
-import ExamStatsPanel from '@/views/ExamStatsPanel.vue'
+
+const SystemSettings = defineAsyncComponent(() => import('./SystemSettings.vue'))
+const PromotionsPanel = defineAsyncComponent(() => import('./PromotionsPanel.vue'))
+const GradingPanel = defineAsyncComponent(() => import('@/views/GradingPanel.vue'))
+const UsersPanel = defineAsyncComponent(() => import('@/views/UsersPanel.vue'))
+const AnnouncementsPanel = defineAsyncComponent(() => import('@/views/AnnouncementsPanel.vue'))
+const QuestionsPanel = defineAsyncComponent(() => import('@/views/QuestionsPanel.vue'))
+const PapersPanel = defineAsyncComponent(() => import('@/views/PapersPanel.vue'))
+const ExamStatsPanel = defineAsyncComponent(() => import('@/views/ExamStatsPanel.vue'))
 
 export default {
   name: 'Dashboard',
@@ -499,6 +499,13 @@ export default {
   max-width: 1400px;
   margin: 0 auto;
   overflow-x: auto;
+}
+
+.loading-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
 }
 
 @keyframes fadeIn {

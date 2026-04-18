@@ -302,6 +302,14 @@ watch(dialogVisible, async (visible) => {
   }
 })
 
+watch(() => form.value.enable_signup, (val) => {
+  if (val && !form.value.signup_config) {
+    form.value.signup_config = { enabled: true, classes: [], fields: [], deadline: null, max_signups: 0 }
+  } else if (form.value.signup_config) {
+    form.value.signup_config.enabled = val
+  }
+})
+
 const filteredPromotions = computed(() => {
   if (!debouncedSearchKeyword.value) return promotions.value
   const keyword = debouncedSearchKeyword.value.toLowerCase()
@@ -393,6 +401,14 @@ const handleSave = async () => {
   if (editorInstance) {
     form.value.content = editorInstance.txt.html()
   }
+
+  // 同步：如果开启了报名但还没有 signup_config，初始化默认配置
+  if (form.value.enable_signup && !form.value.signup_config) {
+    form.value.signup_config = { enabled: true, classes: [], fields: [], deadline: null, max_signups: 0 }
+  } else if (!form.value.enable_signup && form.value.signup_config) {
+    form.value.signup_config.enabled = false
+  }
+
   saving.value = true
   try {
     if (isEditing.value) {

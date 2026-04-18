@@ -314,6 +314,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { getPapers, createPaper, publishPaper, unpublishPaper, deletePaper as deletePaperApi, getPaperExamUrl, getExamRecords, getPaperStudents, addPaperStudents, removePaperStudent, createStudent, exportPaperStudents, importStudents, createRandomPaper } from '../api'
 import { IconDown, IconPlus, IconUpload, IconDownload } from '@arco-design/web-vue/es/icon'
+import { EXAM_CONFIG } from '@/config/constants'
 
 export default {
   name: 'PapersPanel',
@@ -530,7 +531,7 @@ export default {
       paperForm.value = {
         title: row.title || '',
         description: row.description || '',
-        time_limit: row.duration || 60,
+        time_limit: row.duration || EXAM_CONFIG.DEFAULT_TIME_LIMIT,
         shuffle: row.shuffle || false,
         show_score: row.show_score !== false,
         show_answer: row.show_answer !== false,

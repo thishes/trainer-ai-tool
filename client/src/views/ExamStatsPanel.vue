@@ -112,6 +112,17 @@ import { getExamStats } from '../api'
 import { useSocket } from '@/composables/useSocket'
 import { IconUser, IconDashboard, IconCheckCircle, IconTrophy, IconBarChart, IconRobot } from '@arco-design/web-vue/es/icon'
 
+function debounce(fn, delay) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(this, args);
+      timer = null;
+    }, delay);
+  };
+}
+
 export default {
   name: 'ExamStatsPanel',
   components: { IconUser, IconDashboard, IconCheckCircle, IconTrophy, IconBarChart, IconRobot },
@@ -130,6 +141,7 @@ export default {
     })
     const newEntryAnimation = ref(null)
     const newEntryKey = ref(0)
+    let animationTimer = null
 
     const loadStats = async () => {
       if (!selectedPaper.value) return
@@ -162,23 +174,28 @@ export default {
       return new Date(dateStr).toLocaleString()
     }
 
+    const debouncedUpdateStats = debounce((data) => {
+      stats.value = {
+        ...stats.value,
+        ranking: Array.isArray(data.ranking) ? data.ranking : [],
+        total_submitted: data.total_submitted
+      }
+    }, 300)
+
     const initSocket = () => {
       const socket = useSocket()
 
       socket.on('rank-update', (data) => {
         if (data.paper_id === selectedPaper.value) {
           const prevRanking = stats.value.ranking || []
-          stats.value = {
-            ...stats.value,
-            ranking: Array.isArray(data.ranking) ? data.ranking : [],
-            total_submitted: data.total_submitted
-          }
+          debouncedUpdateStats(data)
           if (data.newEntry) {
             const prevRank = prevRanking.find(r => r.student_name === data.newEntry.student_name)?.rank
             if (!prevRank || prevRank > data.newEntry.rank) {
               newEntryAnimation.value = data.newEntry
               newEntryKey.value++
-              setTimeout(() => { newEntryAnimation.value = null }, 3000)
+              if (animationTimer) clearTimeout(animationTimer)
+              animationTimer = setTimeout(() => { newEntryAnimation.value = null }, 3000)
             }
           }
         }
@@ -200,9 +217,12 @@ export default {
     })
 
     onUnmounted(() => {
-      // 只离开房间，不断开 Socket（Dashboard 管理连接生命周期）
       if (stats.value.paper_id) {
         leavePaperRoom(stats.value.paper_id)
+      }
+      if (animationTimer) {
+        clearTimeout(animationTimer)
+        animationTimer = null
       }
       const socket = useSocket()
       socket.off('rank-update')

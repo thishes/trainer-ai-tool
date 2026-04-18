@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const crypto = require('crypto');
 
 const DB_CONFIG = {
   host: process.env.DB_HOST,
@@ -270,6 +271,12 @@ function parseJSONField(value) {
   return value;
 }
 
+function generateKeyId(prefix = '') {
+  const timestamp = Date.now().toString(36);
+  const randomPart = crypto.randomBytes(4).toString('hex');
+  return `${prefix}${timestamp}${randomPart}`.toUpperCase();
+}
+
 const db = {
   query,
   findOne,
@@ -438,18 +445,19 @@ const db = {
   },
 
   async getPapers(ownerId = null) {
-    let sql = 'SELECT * FROM papers';
+    let sql = `SELECT p.*, (SELECT COUNT(*) FROM paper_questions WHERE paper_id = p.id) AS question_count FROM papers p`;
     const params = [];
     if (ownerId) {
-      sql += ' WHERE owner_id = ?';
+      sql += ' WHERE p.owner_id = ?';
       params.push(ownerId);
     }
-    sql += ' ORDER BY id DESC';
+    sql += ' ORDER BY p.id DESC';
     const rows = await findAll(sql, params);
     return rows.map(p => ({
       ...p,
       question_ids: parseJSONField(p.question_ids),
-      random_config: parseJSONField(p.random_config)
+      random_config: parseJSONField(p.random_config),
+      question_count: parseInt(p.question_count) || 0
     }));
   },
 
@@ -479,11 +487,12 @@ const db = {
 
   async createPaper(paper) {
     const id = await nextId('papers');
+    const keyId = paper.key_id || generateKeyId('P');
     await insert(
-      'INSERT INTO papers (id, title, description, owner_id, duration, total_score, question_ids, random_config, status, passing_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, paper.title, paper.description || '', paper.owner_id, paper.duration || 60, paper.total_score || 100, JSON.stringify(paper.question_ids || []), JSON.stringify(paper.random_config || {}), paper.status || 'draft', paper.passing_score || 60]
+      'INSERT INTO papers (id, key_id, title, description, owner_id, user_id, duration, total_score, question_ids, random_config, status, passing_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, keyId, paper.title, paper.description || '', paper.owner_id || null, paper.user_id || null, paper.duration || 60, paper.total_score || 100, JSON.stringify(paper.question_ids || []), JSON.stringify(paper.random_config || {}), paper.status || 'draft', paper.passing_score || 60]
     );
-    return { id, ...paper };
+    return { id, key_id: keyId, ...paper };
   },
 
   async updatePaper(id, updates) {
@@ -539,6 +548,10 @@ const db = {
     return rows || [];
   },
 
+  async getPaperQuestionsByPaperId(paperId) {
+    return this.getPaperQuestions(paperId);
+  },
+
   async removeQuestionFromPaper(paperId, questionId) {
     const result = await remove(
       'DELETE FROM paper_questions WHERE paper_id = ? AND question_id = ?',
@@ -566,6 +579,29 @@ const db = {
       }));
     } catch (e) {
       console.error('[getPaperStudentsByPaperKeyId] Error:', e.message);
+      return [];
+    }
+  },
+
+  async getPaperStudentsByPaperId(paperId) {
+    try {
+      const rows = await findAll(
+        `SELECT ps.*, s.name as student_name, s.student_no, s.id as student_id
+         FROM paper_students ps
+         LEFT JOIN students s ON ps.student_id = s.id
+         WHERE ps.paper_id = ?`,
+        [paperId]
+      );
+      return (rows || []).map(row => ({
+        ...row,
+        student: row.student_id ? {
+          id: row.student_id,
+          name: row.student_name,
+          student_no: row.student_no
+        } : null
+      }));
+    } catch (e) {
+      console.error('[getPaperStudentsByPaperId] Error:', e.message);
       return [];
     }
   },
@@ -600,8 +636,13 @@ const db = {
     let sql = 'SELECT * FROM exam_records WHERE paper_id = ?';
     const params = [paperId];
     if (status) {
-      sql += ' AND status = ?';
-      params.push(status);
+      if (Array.isArray(status)) {
+        sql += ` AND status IN (${status.map(() => '?').join(', ')})`;
+        params.push(...status);
+      } else {
+        sql += ' AND status = ?';
+        params.push(status);
+      }
     }
     sql += ' ORDER BY id DESC';
     const rows = await findAll(sql, params);
@@ -622,9 +663,11 @@ const db = {
 
   async createExamRecord(record) {
     const id = await nextId('exam_records');
+    const now = new Date();
+    const toMysqlDatetime = (val) => val ? new Date(val).toISOString().slice(0, 19).replace('T', ' ') : null;
     await insert(
-      'INSERT INTO exam_records (id, paper_id, student_id, student_name, objective_score, essay_score, total_score, start_time, end_time, answers, status, graded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, record.paper_id, record.student_id, record.student_name, record.objective_score || 0, record.essay_score || 0, record.total_score || 0, record.start_time || null, record.end_time || null, JSON.stringify(record.answers || {}), record.status || 'pending', record.graded || false]
+      'INSERT INTO exam_records (id, paper_id, user_id, student_name, ip_address, start_time, end_time, score, answers, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, record.paper_id, record.user_id || record.student_id || null, record.student_name || '匿名学员', record.ip_address || null, toMysqlDatetime(record.start_time) || now.toISOString().slice(0, 19).replace('T', ' '), toMysqlDatetime(record.end_time), record.score || null, JSON.stringify(record.answers || {}), record.status || 'in_progress']
     );
     return { id, ...record };
   },
@@ -632,11 +675,15 @@ const db = {
   async updateExamRecord(id, updates) {
     const fields = [];
     const values = [];
+    const toMysqlDatetime = (val) => val ? new Date(val).toISOString().slice(0, 19).replace('T', ' ') : null;
     for (const [key, value] of Object.entries(updates)) {
       if (key !== 'id') {
         if (key === 'answers') {
           fields.push('answers = ?');
           values.push(JSON.stringify(value));
+        } else if (key === 'start_time' || key === 'end_time') {
+          fields.push(`${key} = ?`);
+          values.push(toMysqlDatetime(value));
         } else {
           fields.push(`${key} = ?`);
           values.push(value);
@@ -896,6 +943,8 @@ const db = {
       { name: 'idx_promotions_status', table: 'promotions', columns: 'status' },
       { name: 'idx_promotion_signups_promotion_id', table: 'promotion_signups', columns: 'promotion_id' },
       { name: 'idx_promotion_signups_phone', table: 'promotion_signups', columns: 'phone' },
+      { name: 'idx_exam_records_paper_status', table: 'exam_records', columns: 'paper_id, status' },
+      { name: 'idx_paper_questions_paper_id', table: 'paper_questions', columns: 'paper_id' },
     ];
 
     try {
@@ -966,7 +1015,12 @@ const db = {
     try {
       const requiredColumns = [
         { table: 'promotion_signups', column: 'custom_fields', type: 'TEXT', defaultVal: null },
-        { table: 'promotion_signups', column: 'unit', type: 'VARCHAR(255)', defaultVal: "''" }
+        { table: 'promotion_signups', column: 'unit', type: 'VARCHAR(255)', defaultVal: "''" },
+        { table: 'exam_records', column: 'objective_score', type: 'INT', defaultVal: null },
+        { table: 'exam_records', column: 'objective_total', type: 'INT', defaultVal: null },
+        { table: 'exam_records', column: 'subjective_score', type: 'INT', defaultVal: null },
+        { table: 'exam_records', column: 'subjective_total', type: 'INT', defaultVal: null },
+        { table: 'exam_records', column: 'percentage', type: 'INT', defaultVal: null }
       ];
 
       for (const col of requiredColumns) {

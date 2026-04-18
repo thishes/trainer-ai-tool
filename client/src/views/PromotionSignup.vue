@@ -128,7 +128,7 @@
                 v-if="availableClasses.length > 0"
                 label="报名班次"
                 field="class_id"
-                :rules="[{ required: true, message: '请选择报名班次' }]"
+                :rules="[{ required: availableClasses.length > 0, message: '请选择报名班次' }]"
               >
                 <a-select
                   v-model="formData.class_id"

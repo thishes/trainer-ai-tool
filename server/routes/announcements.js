@@ -4,6 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const repo = require('../repository');
 const authenticate = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/auth');
@@ -35,7 +36,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024, files: 10 } });
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 10 } });
 
 router.post('/upload', authenticate, requireAdmin, upload.any(), asyncHandler(async (req, res) => {
   console.log('[Announcement Upload] 📥 Request received:', {
@@ -49,21 +50,27 @@ router.post('/upload', authenticate, requireAdmin, upload.any(), asyncHandler(as
   }
 
   const uploadedFile = req.files[0];
+  const inputPath = uploadedFile.path;
   const webpFilename = uploadedFile.filename;
-  const fileUrl = `/uploads/${webpFilename}`;
+  const outputPath = path.join(uploadDir, webpFilename);
 
-  console.log('[Announcement Upload] ✅ File uploaded:', {
-    filename: webpFilename,
-    field: uploadedFile.fieldname,
-    size: uploadedFile.size,
-    user: req.user?.username
-  });
+  try {
+    const metadata = await sharp(inputPath).metadata();
+    console.log('[Upload] Original:', metadata.width + 'x' + metadata.height, 'size:', uploadedFile.size);
 
-  res.json({
-    success: true,
-    url: fileUrl,
-    message: '上传成功'
-  });
+    let s = sharp(inputPath).webp({ quality: 80 });
+    if (metadata.width > 1920) {
+      s = s.resize(1920, null, { withoutEnlargement: true });
+    }
+    await s.toFile(outputPath);
+    fs.unlinkSync(inputPath);
+    console.log('[Upload] Compressed:', webpFilename);
+  } catch (e) {
+    console.error('[Upload] Error:', e.message);
+  }
+
+  const fileUrl = '/uploads/' + webpFilename;
+  res.json({ success: true, url: fileUrl, message: '上传成功' });
 }));
 
 router.get('/', asyncHandler(async (req, res) => {

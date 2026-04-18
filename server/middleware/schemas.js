@@ -187,20 +187,30 @@ const examStart = {
     user_id: Joi.number().integer().positive().allow(null),
     access_code: Joi.string().max(50).allow('', null),
     student_no: Joi.string().max(50).allow('', null)
-  })
+  }).options({ stripUnknown: true })
 };
 
 const examSaveProgress = {
   body: Joi.object({
-    exam_id: Joi.string().required(),
-    answers: Joi.object().required()
-  })
+    exam_id: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
+    answers: Joi.object().custom((value, helpers) => {
+      if (Object.keys(value).length > 100) {
+        return helpers.error('any.max');
+      }
+      return value;
+    }).messages({ 'any.max': '答案数量不能超过100个' }).required()
+  }).options({ stripUnknown: true })
 };
 
 const examSubmit = {
   body: Joi.object({
-    exam_id: Joi.string().required(),
-    answers: Joi.object().required()
+    exam_id: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
+    answers: Joi.object().custom((value, helpers) => {
+      if (Object.keys(value).length > 100) {
+        return helpers.error('any.max');
+      }
+      return value;
+    }).messages({ 'any.max': '答案数量不能超过100个' }).required()
   })
 };
 
@@ -211,8 +221,8 @@ const examGradeEssay = {
       question_id: Joi.number().integer().positive().required(),
       score: Joi.number().min(0).required(),
       remark: Joi.string().max(500).allow('')
-    })).min(1).required()
-  })
+    })).min(1).max(100).required()
+  }).options({ stripUnknown: true })
 };
 
 // ========== Users 验证 ==========

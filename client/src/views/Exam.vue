@@ -299,6 +299,7 @@
 
     <div class="footer">
       <span>© thishe.com</span>
+      <span style="margin-left: 12px; opacity: 0.6;">v{{ APP_VERSION }}</span>
     </div>
   </div>
 </template>
@@ -311,6 +312,8 @@ import DOMPurify from 'dompurify'
 import SafeHtml from '@/components/SafeHtml.vue'
 import { getPaperPublic, startExamApi, getExamQuestions, saveProgress, submitExam as submitExamApi, getAnnouncements } from '@/api'
 import { formatDateTime } from '@/utils/date'
+import { EXAM_CONFIG } from '@/config/constants'
+import { APP_VERSION } from '@/version'
 
 export default {
   name: 'ExamPage',
@@ -343,6 +346,9 @@ export default {
     const showAllUnanswered = ref(false)
     let timer = null
     let countdownTimer = null
+    let ws = null
+    let wsReconnectTimer = null
+    let wsRetryCount = 0
     const countdownTime = ref(0)
 
     const formatCountdown = (seconds) => {
@@ -556,8 +562,10 @@ export default {
           answers.value = questionsRes.data.answers
         }
 
-        timeLeft.value = paperInfo.value.time_limit * 60
+        const limitMinutes = paperInfo.value.time_limit || paperInfo.value.duration || EXAM_CONFIG.DEFAULT_TIME_LIMIT
+        timeLeft.value = limitMinutes * 60
         startTimer()
+        connectWebSocket()
 
         examStarted.value = true
         startError.value = ''
@@ -583,14 +591,14 @@ export default {
             doSaveProgress()
           }
           // 5分钟和1分钟声音提醒（如果浏览器允许）
-          if (timeLeft.value === 300 || timeLeft.value === 60) {
+          if (timeLeft.value === EXAM_CONFIG.WARNING_TIME_5MIN || timeLeft.value === EXAM_CONFIG.WARNING_TIME_1MIN) {
             try {
               const ac = new AudioContext()
               const osc = ac.createOscillator()
               const gain = ac.createGain()
               osc.connect(gain)
               gain.connect(ac.destination)
-              osc.frequency.value = timeLeft.value === 60 ? 880 : 660
+              osc.frequency.value = timeLeft.value === EXAM_CONFIG.WARNING_TIME_1MIN ? EXAM_CONFIG.BEEP_FREQ_NEAR : EXAM_CONFIG.BEEP_FREQ_FAR
               gain.gain.value = 0.15
               osc.start()
               osc.stop(ac.currentTime + 0.3)
@@ -611,15 +619,64 @@ export default {
         saveStatus.value = 'saved'
       } catch (e) {
         saveStatus.value = 'error'
-        // 5秒后重置状态，避免一直显示错误
         setTimeout(() => {
           if (saveStatus.value === 'error') saveStatus.value = 'saved'
         }, 5000)
       }
     }
 
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${protocol}//${window.location.host}/ws/exam/${examId.value}`
+      try {
+        ws = new WebSocket(wsUrl)
+        ws.onopen = () => {
+          wsRetryCount = 0
+          console.log('[WS] 连接成功')
+        }
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.type === 'sync' && data.answers) {
+              answers.value = { ...answers.value, ...data.answers }
+            }
+          } catch (e) { }
+        }
+        ws.onerror = () => {
+          console.warn('[WS] 连接错误')
+        }
+        ws.onclose = () => {
+          console.warn('[WS] 连接断开，降级到HTTP轮询')
+          ws = null
+          if (examStarted.value && wsRetryCount < 5) {
+            wsReconnectTimer = setTimeout(() => {
+              wsRetryCount++
+              connectWebSocket()
+            }, Math.min(3000 * wsRetryCount, 15000))
+          }
+        }
+      } catch (e) {
+        console.warn('[WS] 创建连接失败，使用HTTP模式:', e.message)
+      }
+    }
+
+    const disconnectWebSocket = () => {
+      if (wsReconnectTimer) {
+        clearTimeout(wsReconnectTimer)
+        wsReconnectTimer = null
+      }
+      if (ws) {
+        try {
+          ws.close()
+        } catch (e) { }
+        ws = null
+      }
+      wsRetryCount = 0
+    }
+
     const submitExam = async () => {
       clearInterval(timer)
+      disconnectWebSocket()
       try {
         const res = await submitExamApi({
           exam_id: examId.value,
@@ -627,8 +684,8 @@ export default {
         })
 
         if (res.success !== false && res.data) {
-          // 只传 examId，结果页通过 API 获取数据
-          router.push(`/exam/result/${examId.value}`)
+          const nameParam = startForm.value.student_name ? `?student_name=${encodeURIComponent(startForm.value.student_name)}` : ''
+          router.push(`/exam/result/${examId.value}${nameParam}`)
           submitDialogVisible.value = false
           return true
         } else {
@@ -714,6 +771,7 @@ export default {
     onUnmounted(() => {
       if (timer) clearInterval(timer)
       if (countdownTimer) clearInterval(countdownTimer)
+      disconnectWebSocket()
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     })

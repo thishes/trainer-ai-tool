@@ -6,6 +6,7 @@ const http = require('http');
 
 console.log('正在启动后端服务...');
 
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const config = require('./config');
