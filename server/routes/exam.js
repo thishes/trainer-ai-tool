@@ -723,10 +723,12 @@ router.get('/records/:paperId', authenticate, asyncHandler(async (req, res) => {
     success: true,
     data: {
       list: paginatedRecords,
+      records: paginatedRecords,
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      pagination: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) },
       stats: {
         avg_score: Math.round(avgScore),
         max_score: maxScore,
@@ -826,10 +828,12 @@ router.get('/pending-grading/:paperId', authenticate, asyncHandler(async (req, r
     success: true,
     data: {
       list: enrichedRecords,
+      records: enrichedRecords,
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize)
+      totalPages: Math.ceil(total / pageSize),
+      pagination: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
     }
   });
 }));

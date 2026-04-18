@@ -43,7 +43,9 @@ router.get('/', authenticate, validate(schemas.questionList), asyncHandler(async
         list,
         total: result.total || list.length,
         page: parseInt(page),
-        pageSize: parseInt(pageSize)
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil((result.total || list.length) / parseInt(pageSize)),
+        pagination: { total: result.total || list.length, page: parseInt(page), pageSize: parseInt(pageSize), totalPages: Math.ceil((result.total || list.length) / parseInt(pageSize)) }
       };
     },
     { ttl: 180, skipCache: !!keyword }

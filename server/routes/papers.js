@@ -46,7 +46,15 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   const start = (parseInt(page) - 1) * parseInt(pageSize);
   const list = allList.slice(start, start + parseInt(pageSize));
 
-  resp.success(res, { list, total, page: parseInt(page), pageSize: parseInt(pageSize) });
+  const totalPages = Math.ceil(total / parseInt(pageSize));
+  resp.success(res, {
+    list,
+    total,
+    page: parseInt(page),
+    pageSize: parseInt(pageSize),
+    totalPages,
+    pagination: { total, page: parseInt(page), pageSize: parseInt(pageSize), totalPages }
+  });
 }));
 
 router.get('/public/:id', asyncHandler(async (req, res) => {
