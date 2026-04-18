@@ -287,6 +287,38 @@ const categoryUpdate = {
   })
 };
 
+// ========== Courses 验证 ==========
+
+const courseCreate = {
+  body: Joi.object({
+    title: Joi.string().min(1).max(200).required(),
+    description: Joi.string().max(5000).allow(''),
+    cover_image: Joi.string().max(500).allow(null, ''),
+    visibility: Joi.string().valid('public', 'password', 'private', 'link').default('public'),
+    slug: Joi.string().min(1).max(100).allow(null),
+    access_password: Joi.string().min(4).max(20).allow(null)
+  }).options({ stripUnknown: true })
+};
+
+const courseList = {
+  query: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    pageSize: Joi.number().integer().min(1).max(50).default(12),
+    status: Joi.string().valid('draft', 'published').allow(''),
+    search: Joi.string().max(100).allow('')
+  }).options({ stripUnknown: true })
+};
+
+const chapterCreate = {
+  body: Joi.object({
+    title: Joi.string().min(1).max(200).required(),
+    content: Joi.string().max(5242880).allow(''),
+    parent_id: Joi.number().integer().positive().allow(null),
+    status: Joi.string().valid('draft', 'published').default('draft'),
+    sort_order: Joi.number().integer().min(0).default(0)
+  }).options({ stripUnknown: true })
+};
+
 module.exports = {
   // 通用
   pagination,
@@ -318,5 +350,9 @@ module.exports = {
   announcementUpdate,
   // Categories
   categoryCreate,
-  categoryUpdate
+  categoryUpdate,
+  // Courses
+  courseCreate,
+  courseList,
+  chapterCreate
 };

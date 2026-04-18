@@ -223,6 +223,28 @@ const repository = {
   removeQuestionFromPaper: (paperId, questionId) => withFallback(() => mysqlDb.removeQuestionFromPaper(paperId, questionId), () => { throw new Error('JSON fallback not supported'); }, 'removeQuestionFromPaper'),
   deletePaper: (id) => withFallback(() => mysqlDb.deletePaper(id), () => jsonDb.deletePaper(id), 'deletePaper'),
 
+  // ========== 课程服务 ==========
+  getCourses: (options) => withFallback(() => mysqlDb.getCourses(options), () => [], 'getCourses'),
+  getCourseCount: (options) => withFallback(() => mysqlDb.getCourseCount(options), () => 0, 'getCourseCount'),
+  getCourseById: (id) => withFallback(() => mysqlDb.getCourseById(id), () => null, 'getCourseById'),
+  getCourseBySlug: (slug) => withFallback(() => mysqlDb.getCourseBySlug(slug), () => null, 'getCourseBySlug'),
+  createCourse: (data) => withFallback(() => mysqlDb.createCourse(data), () => ({ id: Date.now(), ...data }), 'createCourse'),
+  updateCourse: (id, data) => withFallback(() => mysqlDb.updateCourse(id, data), () => {}, 'updateCourse'),
+  deleteCourse: (id) => withFallback(() => mysqlDb.deleteCourse(id), () => {}, 'deleteCourse'),
+  publishCourse: (id, status) => withFallback(() => mysqlDb.publishCourse(id, status), () => {}, 'publishCourse'),
+  incrementCourseView: (id) => withFallback(() => mysqlDb.incrementCourseView(id), () => {}, 'incrementCourseView'),
+  getChapters: (courseId, options) => withFallback(() => mysqlDb.getChapters(courseId, options), () => [], 'getChapters'),
+  getChapterById: (id) => withFallback(() => mysqlDb.getChapterById(id), () => null, 'getChapterById'),
+  createChapter: (data) => withFallback(() => mysqlDb.createChapter(data), () => ({ id: Date.now(), ...data }), 'createChapter'),
+  updateChapter: (id, data) => withFallback(() => mysqlDb.updateChapter(id, data), () => {}, 'updateChapter'),
+  deleteChapter: (id) => withFallback(() => mysqlDb.deleteChapter(id), () => {}, 'deleteChapter'),
+  reorderChapters: (courseId, orders) => withFallback(() => mysqlDb.reorderChapters(courseId, orders), () => {}, 'reorderChapters'),
+  batchPublishChapters: (courseId, ids, status) => withFallback(() => mysqlDb.batchPublishChapters(courseId, ids, status), () => {}, 'batchPublishChapters'),
+  getCourseAccessList: (courseId) => withFallback(() => mysqlDb.getCourseAccessList(courseId), () => [], 'getCourseAccessList'),
+  addCourseAccess: (courseId, userId, grantedBy) => withFallback(() => mysqlDb.addCourseAccess(courseId, userId, grantedBy), () => {}, 'addCourseAccess'),
+  removeCourseAccess: (courseId, userId) => withFallback(() => mysqlDb.removeCourseAccess(courseId, userId), () => {}, 'removeCourseAccess'),
+  checkCourseAccess: (courseId, userId) => withFallback(() => mysqlDb.checkCourseAccess(courseId, userId), () => false, 'checkCourseAccess'),
+
   // ========== 考试记录 ==========
   getExamRecordCountByIp: (paperId, ip, status = null) => withFallback(
     async () => {

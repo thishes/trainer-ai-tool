@@ -326,3 +326,25 @@ export const batchUpdatePromotionSignupStatus = (id, data) => api.patch(`/promot
 export const queryPromotionSignup = (id, data) => api.post(`/promotions/${id}/signups/query`, data)
 export const cancelPromotionSignup = (id, signupId, data) => api.post(`/promotions/${id}/signups/${signupId}/cancel`)
 
+// ========== Courses ==========
+export const getCourses = (params) => api.get('/courses', { params })
+export const getCourse = (id) => api.get(`/courses/${id}`)
+export const createCourse = (data) => api.post('/courses', data)
+export const updateCourse = (id, data) => api.put(`/courses/${id}`, data)
+export const deleteCourse = (id) => api.delete(`/courses/${id}`)
+export const publishCourse = (id) => api.patch(`/courses/${id}/publish`)
+export const getCourseChapters = (courseId) => api.get(`/courses/${courseId}/chapters`)
+export const createChapter = (courseId, data) => api.post(`/courses/${courseId}/chapters`, data)
+export const updateChapter = (courseId, chapterId, data) => api.put(`/courses/${courseId}/chapters/${chapterId}`, data)
+export const deleteChapter = (courseId, chapterId) => api.delete(`/courses/${courseId}/chapters/${chapterId}`)
+export const reorderChapters = (courseId, orders) => api.put(`/courses/${courseId}/chapters/reorder`, { orders })
+export const getCourseAccessList = (courseId) => api.get(`/courses/${courseId}/access`)
+export const addCourseAccess = (courseId, userIds) => api.post(`/courses/${courseId}/access`, { user_ids: Array.isArray(userIds) ? userIds : [userIds] })
+export const removeCourseAccess = (courseId, userId) => api.delete(`/courses/${courseId}/access/${userId}`)
+
+// ========== Public Course Access ==========
+export const getPublicCourse = (id) => api.get(`/public/courses/${id}`)
+export const getPublicCourseChapters = (id) => api.get(`/public/courses/${id}/chapters`)
+export const getPublicChapter = (courseId, chapterId) => api.get(`/public/courses/${courseId}/chapters/${chapterId}`)
+export const unlockCourse = (id, password) => api.post(`/public/courses/${id}/unlock`, { password })
+

@@ -15,6 +15,7 @@ const PromotionView = () => import('../views/PromotionView.vue')
 const PromotionPublic = () => import('../views/PromotionPublic.vue')
 const PromotionSignup = () => import('../views/PromotionSignup.vue')
 const PromotionSignupQuery = () => import('../views/promotion/PromotionSignupQuery.vue')
+const CourseView = () => import('../views/CourseView.vue')
 
 const routes = [
   {
@@ -113,6 +114,14 @@ const routes = [
     component: PromotionSignupQuery,
     meta: {
       title: '报名查询'
+    }
+  },
+  {
+    path: '/course/:id',
+    name: 'CourseView',
+    component: CourseView,
+    meta: {
+      title: '课程详情'
     }
   }
 ]

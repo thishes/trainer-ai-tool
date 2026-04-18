@@ -945,6 +945,11 @@ const db = {
       { name: 'idx_promotion_signups_phone', table: 'promotion_signups', columns: 'phone' },
       { name: 'idx_exam_records_paper_status', table: 'exam_records', columns: 'paper_id, status' },
       { name: 'idx_paper_questions_paper_id', table: 'paper_questions', columns: 'paper_id' },
+    { name: 'idx_courses_user_status', table: 'courses', columns: 'user_id, status' },
+    { name: 'idx_courses_visibility', table: 'courses', columns: 'visibility' },
+    { name: 'idx_courses_slug', table: 'courses', columns: 'slug' },
+    { name: 'idx_chapters_course_parent', table: 'chapters', columns: 'course_id, parent_id' },
+    { name: 'idx_chapters_course_order', table: 'chapters', columns: 'course_id, sort_order' },
     ];
 
     try {
@@ -1020,7 +1025,38 @@ const db = {
         { table: 'exam_records', column: 'objective_total', type: 'INT', defaultVal: null },
         { table: 'exam_records', column: 'subjective_score', type: 'INT', defaultVal: null },
         { table: 'exam_records', column: 'subjective_total', type: 'INT', defaultVal: null },
-        { table: 'exam_records', column: 'percentage', type: 'INT', defaultVal: null }
+        { table: 'exam_records', column: 'percentage', type: 'INT', defaultVal: null },
+
+        { table: 'courses', column: 'id', type: 'INT AUTO_INCREMENT PRIMARY KEY', defaultVal: null },
+        { table: 'courses', column: 'slug', type: 'VARCHAR(100)', defaultVal: null },
+        { table: 'courses', column: 'title', type: 'VARCHAR(200)', defaultVal: "''" },
+        { table: 'courses', column: 'description', type: 'TEXT', defaultVal: null },
+        { table: 'courses', column: 'cover_image', type: 'VARCHAR(500)', defaultVal: null },
+        { table: 'courses', column: 'visibility', type: "ENUM('public','password','private','link')", defaultVal: "'public'" },
+        { table: 'courses', column: 'access_password', type: 'VARCHAR(100)', defaultVal: null },
+        { table: 'courses', column: 'user_id', type: 'INT', defaultVal: null },
+        { table: 'courses', column: 'status', type: "ENUM('draft','published')", defaultVal: "'draft'" },
+        { table: 'courses', column: 'view_count', type: 'INT', defaultVal: '0' },
+        { table: 'courses', column: 'like_count', type: 'INT', defaultVal: '0' },
+        { table: 'courses', column: 'settings', type: 'JSON', defaultVal: null },
+        { table: 'courses', column: 'created_at', type: 'DATETIME', defaultVal: 'CURRENT_TIMESTAMP' },
+        { table: 'courses', column: 'updated_at', type: 'DATETIME', defaultVal: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' },
+
+        { table: 'chapters', column: 'id', type: 'INT AUTO_INCREMENT PRIMARY KEY', defaultVal: null },
+        { table: 'chapters', column: 'course_id', type: 'INT', defaultVal: null },
+        { table: 'chapters', column: 'parent_id', type: 'INT', defaultVal: null },
+        { table: 'chapters', column: 'title', type: 'VARCHAR(200)', defaultVal: "''" },
+        { table: 'chapters', column: 'content', type: 'LONGTEXT', defaultVal: null },
+        { table: 'chapters', column: 'sort_order', type: 'INT', defaultVal: '0' },
+        { table: 'chapters', column: 'status', type: "ENUM('draft','published')", defaultVal: "'draft'" },
+        { table: 'chapters', column: 'created_at', type: 'DATETIME', defaultVal: 'CURRENT_TIMESTAMP' },
+        { table: 'chapters', column: 'updated_at', type: 'DATETIME', defaultVal: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' },
+
+        { table: 'course_access', column: 'id', type: 'INT AUTO_INCREMENT PRIMARY KEY', defaultVal: null },
+        { table: 'course_access', column: 'course_id', type: 'INT', defaultVal: null },
+        { table: 'course_access', column: 'user_id', type: 'INT', defaultVal: null },
+        { table: 'course_access', column: 'granted_by', type: 'INT', defaultVal: null },
+        { table: 'course_access', column: 'granted_at', type: 'DATETIME', defaultVal: 'CURRENT_TIMESTAMP' }
       ];
 
       for (const col of requiredColumns) {
@@ -1051,6 +1087,149 @@ const db = {
       console.warn('[MySQL] ensureColumns failed:', e.message);
     }
   },
+
+  async getCourses(options = {}) {
+    let sql = 'SELECT c.*, u.username as author_name FROM courses c LEFT JOIN users u ON c.user_id = u.id WHERE 1=1';
+    const params = [];
+    if (options.userId && !options.isAdmin) { sql += ' AND c.user_id = ?'; params.push(options.userId); }
+    if (options.status) { sql += ' AND c.status = ?'; params.push(options.status); }
+    if (options.search) { sql += ' AND c.title LIKE ?'; params.push(`%${options.search}%`); }
+    sql += ' ORDER BY c.updated_at DESC';
+    if (options.page && options.pageSize) {
+      const offset = (parseInt(options.page) - 1) * parseInt(options.pageSize);
+      sql += ` LIMIT ${parseInt(options.pageSize)} OFFSET ${offset}`;
+    }
+    return await findAll(sql, params);
+  },
+
+  async getCourseCount(options = {}) {
+    let sql = 'SELECT COUNT(*) as total FROM courses c WHERE 1=1';
+    const params = [];
+    if (options.userId && !options.isAdmin) { sql += ' AND c.user_id = ?'; params.push(options.userId); }
+    if (options.status) { sql += ' AND c.status = ?'; params.push(options.status); }
+    if (options.search) { sql += ' AND c.title LIKE ?'; params.push(`%${options.search}%`); }
+    const rows = await findAll(sql, params);
+    return rows[0]?.total || 0;
+  },
+
+  async getCourseById(id) {
+    const rows = await findAll('SELECT c.*, u.username as author_name FROM courses c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?', [id]);
+    return rows[0] || null;
+  },
+
+  async getCourseBySlug(slug) {
+    const rows = await findAll('SELECT * FROM courses WHERE slug = ?', [slug]);
+    return rows[0] || null;
+  },
+
+  async createCourse(data) {
+    const cols = ['title','description','cover_image','visibility','user_id','status','slug'];
+    const vals = [];
+    const phs = [];
+    for (const f of cols) {
+      if (data[f] !== undefined) { vals.push(data[f]); phs.push('?'); }
+    }
+    const result = await execute(
+      `INSERT INTO courses (${cols.slice(0, vals.length).join(',')}) VALUES (${phs.join(',')})`, vals
+    );
+    return { id: result.insertId, ...data };
+  },
+
+  async updateCourse(id, data) {
+    const sets = [];
+    const vals = [];
+    const allowed = ['title','description','cover_image','visibility','access_password','status','slug'];
+    for (const [k, v] of Object.entries(data)) {
+      if (allowed.includes(k)) { sets.push(`${k} = ?`); vals.push(v); }
+    }
+    if (!sets.length) return;
+    vals.push(id);
+    await execute(`UPDATE courses SET ${sets.join(',')} WHERE id = ?`, vals);
+  },
+
+  async deleteCourse(id) {
+    await execute('DELETE FROM chapters WHERE course_id = ?', [id]);
+    await execute('DELETE FROM course_access WHERE course_id = ?', [id]);
+    await execute('DELETE FROM courses WHERE id = ?', [id]);
+  },
+
+  async publishCourse(id, status) {
+    await execute('UPDATE courses SET status = ? WHERE id = ?', [status, id]);
+  },
+
+  async incrementCourseView(id) {
+    await execute('UPDATE courses SET view_count = view_count + 1 WHERE id = ?', [id]);
+  },
+
+  async getChapters(courseId, options = {}) {
+    let sql = 'SELECT * FROM chapters WHERE course_id = ?';
+    const params = [courseId];
+    if (options.status) { sql += ' AND status = ?'; params.push(options.status); }
+    sql += ' ORDER BY sort_order ASC, id ASC';
+    return await findAll(sql, params);
+  },
+
+  async getChapterById(id) {
+    const rows = await findAll('SELECT * FROM chapters WHERE id = ?', [id]);
+    return rows[0] || null;
+  },
+
+  async createChapter(data) {
+    const result = await execute(
+      'INSERT INTO chapters (course_id, parent_id, title, content, sort_order, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [data.course_id, data.parent_id || null, data.title, data.content || '', data.sort_order || 0, data.status || 'draft']
+    );
+    return { id: result.insertId, ...data };
+  },
+
+  async updateChapter(id, data) {
+    const sets = [];
+    const vals = [];
+    const allowed = ['title','content','sort_order','status','parent_id'];
+    for (const [k, v] of Object.entries(data)) {
+      if (allowed.includes(k)) { sets.push(`${k} = ?`); vals.push(v); }
+    }
+    if (!sets.length) return;
+    vals.push(id);
+    await execute(`UPDATE chapters SET ${sets.join(',')} WHERE id = ?`, vals);
+  },
+
+  async deleteChapter(id) {
+    const ch = await this.getChapterById(id);
+    if (ch) {
+      await execute('DELETE FROM chapters WHERE parent_id = ?', [id]);
+      await execute('DELETE FROM chapters WHERE id = ?', [id]);
+    }
+  },
+
+  async reorderChapters(courseId, orders) {
+    for (const item of orders) {
+      await execute('UPDATE chapters SET sort_order = ?, parent_id = ? WHERE id = ? AND course_id = ?', [item.sort_order, item.parent_id || null, item.id, courseId]);
+    }
+  },
+
+  async batchPublishChapters(courseId, chapterIds, status) {
+    if (!chapterIds.length) return;
+    const ph = chapterIds.map(() => '?').join(',');
+    await execute(`UPDATE chapters SET status = ? WHERE id IN (${ph}) AND course_id = ?`, [status, ...chapterIds, courseId]);
+  },
+
+  async getCourseAccessList(courseId) {
+    return await findAll('SELECT ca.*, u.username, u.display_name FROM course_access ca LEFT JOIN users u ON ca.user_id = u.id WHERE ca.course_id = ?', [courseId]);
+  },
+
+  async addCourseAccess(courseId, userId, grantedBy) {
+    try { await execute('INSERT IGNORE INTO course_access (course_id, user_id, granted_by) VALUES (?, ?, ?)', [courseId, userId, grantedBy]); } catch(e) {}
+  },
+
+  async removeCourseAccess(courseId, userId) {
+    await execute('DELETE FROM course_access WHERE course_id = ? AND user_id = ?', [courseId, userId]);
+  },
+
+  async checkCourseAccess(courseId, userId) {
+    const rows = await findAll('SELECT * FROM course_access WHERE course_id = ? AND user_id = ?', [courseId, userId]);
+    return rows.length > 0;
+  }
 };
 
 module.exports = db;

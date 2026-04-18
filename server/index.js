@@ -350,6 +350,11 @@ app.use('/api/users', require('./routes/users'));
 // 宣推服务路由
 app.use('/api/promotions', require('./routes/promotions'));
 
+// 课程服务路由
+const courseRoutes = require('./routes/courses');
+app.use('/api/courses', courseRoutes);
+app.use('/api/public', courseRoutes);
+
 // 系统管理路由
 app.use('/api/system', require('./routes/system'));
 

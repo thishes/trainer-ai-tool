@@ -36,6 +36,13 @@
             <span>海报与报名</span>
           </div>
         </div>
+        <div class="nav-group">
+          <div class="nav-group-title">课程服务</div>
+          <div class="nav-item" :class="{ active: activeTab === 'courses' }" role="tab" :tabindex="activeTab === 'courses' ? 0 : -1" :aria-selected="activeTab === 'courses'" @click="switchTab('courses')" @keydown.enter="switchTab('courses')" @keydown.right="focusNextTab" @keydown.left="focusPrevTab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>课程管理</span>
+          </div>
+        </div>
         <div v-if="user?.role === 'admin'" class="nav-group">
           <div class="nav-group-title">系统管理</div>
           <div class="nav-item" :class="{ active: activeTab === 'users' }" role="tab" :tabindex="activeTab === 'users' ? 0 : -1" :aria-selected="activeTab === 'users'" @click="switchTab('users')" @keydown.enter="switchTab('users')" @keydown.right="focusNextTab" @keydown.left="focusPrevTab">
@@ -114,6 +121,10 @@
       <div v-if="activatedTabs.promotions" v-show="activeTab === 'promotions'">
         <PromotionsPanel :is-admin="user?.role === 'admin'" />
       </div>
+
+      <div v-if="activatedTabs.courses" v-show="activeTab === 'courses'" class="page-view">
+        <CoursesPanel />
+      </div>
     </main>
 
     <div class="footer">
@@ -137,6 +148,7 @@ import { useSocket, disconnectSocket } from '@/composables/useSocket'
 
 const SystemSettings = defineAsyncComponent(() => import('./SystemSettings.vue'))
 const PromotionsPanel = defineAsyncComponent(() => import('./PromotionsPanel.vue'))
+const CoursesPanel = defineAsyncComponent(() => import('./CoursesPanel.vue'))
 const GradingPanel = defineAsyncComponent(() => import('@/views/GradingPanel.vue'))
 const UsersPanel = defineAsyncComponent(() => import('@/views/UsersPanel.vue'))
 const AnnouncementsPanel = defineAsyncComponent(() => import('@/views/AnnouncementsPanel.vue'))
