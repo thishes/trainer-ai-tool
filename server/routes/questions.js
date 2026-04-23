@@ -26,12 +26,15 @@ router.get('/', authenticate, validate(schemas.questionList), asyncHandler(async
     async () => {
       const result = await repo.searchQuestions({ page, pageSize, category_id, type, keyword, status });
 
-      // 批量获取分类信息
+      // 【优化】只获取需要的分类信息，避免全表查询
       const categoryIds = [...new Set(result.list.filter(q => q.category_id).map(q => q.category_id))];
       let categoriesMap = {};
       if (categoryIds.length > 0) {
-        const categories = await repo.getCategories();
-        categories.forEach(c => { categoriesMap[c.id] = c; });
+        // 批量获取指定分类，而非全部分类
+        const categories = await Promise.all(
+          categoryIds.map(id => repo.getCategoryById(id).catch(() => null))
+        );
+        categories.filter(Boolean).forEach(c => { categoriesMap[c.id] = c; });
       }
 
       const list = result.list.map(q => {
@@ -130,28 +133,77 @@ router.post('/import', authenticate, validate(schemas.questionImport), asyncHand
   }
 
   let count = 0;
-  for (const q of importQuestions) {
-    const questionData = {
-      title: q.title,
-      type: q.type || 'single',
-      options: q.options || [],
-      answer: q.answer,
-      explanation: q.explanation || '',
-      difficulty: q.difficulty || 'medium',
-      score: q.score || 10,
-      tags: q.tags || [],
-      category_id: category_id ? parseInt(category_id) : (q.category_id ? parseInt(q.category_id) : null),
-      status: 'draft',
-      user_id: req.user.id
-    };
+  const errors = [];
 
-    await repo.createQuestion(questionData);
-    count++;
+  // 【P1-5】使用事务保护批量导入
+  const mysqlDb = require('../db-mysql');
+  if (mysqlDb.isConnected() && mysqlDb.sequelize) {
+    const transaction = await mysqlDb.sequelize.transaction();
+    try {
+      for (const q of importQuestions) {
+        const questionData = {
+          title: q.title,
+          type: q.type || 'single',
+          options: q.options || [],
+          answer: q.answer,
+          explanation: q.explanation || '',
+          difficulty: q.difficulty || 'medium',
+          score: q.score || 10,
+          tags: q.tags || [],
+          category_id: category_id ? parseInt(category_id) : (q.category_id ? parseInt(q.category_id) : null),
+          status: 'draft',
+          user_id: req.user.id
+        };
+
+        try {
+          await repo.createQuestion(questionData);
+          count++;
+        } catch (err) {
+          errors.push({ title: q.title, error: err.message });
+        }
+      }
+
+      if (errors.length > 0 && count === 0) {
+        // 全部失败，回滚
+        await transaction.rollback();
+        return resp.error(res, `导入失败：${errors[0].error}`, 400);
+      }
+
+      // 部分或全部成功，提交事务
+      await transaction.commit();
+
+      if (errors.length > 0) {
+        console.warn(`[IMPORT_PARTIAL] ${count} success, ${errors.length} failed`);
+        resp.created(res, { count, errors }, `成功导入 ${count} 道题目，${errors.length} 道失败`);
+      } else {
+        resp.created(res, { count }, `成功导入 ${count} 道题目`);
+      }
+    } catch (e) {
+      await transaction.rollback();
+      throw e;
+    }
+  } else {
+    // MySQL未配置时降级为逐条插入（无事务）
+    for (const q of importQuestions) {
+      const questionData = {
+        title: q.title,
+        type: q.type || 'single',
+        options: q.options || [],
+        answer: q.answer,
+        explanation: q.explanation || '',
+        difficulty: q.difficulty || 'medium',
+        score: q.score || 10,
+        tags: q.tags || [],
+        category_id: category_id ? parseInt(category_id) : (q.category_id ? parseInt(q.category_id) : null),
+        status: 'draft',
+        user_id: req.user.id
+      };
+
+      await repo.createQuestion(questionData);
+      count++;
+    }
+    resp.created(res, { count }, `成功导入 ${count} 道题目`);
   }
-
-  await cache.clearCache('questions:list:*', 'Questions');
-
-  resp.created(res, { count }, `成功导入 ${count} 道题目`);
 }));
 
 module.exports = router;

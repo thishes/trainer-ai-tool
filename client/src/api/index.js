@@ -242,6 +242,15 @@ export const uploadAnnouncementImage = (file) => {
   })
 }
 
+export const uploadImage = (file, onProgress) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: onProgress ? (e) => onProgress(e.total ? e.loaded / e.total : 0) : undefined
+  })
+}
+
 export const getStudents = (params) => api.get('/students', { params })
 export const getStudent = (id) => api.get(`/students/${id}`)
 export const createStudent = (data) => api.post('/students', data)

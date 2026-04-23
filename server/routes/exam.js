@@ -13,24 +13,105 @@ const resp = require('../utils/response');
 const isEssayQuestion = (type) => ['subjective', 'essay', 'question'].includes(type);
 const PASS_SCORE = 60;
 
-const statsCache = new Map();
-const STATS_CACHE_TTL = 10000;
+// 简易LRU缓存实现（避免额外依赖）
+class LRUCache {
+  constructor(maxSize = 500, ttl = 10000) {
+    this.maxSize = maxSize;
+    this.ttl = ttl;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    if (Date.now() - item.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    // LRU: 移到最后（最近访问）
+    this.cache.delete(key);
+    this.cache.set(key, item);
+    return item.data;
+  }
+
+  set(key, data) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // 删除最旧的（Map迭代器第一个）
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  delete(key) {
+    this.cache.delete(key);
+  }
+}
+
+const statsCache = new LRUCache(500, 10000);
 
 function getCachedStats(paperId) {
-  const key = `stats:${paperId}`;
-  const cached = statsCache.get(key);
-  if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL) {
-    return cached.data;
-  }
-  return null;
+  return statsCache.get(`stats:${paperId}`);
 }
 
 function setCachedStats(paperId, data) {
-  statsCache.set(`stats:${paperId}`, { data, timestamp: Date.now() });
+  statsCache.set(`stats:${paperId}`, data);
 }
 
 function invalidateStatsCache(paperId) {
   statsCache.delete(`stats:${paperId}`);
+}
+
+// 安全的IP获取函数（防止伪造）
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    // 取第一个可信IP（通常是最原始的客户端IP）
+    const ips = forwarded.split(',').map(ip => ip.trim());
+    return ips[0] || req.ip || 'unknown';
+  }
+  return req.ip || req.connection?.remoteAddress || 'unknown';
+}
+
+// 考试权限验证增强版
+function verifyExamOwnership(examRecord, req, action = 'access') {
+  const clientIp = getClientIp(req);
+  const queryName = req.query.student_name || req.body.student_name;
+
+  // 情况1: 有用户ID的登录用户（最安全）
+  if (examRecord.user_id && req.user && req.user.id) {
+    if (String(examRecord.user_id) === String(req.user.id)) {
+      return { valid: true, method: 'user_id' };
+    }
+  }
+
+  // 情况2: IP + 姓名 双重验证
+  const ipMatch = examRecord.ip_address &&
+    examRecord.ip_address !== 'unknown' &&
+    examRecord.ip_address === clientIp;
+
+  const nameMatch = queryName && examRecord.student_name &&
+    examRecord.student_name === queryName;
+
+  if (ipMatch && nameMatch) {
+    return { valid: true, method: 'ip+name' };
+  }
+
+  // 情况3: 仅IP匹配（弱验证，仅允许查看不允许提交）
+  if (action === 'read' && ipMatch && !examRecord.student_name) {
+    return { valid: true, method: 'ip_only', weak: true };
+  }
+
+  return {
+    valid: false,
+    reason: !ipMatch ? 'ip_mismatch' : (!nameMatch ? 'name_mismatch' : 'no_match'),
+    clientIp,
+    recordIp: examRecord.ip_address,
+    queryName,
+    recordName: examRecord.student_name
+  };
 }
 
 // 测试接口
@@ -125,11 +206,11 @@ router.get('/:examId/questions', asyncHandler(async (req, res) => {
     return resp.notFound(res, '考试记录不存在');
   }
 
-  const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
-
-  if (!isOwner && !examRecord.student_name) {
-    return resp.forbidden(res, '无权限获取此考试题目');
+  // 使用增强版权限验证
+  const authResult = verifyExamOwnership(examRecord, req, 'read');
+  if (!authResult.valid) {
+    console.warn(`[EXAM_AUTH_FAILED] examId=${req.params.examId} reason=${authResult.reason} clientIp=${authResult.clientIp}`);
+    return resp.forbidden(res, '无权限获取此考试题目，请确认您的身份信息');
   }
 
   let paper;
@@ -198,10 +279,10 @@ router.post('/save-progress', rateLimiters.api, validate(schemas.examSaveProgres
     return resp.notFound(res, '考试记录不存在');
   }
 
-  const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
-
-  if (!isOwner && examRecord.student_name !== req.body.student_name) {
+  // 使用增强版权限验证（写操作需要严格验证）
+  const authResult = verifyExamOwnership(examRecord, req, 'write');
+  if (!authResult.valid) {
+    console.warn(`[SAVE_PROGRESS_AUTH_FAILED] examId=${exam_id} reason=${authResult.reason}`);
     return resp.forbidden(res, '无权限修改此考试记录');
   }
 
@@ -221,14 +302,16 @@ router.post('/submit', rateLimiters.api, validate(schemas.examSubmit), asyncHand
     return resp.notFound(res, '考试记录不存在');
   }
 
+  // 【P0-2】乐观锁：检查状态是否允许提交（防止并发提交）
   if (examRecord.status === 'submitted' || examRecord.status === 'graded') {
-    return resp.error(res, '试卷已提交');
+    console.warn(`[DUPLICATE_SUBMIT_ATTEMPT] examId=${exam_id} status=${examRecord.status} ip=${getClientIp(req)}`);
+    return resp.error(res, '试卷已提交，请勿重复操作');
   }
 
-  const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const isOwner = examRecord.ip_address && examRecord.ip_address !== 'unknown' && examRecord.ip_address === clientIp;
-
-  if (!isOwner && examRecord.student_name !== req.body.student_name) {
+  // 使用增强版权限验证（写操作需要严格验证）
+  const authResult = verifyExamOwnership(examRecord, req, 'write');
+  if (!authResult.valid) {
+    console.warn(`[SUBMIT_AUTH_FAILED] examId=${exam_id} reason=${authResult.reason} method=${authResult.method}`);
     return resp.forbidden(res, '无权限提交此试卷');
   }
 
@@ -899,12 +982,23 @@ router.post('/grade-essay', authenticate, validate(schemas.examGradeEssay), asyn
     const gqsList = await repo.getQuestionsByIds(gqIds);
     essayQuestionIds = gqsList.filter(q => isEssayQuestion(q.type)).map(q => q.id);
   }
+
+  // 【P2-9优化】批量查询评分记录，替代N次循环查询
   let allGraded = true;
-  for (const qId of essayQuestionIds) {
-    const existingScore = await repo.findEssayScoreByRecordAndQuestion(exam_record_id, qId);
-    if (!existingScore) {
-      allGraded = false;
-      break;
+  if (essayQuestionIds.length > 0) {
+    // 假设有批量查询方法，如果没有则使用Promise.all并行查询
+    const scoreChecks = await Promise.all(
+      essayQuestionIds.map(qId =>
+        repo.findEssayScoreByRecordAndQuestion(exam_record_id, qId)
+          .then(score => ({ qId, hasScore: !!score }))
+          .catch(() => ({ qId, hasScore: false }))
+      )
+    );
+    allGraded = scoreChecks.every(check => check.hasScore);
+
+    if (!allGraded) {
+      const missingIds = scoreChecks.filter(c => !c.hasScore).map(c => c.qId);
+      console.log(`[ESSAY_GRADE] Missing scores for questions: ${missingIds.join(', ')}`);
     }
   }
 

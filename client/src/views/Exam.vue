@@ -729,6 +729,19 @@ export default {
       // 监听网络状态
       window.addEventListener('online', handleOnline)
       window.addEventListener('offline', handleOffline)
+
+      // 【P2-7】添加防误操作提示（关闭/刷新页面时警告）
+      const handleBeforeUnload = (e) => {
+        if (examStarted.value && !submitDialogVisible.value) {
+          e.preventDefault()
+          e.returnValue = '⚠️ 考试进行中，离开将丢失答题进度！确定要离开吗？'
+          return e.returnValue
+        }
+      }
+      window.addEventListener('beforeunload', handleBeforeUnload)
+
+      // 保存清理函数引用以便卸载时移除
+      window._examBeforeUnloadHandler = handleBeforeUnload
     })
 
     const startCountdown = () => {
@@ -774,6 +787,12 @@ export default {
       disconnectWebSocket()
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+
+      // 清理防误操作监听器
+      if (window._examBeforeUnloadHandler) {
+        window.removeEventListener('beforeunload', window._examBeforeUnloadHandler)
+        delete window._examBeforeUnloadHandler
+      }
     })
 
     return {

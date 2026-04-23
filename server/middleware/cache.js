@@ -70,15 +70,24 @@ function cacheMiddleware(keyPrefix, ttl = null) {
       
       // 拦截 res.json 方法
       const originalJson = res.json;
+      let jsonCalled = false;
       res.json = (data) => {
-        // 将数据写入缓存
+        if (jsonCalled) {
+          // 防止重复调用
+          return originalJson.call(res, data);
+        }
+        jsonCalled = true;
+
+        // 将数据写入缓存（异步，不阻塞响应）
         client.setex(cacheKey, cacheTTL, JSON.stringify(data)).catch(err => {
           console.warn('缓存写入失败:', err.message);
+        }).finally(() => {
+          // 确保恢复原始方法
+          res.json = originalJson;
         });
-        
-        // 恢复原始方法并返回
-        res.json = originalJson;
-        return res.json(data);
+
+        // 使用原始方法返回响应
+        return originalJson.call(res, data);
       };
 
       next();

@@ -229,4 +229,92 @@ router.post('/logout', asyncHandler(async (req, res) => {
   resp.success(res, null, '已退出登录');
 }));
 
+// 刷新 Token（安全加固版 - 使用Redis存储刷新计数）【P3-10】
+router.post('/refresh', asyncHandler(async (req, res) => {
+  try {
+    let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return resp.unauthorized(res, '未登录');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        decoded = jwt.decode(token);
+        if (!decoded || !decoded.exp) {
+          return resp.unauthorized(res, 'token无效，请重新登录');
+        }
+        const expiredDuration = Date.now() / 1000 - decoded.exp;
+        if (expiredDuration > 900) { // 超过15分钟不允许刷新
+          return resp.unauthorized(res, 'token已过期太久，请重新登录');
+        }
+      } else {
+        return resp.unauthorized(res, 'token无效');
+      }
+    }
+
+    const user = await repo.getUserById(decoded.id);
+
+    if (!user) {
+      return resp.notFound(res, '用户不存在');
+    }
+
+    // 【P3-10】使用Redis存储刷新次数（更安全）
+    const refreshKey = `auth:refresh:${decoded.id}`;
+    let refreshCount = 1;
+
+    if (redis.isConnected()) {
+      try {
+        const currentCount = await redis.incr(refreshKey);
+        refreshCount = currentCount;
+
+        // 设置15分钟过期
+        if (currentCount === 1) {
+          await redis.expire(refreshKey, 900); // 15分钟窗口
+        }
+
+        if (currentCount > 5) {
+          console.warn(`[AUTH_REFRESH_LIMIT] userId=${decoded.id} count=${currentCount}`);
+          return res.status(429).json({
+            success: false,
+            message: '刷新次数过多，请重新登录'
+          });
+        }
+      } catch (redisErr) {
+        console.warn('[AUTH_REFRESH] Redis不可用，降级为无限制模式:', redisErr.message);
+      }
+    } else {
+      console.warn('[AUTH_REFRESH] Redis未配置，跳过频率限制');
+    }
+
+    // 生成新 token
+    const newToken = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    // 先清除旧 token Cookie
+    res.clearCookie('token', { path: '/' });
+
+    // 更新 Cookie
+    const isSecureCookie = config.SECURE_COOKIE;
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: isSecureCookie,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+
+    resp.success(res, { token: newToken, refreshTokenCount: refreshCount });
+  } catch (error) {
+    console.error('刷新Token错误:', error);
+    resp.unauthorized(res, 'token无效');
+  }
+}));
+
 module.exports = router;

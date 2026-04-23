@@ -114,8 +114,9 @@ router.get('/:id/questions', authenticate, asyncHandler(async (req, res) => {
       return resp.success(res, { list: [], total: 0 });
     }
 
+    // 【优化】使用批量查询替代全表扫描
     const questionIds = paperQuestionRelations.map(r => r.question_id);
-    const allQuestions = await repo.getQuestions();
+    const allQuestions = await repo.getQuestionsByIds(questionIds);  // 只查需要的题目
     const questionsMap = {};
     (allQuestions || []).forEach(q => { questionsMap[q.id] = q; });
 
