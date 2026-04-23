@@ -7,6 +7,12 @@
       <h3>{{ course?.title || '课程编辑' }}</h3>
       <div class="header-actions">
         <a-tag :color="course?.status === 'published' ? 'green' : 'gray'">{{ course?.status === 'published' ? '已发布' : '草稿' }}</a-tag>
+        <!-- 【T1.4】自动保存状态指示器 -->
+        <div class="auto-save-indicator" v-if="autoSaveStatus !== 'idle'">
+          <IconLoading v-if="autoSaveStatus === 'saving'" :spin="true" />
+          <IconCheckCircleFill v-else-if="autoSaveStatus === 'saved'" style="color: #00b42a;" />
+          <span class="save-text">{{ autoSaveStatusText }}</span>
+        </div>
         <a-button type="primary" :loading="saving" @click="saveCurrentChapter">保存章节</a-button>
         <a-popconfirm v-if="course?.status !== 'published'" title="发布前需至少有一个已发布的章节，确定发布？" @confirm="publishCourseAction">
           <a-button status="success" :loading="publishing">发布课程</a-button>
@@ -97,7 +103,7 @@
 
     <!-- 添加/编辑章节弹窗 -->
     <a-modal v-model:visible="showChapterModal" :title="editingChapterId ? '编辑章节' : '新建章节'" :width="440" @ok="confirmChapterModal" ok-text="确定" cancel-text="取消">
-      <a-form layout="vertical">
+      <a-form layout="vertical" :model="{ title: newChapterTitle }">
         <a-form-item label="章节标题" required>
           <a-input v-model:value="newChapterTitle" placeholder="请输入章节标题" :max-length="200" />
         </a-form-item>
@@ -107,13 +113,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { Message } from '@arco-design/web-vue'
-import { IconLeft, IconPlus, IconRefresh, IconMoreVertical } from '@arco-design/web-vue/es/icon'
+import { ref, reactive, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
+import { Message, Modal } from '@arco-design/web-vue'
+import { IconLeft, IconPlus, IconRefresh, IconMoreVertical, IconLoading, IconCheckCircleFill } from '@arco-design/web-vue/es/icon'
 import { getCourseChapters, createChapter, updateChapter, deleteChapter as deleteChapterApi, publishCourse } from '@/api'
+import E from 'wangeditor'
 
 const props = defineProps({ courseId: { type: [String, Number], required: true }, course: { type: Object, default: null } })
 const emit = defineEmits(['back', 'updated'])
+const router = useRouter()
 
 const chapters = ref([])
 const activeChapterId = ref(null)
@@ -128,27 +137,24 @@ const newChapterTitle = ref('')
 let editorInstance = null
 const editorContainerRef = ref(null)
 
+// 【T1.4】自动保存相关状态
+const autoSaveStatus = ref('idle') // 'idle' | 'saving' | 'saved'
+let autoSaveTimer = null
+const AUTO_SAVE_DELAY = 5000 // 5秒防抖
+
+// 【T1.4】离开页面确认相关
+const hasUnsavedChanges = ref(false)
+
 onMounted(async () => {
   await loadChapters()
-  await importWangEditor()
 })
-
-async function importWangEditor() {
-  if (typeof window.wangEditor !== 'undefined') return
-  try {
-    const { createEditor, createToolbar } = await import('@wangeditor/editor-for-vue')
-    window._wangeCreateEditor = createEditor
-    window._wangeCreateToolbar = createToolbar
-  } catch(e) {
-    console.warn('wangEditor not available')
-  }
-}
 
 async function loadChapters() {
   try {
     const res = await getCourseChapters(props.courseId)
-    if (res.data?.success) {
-      chapters.value = res.data.data?.chapters || res.data.data?.flatList || []
+    if (res.success) {
+      const d = res.data
+      chapters.value = d?.chapters || d?.flatList || []
       if (!activeChapterId.value && chapters.value.length > 0) {
         selectChapter(chapters.value[0])
       }
@@ -168,41 +174,52 @@ function selectChapter(ch) {
   nextTick(() => initEditor())
 }
 
-async function initEditor() {
+function initEditor() {
   if (!editorContainerRef.value) return
   destroyEditor()
   try {
-    const chapter = chapters.value.flatMap(flatten).find(c => c.id === activeChapterId.value)
-    const createEditor = window._wangeCreateEditor
-    if (!createEditor) {
-      editorContainerRef.value.innerHTML = `<textarea style="width:100%;min-height:400px;padding:12px;border:1px solid var(--border-color);border-radius:6px;">${(chapter?.content || '')}</textarea>`
-      return
+    const chapter = findChapterById(chapters.value, activeChapterId.value)
+    editorInstance = new E(editorContainerRef.value)
+    editorInstance.config.uploadImgServer = '/api/upload'
+    editorInstance.config.uploadImgFieldName = 'file'
+    editorInstance.config.uploadImgMaxSize = 5 * 1024 * 1024
+    editorInstance.config.uploadImgMaxLength = 9
+    editorInstance.config.uploadImgHeaders = {}
+    editorInstance.config.uploadImgHooks = {
+      customInsert(resData, insertFn) {
+        const url = resData?.data?.url || resData?.url || ''
+        if (url) insertFn(url, '', '')
+      },
+      error() { Message.error('图片上传失败') }
     }
-    editorInstance = createEditor({
-      selector: editorContainerRef.value,
-      html: chapter?.content || '',
-      config: {
-        placeholder: '开始编写章节内容...',
-        MENU_CONF: {
-          uploadImage: {
-            server: '/api/upload',
-            fieldName: 'file',
-            maxFileSize: 5 * 1024 * 1024,
-            allowedFileTypes: ['image/*']
-          }
-        },
-        onChange(editor) {}
-      }
-    })
+    editorInstance.config.showLinkImg = false
+    editorInstance.config.zIndex = 100
+    editorInstance.create()
+    editorInstance.txt.html(chapter?.content || '')
+
+    // 【T1.4】监听编辑器内容变更，触发自动保存
+    editorInstance.onchange = () => {
+      hasUnsavedChanges.value = true
+      triggerAutoSave()
+    }
   } catch(e) {
     console.error('Editor init error:', e)
+    if (editorContainerRef.value) {
+      const chapter = findChapterById(chapters.value, activeChapterId.value)
+      editorContainerRef.value.innerHTML = `<textarea style="width:100%;min-height:400px;padding:12px;border:1px solid var(--border-color);border-radius:6px;font-size:14px;">${(chapter?.content || '')}</textarea>`
+    }
   }
 }
 
-function flatten(node) {
-  const result = [node]
-  if (node.children) node.children.forEach(c => result.push(...flatten(c)))
-  return result
+function findChapterById(list, id) {
+  for (const node of list) {
+    if (node.id === id) return node
+    if (node.children) {
+      const found = findChapterById(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 function destroyEditor() {
@@ -217,8 +234,8 @@ async function saveCurrentChapter() {
   saving.value = true
   try {
     let content = ''
-    if (editorInstance && typeof editorInstance.getHtml === 'function') {
-      content = editorInstance.getHtml()
+    if (editorInstance && typeof editorInstance.txt?.html === 'function') {
+      content = editorInstance.txt.html()
     } else if (editorContainerRef.value) {
       const ta = editorContainerRef.value.querySelector('textarea')
       content = ta?.value || ''
@@ -229,6 +246,7 @@ async function saveCurrentChapter() {
       status: isPublished.value ? 'published' : 'draft'
     })
     Message.success('保存成功')
+    hasUnsavedChanges.value = false // 【T1.4】标记为已保存
     loadChapters()
     emit('updated')
   } catch(e) {
@@ -237,6 +255,60 @@ async function saveCurrentChapter() {
     saving.value = false
   }
 }
+
+// 【T1.4】自动保存触发函数（带防抖）
+function triggerAutoSave() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveStatus.value = 'saving'
+  autoSaveTimer = setTimeout(async () => {
+    await performAutoSave()
+  }, AUTO_SAVE_DELAY)
+}
+
+// 【T1.4】执行自动保存（静默模式）
+async function performAutoSave() {
+  if (!activeChapterId.value || !editorInstance) return
+
+  try {
+    const content = typeof editorInstance.txt?.html === 'function' ? editorInstance.txt.html() : ''
+    await updateChapter(props.courseId, activeChapterId.value, {
+      title: activeTitle.value,
+      content,
+      status: isPublished.value ? 'published' : 'draft'
+    })
+    autoSaveStatus.value = 'saved'
+    hasUnsavedChanges.value = false
+    setTimeout(() => { autoSaveStatus.value = 'idle' }, 2000) // 2秒后隐藏状态
+  } catch(e) {
+    console.warn('[AUTO_SAVE] 自动保存失败:', e)
+    autoSaveStatus.value = 'idle'
+  }
+}
+
+// 【T1.4】自动保存状态文本
+const autoSaveStatusText = computed(() => {
+  switch(autoSaveStatus.value) {
+    case 'saving': return '正在保存...'
+    case 'saved': return '已自动保存'
+    default: return ''
+  }
+})
+
+// 【T1.4】离开页面前的未保存提示（使用路由守卫）
+onBeforeRouteLeave((to, from, next) => {
+  if (hasUnsavedChanges.value) {
+    Modal.confirm({
+      title: '确定要离开吗？',
+      content: '您有未保存的内容，离开后将丢失。建议先点击"保存章节"按钮。',
+      okText: '离开',
+      cancelText: '继续编辑',
+      onOk: () => next(),
+      onCancel: () => {}
+    })
+  } else {
+    next()
+  }
+})
 
 async function publishCourseAction() {
   publishing.value = true
@@ -252,21 +324,31 @@ async function publishCourseAction() {
 }
 
 function addChapter(parentId) {
-  newChapterParentId = parentId
+  newChapterParentId.value = parentId
   editingChapterId.value = null
   newChapterTitle.value = ''
   showChapterModal.value = true
 }
 
 async function confirmChapterModal() {
-  if (!newChapterTitle.value.trim()) { Message.warning('请输入章节标题'); return }
+  let title = newChapterTitle.value?.trim()
+  if (!title) {
+    const inputEl = document.querySelector('input[placeholder*="章节标题"]')
+    if (inputEl) title = (inputEl.value || '').trim()
+  }
+  if (!title) { Message.warning('请输入章节标题'); return }
   try {
-    await createChapter(props.courseId, { title: newChapterTitle.value, parent_id: newChapterParentId, status: 'draft' })
-    Message.success('章节创建成功')
+    if (editingChapterId.value) {
+      await updateChapter(props.courseId, editingChapterId.value, { title })
+      Message.success('章节更新成功')
+    } else {
+      await createChapter(props.courseId, { title, parent_id: newChapterParentId.value, status: 'draft' })
+      Message.success('章节创建成功')
+    }
     showChapterModal.value = false
     loadChapters()
   } catch(e) {
-    Message.error('创建失败')
+    Message.error(editingChapterId.value ? '更新失败' : '创建失败')
   }
 }
 
@@ -289,14 +371,23 @@ async function handleNodeAction(action, ch) {
       } catch(e) { Message.error('更新失败') }
       break
     case 'delete':
-      try {
-        await deleteChapterApi(props.courseId, ch.id)
-        Message.success('删除成功')
-        if (activeChapterId.value === ch.id) {
-          activeChapterId.value = null; destroyEditor()
+      // 【T1.3】增强章节删除确认
+      Modal.confirm({
+        title: '确定要删除此章节吗？',
+        content: `章节名称：${ch.title}\n\n删除后该章节的所有内容将无法恢复。`,
+        okText: '确认删除',
+        okButtonProps: { status: 'danger' },
+        onOk: async () => {
+          try {
+            await deleteChapterApi(props.courseId, ch.id)
+            Message.success('章节已删除')
+            if (activeChapterId.value === ch.id) {
+              activeChapterId.value = null; destroyEditor()
+            }
+            loadChapters()
+          } catch(e) { Message.error('删除失败') }
         }
-        loadChapters()
-      } catch(e) { Message.error('删除失败') }
+      })
       break
   }
 }
@@ -313,6 +404,26 @@ onBeforeUnmount(() => {
 .editor-header { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-color-light, #e5e6eb); margin-bottom: 0; }
 .editor-header h3 { margin: 0; font-size: 17px; flex: 1; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* 【T1.4】自动保存状态指示器样式 */
+.auto-save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--color-bg-soft, #f2f3f5);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #86909c);
+  animation: fadeInOut 0.3s ease;
+}
+.save-text {
+  white-space: nowrap;
+}
+@keyframes fadeInOut {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .editor-body { display: flex; flex: 1; overflow: hidden; gap: 0; }
 .chapter-sidebar { width: 260px; min-width: 220px; border-right: 1px solid var(--border-color-light, #e5e6eb); display: flex; flex-direction: column; background: #fafbfc; }
 .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-color-light, #e5e6eb); font-weight: 600; font-size: 13px; }

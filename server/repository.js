@@ -443,6 +443,132 @@ const repository = {
   },
   getMySQLStatus() {
     return { useDualWrite: false, mysqlConnected: mysqlDb.isConnected(), degradedMode: false };
+  },
+
+  // ========== 学习进度追踪 (T2.1) ==========
+
+  getUserCourseProgress: async (userId, status = 'all') => {
+    return withFallback(
+      async () => {
+        let sql = 'SELECT * FROM course_progress WHERE user_id = ?';
+        const params = [userId];
+        if (status && status !== 'all') {
+          sql += ' AND status = ?';
+          params.push(status);
+        }
+        sql += ' ORDER BY last_accessed_at DESC';
+        return await mysqlDb.sequelize.query(sql, {
+          replacements: params,
+          type: mysqlDb.Sequelize.QueryTypes.SELECT
+        });
+      },
+      () => [],
+      'Progress.getUserCourseProgress'
+    );
+  },
+
+  getCourseProgress: async (userId, courseId) => {
+    return withFallback(
+      async () => {
+        const results = await mysqlDb.sequelize.query(
+          'SELECT * FROM course_progress WHERE user_id = ? AND course_id = ?',
+          { replacements: [userId, courseId], type: mysqlDb.Sequelize.QueryTypes.SELECT }
+        );
+        return results[0] || null;
+      },
+      () => null,
+      'Progress.getCourseProgress'
+    );
+  },
+
+  createCourseProgress: async (data) => {
+    return withFallback(
+      async () => {
+        const [result] = await mysqlDb.sequelize.query(
+          'INSERT INTO course_progress (user_id, course_id, chapter_id, progress_percent, last_position, time_spent, chapters_completed, last_chapter_title, status, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          {
+            replacements: [
+              data.user_id, data.course_id,
+              data.chapter_id || 0, data.progress_percent || 0,
+              data.last_position || null, data.time_spent || 0,
+              data.chapters_completed || null,
+              data.last_chapter_title || '',
+              data.status || 'in_progress', data.started_at
+            ],
+            type: mysqlDb.Sequelize.QueryTypes.INSERT
+          }
+        );
+        return { id: result, ...data };
+      },
+      () => ({ id: Date.now(), ...data }),
+      'Progress.create'
+    );
+  },
+
+  updateCourseProgress: async (userId, courseId, updateData) => {
+    return withFallback(
+      async () => {
+        const fields = [];
+        const values = [];
+        for (const [key, val] of Object.entries(updateData)) {
+          if (val !== undefined) {
+            fields.push(`${key} = ?`);
+            values.push(val);
+          }
+        }
+        if (fields.length === 0) return false;
+        values.push(userId, courseId);
+
+        await mysqlDb.sequelize.query(
+          `UPDATE course_progress SET ${fields.join(', ')} WHERE user_id = ? AND course_id = ?`,
+          { replacements: values, type: mysqlDb.Sequelize.QueryTypes.UPDATE }
+        );
+        return true;
+      },
+      () => true,
+      'Progress.update'
+    );
+  },
+
+  deleteCourseProgress: async (userId, courseId) => {
+    return withFallback(
+      async () => {
+        await mysqlDb.sequelize.query(
+          'DELETE FROM course_progress WHERE user_id = ? AND course_id = ?',
+          { replacements: [userId, courseId], type: mysqlDb.Sequelize.QueryTypes.DELETE }
+        );
+        return true;
+      },
+      () => true,
+      'Progress.delete'
+    );
+  },
+
+  getRecentCourseProgress: async (userId, limit = 5) => {
+    return withFallback(
+      async () => {
+        return await mysqlDb.sequelize.query(
+          'SELECT * FROM course_progress WHERE user_id = ? ORDER BY last_accessed_at DESC LIMIT ?',
+          { replacements: [userId, limit], type: mysqlDb.Sequelize.QueryTypes.SELECT }
+        );
+      },
+      () => [],
+      'Progress.getRecent'
+    );
+  },
+
+  getChapterById: async (courseId, chapterId) => {
+    return withFallback(
+      async () => {
+        const results = await mysqlDb.sequelize.query(
+          'SELECT * FROM course_chapters WHERE course_id = ? AND id = ?',
+          { replacements: [courseId, chapterId], type: mysqlDb.Sequelize.QueryTypes.SELECT }
+        );
+        return results[0] || null;
+      },
+      () => jsonDb.chapters?.find(c => c.id === chapterId),
+      'Progress.getChapter'
+    );
   }
 };
 

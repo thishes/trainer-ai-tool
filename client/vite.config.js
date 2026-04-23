@@ -38,7 +38,8 @@ export default defineConfig({
     reportCompressedSize: false
   },
   server: {
-    port: 3001,
+    port: 3000,  // 【固定】前端必须使用3000端口
+    strictPort: true,  // 如果被占用则报错，不自动切换
     warmup: {
       clientFiles: [
         './src/main.js',
@@ -48,11 +49,16 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3001',  // 后端API服务
         changeOrigin: true
       },
       '/uploads': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3001',  // 文件上传服务
+        changeOrigin: true
+      },
+      '/socket.io': {  // WebSocket代理
+        target: 'http://localhost:3001',
+        ws: true,
         changeOrigin: true
       }
     }

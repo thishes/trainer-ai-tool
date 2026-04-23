@@ -30,12 +30,27 @@ const ERROR_CODES = {
   STUDENT_MISMATCH: { code: 3007, message: '考生信息不匹配，无法参加考试' },
   EXAM_TIME_EXPIRED: { code: 3008, message: '考试时间已结束' },
 
-  // 题目/试卷 (4000-4999)
+  // 题目/试卷 (4000-4099)
   QUESTION_NOT_FOUND: { code: 4001, message: '题目不存在' },
   PAPER_NOT_FOUND: { code: 4002, message: '试卷不存在' },
   PAPER_NO_QUESTIONS: { code: 4003, message: '试卷暂无题目' },
   IMPORT_FAILED: { code: 4004, message: '导入失败，请检查数据格式' },
   IMPORT_PARTIAL: { code: 4005, message: '部分数据导入成功' },
+
+  // 课程相关 (4100-4199) 【T1.6新增】
+  COURSE_NOT_FOUND: { code: 4101, message: '课程不存在' },
+  COURSE_SLUG_DUPLICATE: { code: 4102, message: '课程标识符已被使用，请更换其他标识符' },
+  COURSE_NO_CHAPTERS_TO_PUBLISH: { code: 4103, message: '发布前至少需要一个已发布的章节' },
+  COURSE_CHAPTER_DELETE_LAST: { code: 4104, message: '至少需要保留一个章节，无法删除' },
+  COURSE_ACCESS_LIMIT_EXCEEDED: { code: 4105, message: '授权学员数量已达上限' },
+  COURSE_LOCKED: { code: 4106, message: '该课程正在被其他管理员编辑中，请稍后再试' },
+  COURSE_PASSWORD_WRONG: { code: 4107, message: '访问密码错误，请重新输入' },
+  COURSE_NOT_PUBLISHED: { code: 4108, message: '该课程暂未发布，无法访问' },
+  COURSE_PRIVATE_NO_ACCESS: { code: 4109, message: '您没有权限访问此私有课程' },
+  CHAPTER_NOT_FOUND: { code: 4110, message: '章节不存在或已被删除' },
+  CHAPTER_CONTENT_TOO_LONG: { code: 4111, message: '章节内容超出长度限制（最大50万字）' },
+  COURSE_TITLE_REQUIRED: { code: 4112, message: '课程标题不能为空' },
+  COURSE_TITLE_TOO_LONG: { code: 4113, message: '课程标题过长，最多200个字符' },
 
   // 数据库 (5000-5999)
   DB_CONNECTION_FAILED: { code: 5001, message: '数据库连接失败' },
@@ -85,7 +100,14 @@ function getFriendlyMessage(err) {
     'forbidden': ERROR_CODES.FORBIDDEN.message,
     'timeout': ERROR_CODES.DB_QUERY_TIMEOUT.message,
     'connection': ERROR_CODES.DB_CONNECTION_FAILED.message,
-    'validation': ERROR_CODES.INVALID_PARAMS.message
+    'validation': ERROR_CODES.INVALID_PARAMS.message,
+
+    // 【T1.6】课程相关关键字
+    'slug': msg.includes('duplicate') ? ERROR_CODES.COURSE_SLUG_DUPLICATE.message : '标识符错误',
+    'chapter.*delete|至少需要保留': ERROR_CODES.COURSE_CHAPTER_DELETE_LAST.message,
+    'publish.*chapter|发布前': ERROR_CODES.COURSE_NO_CHAPTERS_TO_PUBLISH.message,
+    'password.*course|密码错误': ERROR_CODES.COURSE_PASSWORD_WRONG.message,
+    'private.*access|私有.*权限': ERROR_CODES.COURSE_PRIVATE_NO_ACCESS.message
   };
 
   for (const [key, friendlyMsg] of Object.entries(keywords)) {

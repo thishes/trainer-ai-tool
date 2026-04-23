@@ -1,12 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
-const { resp } = require('../utils/response');
-const { authenticate, requireAdminOrOwner } = require('../middleware/auth');
-const { validateRequest } = require('../middleware/validateRequest');
-const { asyncHandler } = require('../middleware/asyncHandler');
-const { Joi } = require('../middleware/schemas');
+const { asyncHandler } = require('../middleware/errorHandler');
+const authenticate = require('../middleware/auth');
+const schemas = require('../middleware/schemas');
+const { validate } = require('../middleware/validate');
 const repo = require('../repository');
+const resp = require('../utils/response');
 
 function buildChapterTree(chapters) {
   const map = {};
@@ -25,7 +24,7 @@ function buildChapterTree(chapters) {
   return roots;
 }
 
-router.get('/', authenticate, validateRequest('courseList'), asyncHandler(async (req, res) => {
+router.get('/', authenticate, validate(schemas.courseList), asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = Math.min(parseInt(req.query.pageSize) || 12, 50);
   const isAdmin = req.user.role === 'admin';
@@ -48,7 +47,7 @@ router.get('/', authenticate, validateRequest('courseList'), asyncHandler(async 
   });
 }));
 
-router.post('/', authenticate, validateRequest('courseCreate'), asyncHandler(async (req, res) => {
+router.post('/', authenticate, validate(schemas.courseCreate), asyncHandler(async (req, res) => {
   const data = {
     ...req.body,
     user_id: req.user.id,
@@ -108,8 +107,6 @@ router.patch('/:id/publish', authenticate, asyncHandler(async (req, res) => {
   resp.success(res, { id: course.id, status: newStatus });
 }));
 
-// ========== 章节管理 ==========
-
 router.get('/:id/chapters', authenticate, asyncHandler(async (req, res) => {
   const course = await repo.getCourseById(req.params.id);
   if (!course) return resp.notFound(res, '课程不存在');
@@ -122,7 +119,7 @@ router.get('/:id/chapters', authenticate, asyncHandler(async (req, res) => {
   resp.success(res, { chapters: buildChapterTree(chapters), flatList: chapters });
 }));
 
-router.post('/:id/chapters', authenticate, validateRequest('chapterCreate'), asyncHandler(async (req, res) => {
+router.post('/:id/chapters', authenticate, validate(schemas.chapterCreate), asyncHandler(async (req, res) => {
   const course = await repo.getCourseById(req.params.id);
   if (!course) return resp.notFound(res, '课程不存在');
   const isAdmin = req.user.role === 'admin';
@@ -170,8 +167,6 @@ router.put('/:id/chapters/reorder', authenticate, asyncHandler(async (req, res) 
   resp.success(res, { message: '排序更新成功' });
 }));
 
-// ========== 权限管理 ==========
-
 router.get('/:id/access', authenticate, asyncHandler(async (req, res) => {
   const course = await repo.getCourseById(req.params.id);
   if (!course) return resp.notFound(res, '课程不存在');
@@ -205,9 +200,7 @@ router.delete('/:id/access/:userId', authenticate, asyncHandler(async (req, res)
   resp.success(res, { message: '授权移除成功' });
 }));
 
-// ========== 公开访问（无需认证）==========
-
-router.get('/public/courses/:id', asyncHandler(async (req, res) => {
+router.get('/courses/:id', asyncHandler(async (req, res) => {
   let course;
   if (/^\d+$/.test(req.params.id)) {
     course = await repo.getCourseById(req.params.id);
@@ -228,7 +221,7 @@ router.get('/public/courses/:id', asyncHandler(async (req, res) => {
   resp.success(res, { ...course, chapters: buildChapterTree(chapters), chapterCount: chapters.length });
 }));
 
-router.get('/public/courses/:id/chapters', asyncHandler(async (req, res) => {
+router.get('/courses/:id/chapters', asyncHandler(async (req, res) => {
   let course;
   if (/^\d+$/.test(req.params.id)) {
     course = await repo.getCourseById(req.params.id);
@@ -241,7 +234,7 @@ router.get('/public/courses/:id/chapters', asyncHandler(async (req, res) => {
   resp.success(res, { chapters: buildChapterTree(chapters), flatList: chapters });
 }));
 
-router.get('/public/courses/:courseId/chapters/:chapterId', asyncHandler(async (req, res) => {
+router.get('/courses/:courseId/chapters/:chapterId', asyncHandler(async (req, res) => {
   const chapter = await repo.getChapterById(req.params.chapterId);
   if (!chapter) return resp.notFound(res, '章节不存在');
   let course = await repo.getCourseById(chapter.course_id);
@@ -252,7 +245,7 @@ router.get('/public/courses/:courseId/chapters/:chapterId', asyncHandler(async (
   resp.success(res, { ...chapter, course_title: course.title, course_id: course.id });
 }));
 
-router.post('/public/courses/:id/unlock', asyncHandler(async (req, res) => {
+router.post('/courses/:id/unlock', asyncHandler(async (req, res) => {
   const course = await repo.getCourseById(req.params.id);
   if (!course) return resp.notFound(res, '课程不存在');
   if (course.visibility !== 'password') return resp.error(res, '该课程不需要密码', 400);

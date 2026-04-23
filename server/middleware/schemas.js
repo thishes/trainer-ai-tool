@@ -296,7 +296,7 @@ const courseCreate = {
     cover_image: Joi.string().max(500).allow(null, ''),
     visibility: Joi.string().valid('public', 'password', 'private', 'link').default('public'),
     slug: Joi.string().min(1).max(100).allow(null),
-    access_password: Joi.string().min(4).max(20).allow(null)
+    access_password: Joi.string().min(4).max(20).allow(null, '')
   }).options({ stripUnknown: true })
 };
 

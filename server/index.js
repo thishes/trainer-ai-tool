@@ -26,7 +26,8 @@ const io = require('socket.io')(server, {
 
 const DEBUG = config.DEBUG;
 
-const PORT = process.env.PORT || 3000;
+// 【端口规范】前端固定3000，后端固定3001
+const PORT = 3001;  // 强制后端使用3001，不读取环境变量
 const HOST = process.env.HOST || '0.0.0.0';
 const BASE_URL = process.env.BASE_URL || process.env.FRONTEND_URL || config.FRONTEND_URL || `http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`;
 app.locals.BASE_URL = BASE_URL;
@@ -225,7 +226,8 @@ const csrfExclude = [
   '/api/promotions',
   '/api/promotions/:id/signups',
   '/api/announcements/upload',
-  '/api/upload'
+  '/api/upload',
+  '/api/courses'
 ];
 
 app.use((req, res, next) => {
@@ -354,6 +356,10 @@ app.use('/api/promotions', require('./routes/promotions'));
 const courseRoutes = require('./routes/courses');
 app.use('/api/courses', courseRoutes);
 app.use('/api/public', courseRoutes);
+
+// 【T2.1】学习进度追踪路由
+const progressRoutes = require('./routes/progress');
+app.use('/api/progress', require('./middleware/auth'), progressRoutes);
 
 // 系统管理路由
 app.use('/api/system', require('./routes/system'));

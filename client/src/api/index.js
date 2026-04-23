@@ -357,3 +357,11 @@ export const getPublicCourseChapters = (id) => api.get(`/public/courses/${id}/ch
 export const getPublicChapter = (courseId, chapterId) => api.get(`/public/courses/${courseId}/chapters/${chapterId}`)
 export const unlockCourse = (id, password) => api.post(`/public/courses/${id}/unlock`, { password })
 
+// ========== 学习进度追踪 (T2.1-T2.2) ==========
+export const getMyProgress = (status) => api.get('/progress', { params: { status } })
+export const getCourseProgress = (courseId) => api.get(`/progress/course/${courseId}`)
+export const saveLearningProgress = (data) => api.post('/progress/update', data)
+export const completeCourse = (courseId) => api.post(`/progress/${courseId}/complete`)
+export const deleteProgress = (courseId) => api.delete(`/progress/${courseId}`)
+export const getContinueLearning = () => api.get('/progress/continue-learning')
+

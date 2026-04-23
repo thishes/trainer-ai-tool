@@ -16,11 +16,16 @@
         <span>© thishe.com</span>
         <span style="margin-left:12px;opacity:0.6;">v{{ APP_VERSION }}</span>
       </div>
-      return
     </div>
 
     <!-- 课程内容 -->
     <template v-if="!showUnlock && course">
+      <!-- 【T1.5】移动端目录切换按钮 -->
+      <div class="mobile-toc-toggle" @click="toggleMobileToc">
+        <IconMenu />
+        <span>目录</span>
+      </div>
+
       <!-- 顶部封面 -->
       <div class="course-hero" :style="heroStyle">
         <div class="hero-overlay">
@@ -34,10 +39,27 @@
         </div>
       </div>
 
+      <!-- 【T2.2】学习进度追踪条 -->
+      <div class="progress-bar-wrapper" v-if="course?.id">
+        <ProgressTracker
+          ref="progressTrackerRef"
+          :course-id="course.id"
+          :auto-load="true"
+          @continue="handleContinueLearning"
+        />
+      </div>
+
       <div class="course-layout">
-        <!-- 左侧目录 -->
-        <aside class="course-toc">
-          <div class="toc-header">目录</div>
+        <!-- 【T1.5】移动端遮罩层（点击关闭目录） -->
+        <div v-if="showMobileToc" class="toc-overlay" @click="toggleMobileToc"></div>
+
+        <!-- 左侧目录（桌面端固定 + 移动端抽屉） -->
+        <aside class="course-toc" :class="{ 'mobile-active': showMobileToc }">
+          <div class="toc-header">
+            <span>目录</span>
+            <!-- 【T1.5】移动端关闭按钮 -->
+            <IconClose v-if="showMobileToc" class="toc-close-btn" @click="toggleMobileToc" />
+          </div>
           <nav class="toc-list">
             <a
               v-for="(ch, idx) in flatChapters"
@@ -92,7 +114,7 @@
     </template>
 
     <!-- 加载中 -->
-    <div v-if="loading && !course" class="loading-page"><a-spin size="large" /></div>
+    <div v-if="loading && !course" class="loading-page"><a-spin :size="36" /></div>
 
     <!-- 错误状态 -->
     <div v-if="error && !course && !showUnlock" class="error-page">
@@ -106,13 +128,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
-import { IconUser, IconEye, IconLeft, IconRight } from '@arco-design/web-vue/es/icon'
+import { IconUser, IconEye, IconLeft, IconRight, IconMenu, IconClose } from '@arco-design/web-vue/es/icon'
 import SafeHtml from '@/components/SafeHtml.vue'
+import ProgressTracker from '@/components/ProgressTracker.vue'
 import { APP_VERSION } from '@/version'
-import { getPublicCourse, getPublicCourseChapters, unlockCourse as unlockApi } from '@/api'
+import { getPublicCourse, getPublicCourseChapters, unlockCourse as unlockApi, saveLearningProgress } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,6 +149,58 @@ const showUnlock = ref(false)
 const passwordInput = ref('')
 const unlocking = ref(false)
 const unlockError = ref('')
+
+// 【T1.5】移动端目录状态
+const showMobileToc = ref(false)
+
+// 【T2.2】学习进度追踪
+let progressSaveTimer = null;
+const PROGRESS_SAVE_INTERVAL = 30000; // 30秒自动保存
+
+function startProgressAutoSave() {
+  if (progressSaveTimer) clearInterval(progressSaveTimer);
+  progressSaveTimer = setInterval(() => {
+    if (course.value && currentChapterId.value) saveReadingProgress();
+  }, PROGRESS_SAVE_INTERVAL);
+}
+
+function stopProgressAutoSave() {
+  if (progressSaveTimer) { clearInterval(progressSaveTimer); progressSaveTimer = null; }
+  saveReadingProgress(); // 离开时保存一次
+}
+
+async function saveReadingProgress() {
+  try {
+    const totalChapters = chapters.value?.length || 0;
+    const currentIdx = chapters.value.findIndex(ch => ch.id === currentChapterId.value);
+    const percent = totalChapters > 0 ? Math.round(((currentIdx + 1) / totalChapters) * 100) : 0;
+
+    await saveLearningProgress({
+      course_id: course.value?.id,
+      chapter_id: currentChapterId.value,
+      progress_percent: percent,
+      last_position: { scrollY: window.scrollY || 0, timestamp: Date.now() }
+    });
+  } catch(e) { console.warn('[PROGRESS] 自动保存失败:', e.message); }
+}
+
+function handleContinueLearning(progressData) {
+  if (progressData?.chapter_id && progressData?.last_chapter_title) {
+    selectChapter({ id: progressData.chapter_id, title: progressData.last_chapter_title });
+    Message.success(`继续学习：${progressData.last_chapter_title}`);
+  }
+}
+
+// 【T1.5】切换移动端目录显示/隐藏
+function toggleMobileToc() {
+  showMobileToc.value = !showMobileToc.value
+  // 防止背景滚动
+  if (showMobileToc.value) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+}
 
 function flattenTree(nodes) {
   const result = []
@@ -156,6 +231,14 @@ const chapterContentHtml = computed(() => {
 
 onMounted(async () => {
   await loadCourse()
+  // 【T2.2】课程加载后启动进度自动保存
+  if (course.value) startProgressAutoSave()
+})
+
+onUnmounted(() => {
+  // 【T2.2】离开页面时停止自动保存并记录最后位置
+  stopProgressAutoSave()
+  if (showMobileToc.value) document.body.style.overflow = '' // 清理移动端样式
 })
 
 async function loadCourse() {
@@ -163,8 +246,8 @@ async function loadCourse() {
   error.value = false
   try {
     const res = await getPublicCourse(route.params.id)
-    if (res.data?.success) {
-      const data = res.data.data
+    if (res.success) {
+      const data = res.data
       if (data.visibility === 'password') {
         course.value = data
         chapters.value = data.chapters || []
@@ -198,12 +281,12 @@ async function doUnlock() {
   unlockError.value = ''
   try {
     const res = await unlockApi(route.params.id, passwordInput.value)
-    if (res.data?.success && res.data.data?.unlocked) {
+    if (res.success && res.data?.unlocked) {
       sessionStorage.setItem(`course_unlock_${route.params.id}`, '1')
       showUnlock.value = false
       Message.success('解锁成功')
     } else {
-      unlockError.value = res.data?.message || '密码错误'
+      unlockError.value = res.message || '密码错误'
     }
   } catch(e) {
     unlockError.value = e.response?.data?.message || '密码错误，请重试'
@@ -274,12 +357,114 @@ function formatTime(t) {
 .loading-page { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 400px; }
 .error-page { display: flex; align-items: center; justify-content: center; flex: 1; padding: 60px 20px; }
 
-/* 响应式 */
-@media (max-width: 768px) {
-  .course-layout { flex-direction: column; }
-  .course-toc { width: 100%; height: auto; max-height: 250px; position: relative; }
-  .course-content { padding: 16px 20px; }
+/* 响应式 - 【T1.5】移动端抽屉式目录 */
+@media (max-width: 767.98px) {
+  .course-layout {
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* 【T1.5】移动端目录切换按钮 */
+  .mobile-toc-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-1, #1d2129);
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.2s;
+  }
+  .mobile-toc-toggle:active {
+    transform: scale(0.95);
+  }
+
+  /* 【T1.5】遮罩层 */
+  .toc-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1001;
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* 【T1.5】抽屉式目录 */
+  .course-toc {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    z-index: 1002;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 2px 0 24px rgba(0, 0, 0, 0.15);
+    background: #fff;
+  }
+  .course-toc.mobile-active {
+    transform: translateX(0);
+  }
+
+  /* 【T1.5】关闭按钮 */
+  .toc-close-btn {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  .toc-close-btn:hover {
+    background: var(--color-fill-2, #f2f3f5);
+  }
+
+  /* 【T1.5】触摸友好的目录项 */
+  .toc-item {
+    min-height: 48px; /* Apple HIG标准：最小44pt触摸区域 */
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    font-size: 14px; /* 稍大字体提升可读性 */
+  }
+
+  /* 内容区全宽显示 */
+  .course-content {
+    width: 100%;
+    padding: 16px;
+    margin-top: 48px; /* 为固定按钮留出空间 */
+  }
+
+  /* 封面高度适配 */
+  .course-hero { height: 200px; }
   .hero-overlay { padding: 20px; }
   .hero-overlay h1 { font-size: 22px; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 【T2.2】进度条容器 */
+.progress-bar-wrapper {
+  max-width: 960px;
+  margin: -16px auto 0;
+  position: relative;
+  z-index: 10;
+}
+@media screen and (max-width: 767.98px) {
+  .progress-bar-wrapper {
+    margin: -8px 12px 0;
+    padding: 0;
+  }
 }
 </style>
