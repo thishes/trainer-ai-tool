@@ -116,27 +116,6 @@
         >
           <!-- 卡片封面区域（增强版） -->
           <div class="card-cover" :style="coverStyle(course)">
-            <!-- 装饰性渐变叠加层 -->
-            <div class="cover-gradient"></div>
-
-            <!-- 封面内容层 -->
-            <div class="card-cover-overlay">
-              <div class="overlay-left">
-                <a-tag :color="getStatusColor(course.status)" size="small" class="status-tag">
-                  <template #icon>
-                    <component :is="course.status === 'published' ? IconCheckCircleFill : IconPenFill" />
-                  </template>
-                  {{ course.status === 'published' ? '已发布' : '草稿' }}
-                </a-tag>
-              </div>
-              <div class="overlay-right">
-                <span class="view-count">
-                  <IconEye />
-                  {{ course.view_count || 0 }}
-                </span>
-              </div>
-            </div>
-
             <!-- 悬浮操作按钮组（动画显示） -->
             <transition name="fade-slide">
               <div v-if="hoveredCard === course.id" class="cover-actions">
