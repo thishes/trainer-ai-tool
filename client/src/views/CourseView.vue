@@ -65,11 +65,11 @@
               v-for="(ch, idx) in flatChapters"
               :key="ch.id"
               class="toc-item"
-              :class="{ active: currentChapterId === ch.id }"
+              :class="[`toc-depth-${ch._depth}`, { active: currentChapterId === ch.id }]"
               href="#"
               @click.prevent="selectChapter(ch)"
             >
-              <span class="toc-num">{{ idx + 1 }}</span>
+              <span class="toc-num">{{ ch._num }}</span>
               <span class="toc-title">{{ ch.title }}</span>
             </a>
           </nav>
@@ -202,15 +202,19 @@ function toggleMobileToc() {
   }
 }
 
-function flattenTree(nodes) {
+function flattenTree(nodes, depth = 0, parentNum = '') {
   const result = []
+  let siblingIdx = 0
   for (const n of nodes) {
-    result.push(n)
-    if (n.children?.length) result.push(...flattenTree(n.children))
+    siblingIdx++
+    const num = depth === 0 ? String(siblingIdx) : parentNum + '.' + siblingIdx
+    result.push({ ...n, _depth: depth, _num: num })
+    if (n.children?.length) {
+      result.push(...flattenTree(n.children, depth + 1, num))
+    }
   }
   return result
 }
-
 const flatChapters = computed(() => flattenTree(chapters.value))
 const currentChapter = computed(() => flatChapters.value.find(c => c.id === currentChapterId.value))
 const currentIdx = computed(() => flatChapters.value.findIndex(c => c.id === currentChapterId.value))
@@ -337,6 +341,10 @@ function formatTime(t) {
 
 /* 目录 */
 .course-toc { width: 240px; min-width: 200px; background: #fff; border-right: 1px solid var(--border-color-light, #e5e6eb); height: calc(100vh - 340px); position: sticky; top: 0; overflow-y: auto; flex-shrink: 0; }
+.toc-depth-1 { padding-left: 36px; }
+.toc-depth-2 { padding-left: 54px; }
+.toc-depth-3 { padding-left: 72px; }
+
 .toc-header { padding: 14px 18px; font-weight: 600; font-size: 15px; border-bottom: 1px solid var(--border-color-light, #e5e6eb); }
 .toc-list { padding: 8px 0; }
 .toc-item { display: flex; align-items: center; padding: 9px 18px; cursor: pointer; transition: all 0.15s; color: var(--text-1, #1d2129); font-size: 13.5px; text-decoration: none; border-left: 3px solid transparent; }
