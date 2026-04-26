@@ -304,7 +304,7 @@ app.use(express.static(distPath, {
   lastModified: true
 }));
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1h',
   etag: true
 }));
