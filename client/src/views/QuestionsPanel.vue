@@ -343,7 +343,7 @@ import SafeHtml from '@/components/SafeHtml.vue'
 
 export default {
   name: 'QuestionsPanel',
-  components: { IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus },
+  components: { SafeHtml, IconSearch, IconRefresh, IconDownload, IconUpload, IconDelete, IconPlus },
   emits: ['questionsUpdated'],
   setup(props, { emit }) {
     const questions = ref([])
