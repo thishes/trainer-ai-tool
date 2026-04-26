@@ -217,10 +217,17 @@ const currentIdx = computed(() => flatChapters.value.findIndex(c => c.id === cur
 const prevIdx = computed(() => currentIdx.value - 1)
 const nextIdx = computed(() => currentIdx.value + 1)
 
+function resolveCoverUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return window.location.origin + url
+}
+
 const heroStyle = computed(() => {
   if (!course.value) return {}
-  if (course.value.cover_image || course.value.cover_url) {
-    return { background: `url(${course.value.cover_url || course.value.cover_image}) center/cover no-repeat` }
+  const coverUrl = course.value.cover_url || course.value.cover_image
+  if (coverUrl) {
+    return { background: `url(${resolveCoverUrl(coverUrl)}) center/cover no-repeat` }
   }
   return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
 })

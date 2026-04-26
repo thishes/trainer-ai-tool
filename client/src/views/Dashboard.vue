@@ -158,7 +158,7 @@ const ExamStatsPanel = defineAsyncComponent(() => import('@/views/ExamStatsPanel
 
 export default {
   name: 'Dashboard',
-  components: { SystemSettings, PromotionsPanel, GradingPanel, UsersPanel, AnnouncementsPanel, QuestionsPanel, PapersPanel, ExamStatsPanel },
+  components: { SystemSettings, PromotionsPanel, CoursesPanel, GradingPanel, UsersPanel, AnnouncementsPanel, QuestionsPanel, PapersPanel, ExamStatsPanel },
   setup() {
     const router = useRouter()
     const route = useRoute()

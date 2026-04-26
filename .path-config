@@ -1,0 +1,22 @@
+# ============================================
+# 项目路径配置 - 永久生效
+# ============================================
+# ⚠️ 正确的项目根目录（切勿修改）
+PROJECT_ROOT=/Users/thishe/Documents/trae_projects/trainer-ai-tool
+
+# 子路径
+CLIENT_DIR=${PROJECT_ROOT}/client
+SERVER_DIR=${PROJECT_ROOT}/server
+VIEWS_DIR=${CLIENT_DIR}/src/views
+API_DIR=${CLIENT_DIR}/src/api
+COMPONENTS_DIR=${CLIENT_DIR}/src/components
+
+# 端口配置
+FRONTEND_PORT=3000
+BACKEND_PORT=3001
+
+# 路径说明（重要！）
+# ✅ 正确: /Users/thishe/Documents/trae_projects/ (trae = t-r-a-e, 4个字母)
+# ❌ 错误: /Users/thishe/Documents/tae_projects/ (tae = t-a-e, 3个字母)
+#
+# 记忆口诀: "Trae" = T-r-a-e (像"Tree"树，带r)

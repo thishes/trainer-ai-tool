@@ -1,5 +1,6 @@
 <template>
   <div class="courses-panel">
+    <!-- 页面头部 -->
     <div class="page-header-simple">
       <div class="page-header-content">
         <div class="page-header-icon">
@@ -15,9 +16,13 @@
       </div>
     </div>
 
+    <!-- 工具栏 -->
     <div class="toolbar-standard">
       <div class="toolbar-left">
-        <a-button type="primary" @click="showCreateModal = true">+ 新建课程</a-button>
+        <a-button type="primary" @click="showCreateModal = true">
+          <template #icon><IconPlus /></template>
+          新建课程
+        </a-button>
       </div>
       <div class="toolbar-right">
         <a-input-search v-model:value="searchText" placeholder="搜索课程..." style="width: 200px;" allow-clear @search="loadCourses" @pressEnter="loadCourses" />
@@ -29,7 +34,10 @@
       </div>
     </div>
 
-    <div v-if="loading && courses.length === 0 && !editingCourseId" class="loading-wrapper"><a-spin :size="36" /></div>
+    <!-- 加载状态 -->
+    <div v-if="loading && courses.length === 0 && !editingCourseId" class="loading-wrapper">
+      <a-spin :size="36" />
+    </div>
 
     <!-- 【T1.1】增强空状态引导 - 首次使用友好提示 -->
     <div v-else-if="courses.length === 0 && !editingCourseId && !hasActiveFilters" class="empty-state-enhanced">
@@ -53,9 +61,6 @@
         <a-button type="primary" size="large" @click="showCreateModal = true">
           <template #icon><IconPlus /></template>
           立即创建课程
-        </a-button>
-        <a-button size="large" @click="showQuickStartGuide = true">
-          查看快速入门指南
         </a-button>
       </div>
       <div class="empty-tips">
@@ -96,50 +101,115 @@
       @updated="loadCourses"
     />
 
-    <!-- 课程列表模式 -->
+    <!-- 课程列表模式 - 美化后的卡片网格 -->
     <template v-else>
       <div class="course-grid" @click="onCardClick">
-        <div v-for="course in courses" :key="course.id" class="course-card" role="button" tabindex="0" :data-course-id="course.id">
+        <div
+          v-for="course in courses"
+          :key="course.id"
+          class="course-card"
+          role="button"
+          tabindex="0"
+          :data-course-id="course.id"
+          @mouseenter="hoveredCard = course.id"
+          @mouseleave="hoveredCard = null"
+        >
+          <!-- 卡片封面区域（增强版） -->
           <div class="card-cover" :style="coverStyle(course)">
+            <!-- 装饰性渐变叠加层 -->
+            <div class="cover-gradient"></div>
+
+            <!-- 封面内容层 -->
             <div class="card-cover-overlay">
-              <a-tag :color="course.status === 'published' ? 'green' : 'gray'" size="small">{{ course.status === 'published' ? '已发布' : '草稿' }}</a-tag>
-              <span class="view-count">{{ course.view_count || 0 }} 次浏览</span>
+              <div class="overlay-left">
+                <a-tag :color="getStatusColor(course.status)" size="small" class="status-tag">
+                  <template #icon>
+                    <component :is="course.status === 'published' ? IconCheckCircleFill : IconPenFill" />
+                  </template>
+                  {{ course.status === 'published' ? '已发布' : '草稿' }}
+                </a-tag>
+              </div>
+              <div class="overlay-right">
+                <span class="view-count">
+                  <IconEye />
+                  {{ course.view_count || 0 }}
+                </span>
+              </div>
             </div>
+
+            <!-- 悬浮操作按钮组（动画显示） -->
+            <transition name="fade-slide">
+              <div v-if="hoveredCard === course.id" class="cover-actions">
+                <a-button-group shape="circle">
+                  <a-tooltip content="编辑课程" position="bottom">
+                    <a-button type="primary" size="small" @click.stop="enterEditor(course)">
+                      <IconEdit />
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip :content="course.status === 'published' ? '下架课程' : '发布课程'" position="bottom">
+                    <a-button size="small" @click.stop="togglePublish(course)">
+                      <component :is="course.status === 'published' ? IconDownCircle : IconUpCircle" />
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip content="复制链接" position="bottom">
+                    <a-button size="small" @click.stop="copyLink(course)">
+                      <IconLink />
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip content="删除课程" position="bottom">
+                    <a-button size="small" status="danger" @click.stop="deleteCourse(course)">
+                      <IconDelete />
+                    </a-button>
+                  </a-tooltip>
+                </a-button-group>
+              </div>
+            </transition>
           </div>
+
+          <!-- 卡片主体内容（增强版） -->
           <div class="card-body">
-            <h3 class="card-title">{{ course.title }}</h3>
+            <!-- 标题区 -->
+            <h3 class="card-title" :title="course.title">{{ course.title }}</h3>
+
+            <!-- 描述区 -->
             <p class="card-desc">{{ course.description || '暂无描述' }}</p>
+
+            <!-- 统计信息条（新增） -->
+            <div class="card-stats">
+              <div class="stat-item">
+                <IconDriveFile />
+                <span>{{ course.chapterCount || 0 }} 章节</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <IconEye />
+                <span>{{ formatViewCount(course.view_count) }}</span>
+              </div>
+            </div>
+
+            <!-- 底部元信息（增强版） -->
             <div class="card-meta">
-              <span>{{ course.author_name || '未知' }}</span>
-              <span>{{ formatTime(course.updated_at) }}</span>
-              <a-space :size="4">
-                <a-tooltip content="编辑内容">
-                  <a-button size="small" text @click.stop="enterEditor(course)"><IconEdit /></a-button>
-                </a-tooltip>
-                <a-tooltip :content="course.status === 'published' ? '下架' : '发布'">
-                  <a-button size="small" text @click.stop="togglePublish(course)">
-                    <component :is="course.status === 'published' ? IconDownCircle : IconUpCircle" />
-                  </a-button>
-                </a-tooltip>
-                <a-tooltip content="复制链接">
-                  <a-button size="small" text @click.stop="copyLink(course)"><IconLink /></a-button>
-                </a-tooltip>
-                <!-- 【T1.3】删除按钮改为调用增强确认方法 -->
-                <a-tooltip content="删除课程">
-                  <a-button size="small" text status="danger" @click.stop="deleteCourse(course)"><IconDelete /></a-button>
-                </a-tooltip>
-              </a-space>
+              <div class="meta-left">
+                <div class="author-avatar" :style="{ background: getAvatarColor(course.author_name) }">
+                  {{ (course.author_name || '未')[0].toUpperCase() }}
+                </div>
+                <span class="author-name">{{ course.author_name || '未知作者' }}</span>
+              </div>
+              <div class="meta-right">
+                <span class="update-time">{{ formatRelativeTime(course.updated_at) }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- 分页 -->
       <div v-if="total > pageSize" class="pagination-wrap">
         <a-pagination v-model:current="currentPage" v-model:page-size="pageSize" :total="total" show-less-items @change="loadCourses" />
       </div>
     </template>
 
-    <!-- 创建课程弹窗（仅新建，编辑在编辑器中进行） -->
+    <!-- 创建课程弹窗 -->
     <a-modal v-model:visible="showCreateModal" title="新建课程" :width="560" :mask-closable="false" @cancel="resetForm" :footer="false">
       <a-form layout="vertical" ref="courseFormRef" :model="courseForm">
         <a-form-item label="课程标题" required>
@@ -174,7 +244,21 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { IconEdit, IconDelete, IconLink, IconDownCircle, IconUpCircle, IconPlus, IconInfoCircle, IconSearch, IconRefresh } from '@arco-design/web-vue/es/icon'
+import {
+  IconEdit,
+  IconDelete,
+  IconLink,
+  IconDownCircle,
+  IconUpCircle,
+  IconPlus,
+  IconInfoCircle,
+  IconSearch,
+  IconRefresh,
+  IconEye,
+  IconCheckCircleFill,
+  IconPenFill,
+  IconDriveFile
+} from '@arco-design/web-vue/es/icon'
 import ImageUploader from '@/components/ImageUploader.vue'
 import CourseEditor from '@/views/CourseEditor.vue'
 import { getCourses, createCourse, updateCourse, deleteCourse as deleteCourseApi, publishCourse } from '@/api'
@@ -191,7 +275,9 @@ const saving = ref(false)
 const editingCourseId = ref(null)
 const currentEditingCourse = ref(null)
 const courseFormRef = ref(null)
-const showQuickStartGuide = ref(false)
+
+// 【新增】悬浮卡片追踪状态
+const hoveredCard = ref(null)
 
 // 【T1.2】计算属性：是否有活跃的筛选条件
 const hasActiveFilters = computed(() => {
@@ -203,6 +289,50 @@ const statusFilterText = computed(() => {
   const map = { 'draft': '草稿', 'published': '已发布' }
   return statusFilter.value ? (map[statusFilter.value] || '') : ''
 })
+
+// 【新增】获取状态标签颜色
+function getStatusColor(status) {
+  return status === 'published' ? 'arcoblue' : 'gray'
+}
+
+// 【新增】根据作者名生成头像颜色
+function getAvatarColor(name) {
+  const colors = [
+    '#165DFF', '#722ED1', '#F53F3F', '#FF7D00', '#00B42A',
+    '#0FC6C2', '#86909C', '#F7BA1E', '#9E379F', '#E02020'
+  ]
+  if (!name) return colors[0]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return colors[Math.abs(hash) % colors.length]
+}
+
+// 【新增】格式化浏览量显示
+function formatViewCount(count) {
+  if (!count) return '0浏览'
+  if (count >= 10000) return (count / 10000).toFixed(1) + 'w浏览'
+  if (count >= 1000) return (count / 1000).toFixed(1) + 'k浏览'
+  return count + '次浏览'
+}
+
+// 【新增】格式化相对时间
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now - date
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return minutes + '分钟前'
+  if (hours < 24) return hours + '小时前'
+  if (days < 30) return days + '天前'
+  return date.toLocaleDateString('zh-CN')
+}
 
 const courseForm = reactive({
   title: '',
@@ -259,7 +389,7 @@ function onCardClick(evt) {
   if (editingCourseId.value) return
   const cardEl = evt.target.closest('.course-card')
   if (!cardEl) return
-  if (evt.target.closest('.card-meta, .arco-space, [class*="tooltip"], [class*="popconfirm"]')) return
+  if (evt.target.closest('.card-meta, .cover-actions, [class*="tooltip"], [class*="popconfirm"]')) return
   const courseId = Number(cardEl.dataset.courseId)
   const course = Array.isArray(courses.value) ? courses.value.find(c => c.id === courseId) : null
   if (course) enterEditor(course)
@@ -368,20 +498,23 @@ function copyLink(course) {
   navigator.clipboard.writeText(url).then(() => Message.success('链接已复制')).catch(() => Message.error('复制失败'))
 }
 
-function formatTime(t) {
-  if (!t) return ''
-  return new Date(t).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+function resolveCoverUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return window.location.origin + url
 }
 
 function coverStyle(course) {
-  if (course.cover_image || course.cover_url) {
-    return { background: `url(${course.cover_url || course.cover_image}) center/cover no-repeat` }
+  const coverUrl = course.cover_url || course.cover_image
+  if (coverUrl) {
+    return { background: `url(${resolveCoverUrl(coverUrl)}) center/cover no-repeat` }
   }
   return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
 }
 </script>
 
 <style scoped>
+/* ==================== 基础布局 ==================== */
 .courses-panel { padding: 16px; }
 
 .page-header-simple {
@@ -441,7 +574,7 @@ function coverStyle(course) {
 
 .loading-wrapper { display: flex; justify-content: center; align-items: center; min-height: 300px; }
 
-/* 【T1.1】增强空状态样式 */
+/* ==================== 空状态样式 ==================== */
 .empty-state-enhanced {
   min-height: 400px;
   display: flex;
@@ -489,7 +622,7 @@ function coverStyle(course) {
   gap: 4px;
 }
 
-/* 【T1.2】搜索无结果样式 */
+/* ==================== 搜索无结果样式 ==================== */
 .no-results-state {
   min-height: 350px;
   display: flex;
@@ -547,16 +680,302 @@ function coverStyle(course) {
   text-decoration: underline;
 }
 
-.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.course-card { border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color-light, #e5e6eb); transition: all 0.2s; cursor: pointer; background: #fff; }
-.course-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
-.card-cover { height: 140px; position: relative; display: flex; align-items: center; justify-content: center; }
-.card-cover-overlay { position: absolute; inset: 0; background: linear-gradient(transparent, rgba(0,0,0,0.5)); display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 12px; }
-.view-count { color: #fff; font-size: 12px; opacity: 0.9; }
-.card-body { padding: 12px; }
-.card-title { margin: 0 0 6px; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-desc { margin: 0 0 10px; font-size: 13px; color: var(--text-secondary, #86909c); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary, #86909c); }
-.pagination-wrap { display: flex; justify-content: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color-light, #e5e6eb); }
-.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 16px; }
+/* ==================== 美化后的课程卡片网格 ==================== */
+.course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* 卡片容器 */
+.course-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color-light, #e5e6eb);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: #fff;
+  position: relative;
+}
+
+.course-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  border-color: transparent;
+}
+
+/* 封面区域（增强） */
+.card-cover {
+  height: 160px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 渐变叠加层 */
+.cover-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.3) 70%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+  z-index: 1;
+}
+
+/* 封面内容层 */
+.card-cover-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 12px 14px;
+}
+
+.overlay-left .status-tag {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  font-weight: 500;
+}
+
+.view-count {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+/* 悬浮操作按钮组 */
+.cover-actions {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 动画过渡 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease-out;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -40%);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -45%);
+}
+
+/* 卡片主体（增强） */
+.card-body {
+  padding: 16px;
+}
+
+/* 标题 */
+.card-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, #1d2129);
+  letter-spacing: -0.01em;
+}
+
+/* 描述 */
+.card-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-secondary, #86909c);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 42px;
+}
+
+/* 统计信息条（新增） */
+.card-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-bg-soft, #f7f8fa);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #86909c);
+  font-weight: 500;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-color-light, #e5e6eb);
+}
+
+/* 底部元信息（增强） */
+.card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-3, #c9cdd4);
+}
+
+.meta-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.author-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.author-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary, #86909c);
+  font-weight: 500;
+}
+
+.update-time {
+  white-space: nowrap;
+}
+
+/* 分页 */
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color-light, #e5e6eb);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+/* ==================== 响应式设计 ==================== */
+@media screen and (max-width: 767.98px) {
+  .course-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .course-card:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-cover {
+    height: 140px;
+  }
+
+  .cover-actions {
+    position: static;
+    transform: none;
+    margin-top: 12px;
+    justify-content: center;
+  }
+
+  .card-body {
+    padding: 14px;
+  }
+
+  .card-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stat-divider {
+    display: none;
+  }
+}
+
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  .course-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+}
+
+/* ==================== 深色模式适配 ==================== */
+@media (prefers-color-scheme: dark) {
+  .course-card {
+    background: var(--bg-2, #1d2129);
+    border-color: var(--border-color-dark, #2f343d);
+  }
+
+  .course-card:hover {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .overlay-left .status-tag {
+    background: rgba(30, 33, 41, 0.95);
+  }
+
+  .view-count {
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .card-stats {
+    background: var(--bg-3, #17191f);
+  }
+
+  .card-title {
+    color: var(--text-1, #f2f3f5);
+  }
+
+  .author-name {
+    color: var(--text-2, #c9cdd4);
+  }
+}
 </style>

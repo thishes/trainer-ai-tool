@@ -1,0 +1,128 @@
+// server/routes/announcements.js - 公告管理路由 (统一数据访问层)
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp');
+const repo = require('../repository');
+const authenticate = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
+const resp = require('../utils/response');
+const cache = require('../utils/cache');
+
+const uploadDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '.webp');
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('只允许上传 JPG、PNG、GIF、WebP 格式的图片'), false);
+  }
+};
+
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 10 } });
+
+router.post('/upload', authenticate, requireAdmin, upload.any(), asyncHandler(async (req, res) => {
+  console.log('[Announcement Upload] 📥 Request received:', {
+    hasFiles: !!req.files,
+    fileCount: req.files?.length || 0,
+    user: req.user?.username
+  });
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ success: false, message: '请选择图片文件' });
+  }
+
+  const uploadedFile = req.files[0];
+  const webpFilename = uploadedFile.filename;
+  const fileUrl = `/uploads/${webpFilename}`;
+
+  console.log('[Announcement Upload] ✅ File uploaded:', {
+    filename: webpFilename,
+    field: uploadedFile.fieldname,
+    size: uploadedFile.size,
+    user: req.user?.username
+  });
+
+  res.json({
+    success: true,
+    url: fileUrl,
+    message: '上传成功'
+  });
+}));
+
+router.get('/', asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const announcements = await repo.getAnnouncements(status);
+  resp.success(res, { list: announcements, total: announcements.length });
+}));
+
+router.get('/:id', asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
+  }
+  resp.success(res, announcement);
+}));
+
+router.post('/', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const { title, content, importance, status } = req.body;
+  if (!title) {
+    return resp.error(res, '标题不能为空');
+  }
+
+  const announcement = await repo.createAnnouncement({
+    title,
+    content: content || '',
+    importance: importance || 'normal',
+    status: status || 'published',
+    author_id: req.user.id
+  });
+
+  resp.success(res, announcement, '创建成功');
+}));
+
+router.put('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
+  }
+
+  const { title, content, importance, status } = req.body;
+  const updates = {};
+  if (title !== undefined) updates.title = title;
+  if (content !== undefined) updates.content = content;
+  if (importance !== undefined) updates.importance = importance;
+  if (status !== undefined) updates.status = status;
+
+  const updated = await repo.updateAnnouncement(req.params.id, updates);
+  resp.success(res, updated, '更新成功');
+}));
+
+router.delete('/:id', authenticate, requireAdmin, asyncHandler(async (req, res) => {
+  const announcement = await repo.getAnnouncementById(req.params.id);
+  if (!announcement) {
+    return resp.notFound(res, '公告不存在');
+  }
+
+  await repo.deleteAnnouncement(req.params.id);
+  resp.success(res, null, '删除成功');
+}));
+
+module.exports = router;

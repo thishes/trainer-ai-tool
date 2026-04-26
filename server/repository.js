@@ -555,20 +555,6 @@ const repository = {
       () => [],
       'Progress.getRecent'
     );
-  },
-
-  getChapterById: async (courseId, chapterId) => {
-    return withFallback(
-      async () => {
-        const results = await mysqlDb.sequelize.query(
-          'SELECT * FROM course_chapters WHERE course_id = ? AND id = ?',
-          { replacements: [courseId, chapterId], type: mysqlDb.Sequelize.QueryTypes.SELECT }
-        );
-        return results[0] || null;
-      },
-      () => jsonDb.chapters?.find(c => c.id === chapterId),
-      'Progress.getChapter'
-    );
   }
 };
 

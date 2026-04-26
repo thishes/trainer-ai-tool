@@ -40,6 +40,12 @@ export default defineConfig({
   server: {
     port: 3000,  // 【固定】前端必须使用3000端口
     strictPort: true,  // 如果被占用则报错，不自动切换
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 3000,
+      clientPort: 3000
+    },
     warmup: {
       clientFiles: [
         './src/main.js',

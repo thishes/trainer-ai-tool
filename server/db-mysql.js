@@ -1129,7 +1129,7 @@ const db = {
     for (const f of cols) {
       if (data[f] !== undefined) { vals.push(data[f]); phs.push('?'); }
     }
-    const result = await execute(
+    const result = await getPool().execute(
       `INSERT INTO courses (${cols.slice(0, vals.length).join(',')}) VALUES (${phs.join(',')})`, vals
     );
     return { id: result.insertId, ...data };
@@ -1144,21 +1144,21 @@ const db = {
     }
     if (!sets.length) return;
     vals.push(id);
-    await execute(`UPDATE courses SET ${sets.join(',')} WHERE id = ?`, vals);
+    await getPool().execute(`UPDATE courses SET ${sets.join(',')} WHERE id = ?`, vals);
   },
 
   async deleteCourse(id) {
-    await execute('DELETE FROM chapters WHERE course_id = ?', [id]);
-    await execute('DELETE FROM course_access WHERE course_id = ?', [id]);
-    await execute('DELETE FROM courses WHERE id = ?', [id]);
+    await getPool().execute('DELETE FROM chapters WHERE course_id = ?', [id]);
+    await getPool().execute('DELETE FROM course_access WHERE course_id = ?', [id]);
+    await getPool().execute('DELETE FROM courses WHERE id = ?', [id]);
   },
 
   async publishCourse(id, status) {
-    await execute('UPDATE courses SET status = ? WHERE id = ?', [status, id]);
+    await getPool().execute('UPDATE courses SET status = ? WHERE id = ?', [status, id]);
   },
 
   async incrementCourseView(id) {
-    await execute('UPDATE courses SET view_count = view_count + 1 WHERE id = ?', [id]);
+    await getPool().execute('UPDATE courses SET view_count = view_count + 1 WHERE id = ?', [id]);
   },
 
   async getChapters(courseId, options = {}) {
@@ -1175,7 +1175,7 @@ const db = {
   },
 
   async createChapter(data) {
-    const result = await execute(
+    const result = await getPool().execute(
       'INSERT INTO chapters (course_id, parent_id, title, content, sort_order, status) VALUES (?, ?, ?, ?, ?, ?)',
       [data.course_id, data.parent_id || null, data.title, data.content || '', data.sort_order || 0, data.status || 'draft']
     );
@@ -1191,27 +1191,27 @@ const db = {
     }
     if (!sets.length) return;
     vals.push(id);
-    await execute(`UPDATE chapters SET ${sets.join(',')} WHERE id = ?`, vals);
+    await getPool().execute(`UPDATE chapters SET ${sets.join(',')} WHERE id = ?`, vals);
   },
 
   async deleteChapter(id) {
     const ch = await this.getChapterById(id);
     if (ch) {
-      await execute('DELETE FROM chapters WHERE parent_id = ?', [id]);
-      await execute('DELETE FROM chapters WHERE id = ?', [id]);
+      await getPool().execute('DELETE FROM chapters WHERE parent_id = ?', [id]);
+      await getPool().execute('DELETE FROM chapters WHERE id = ?', [id]);
     }
   },
 
   async reorderChapters(courseId, orders) {
     for (const item of orders) {
-      await execute('UPDATE chapters SET sort_order = ?, parent_id = ? WHERE id = ? AND course_id = ?', [item.sort_order, item.parent_id || null, item.id, courseId]);
+      await getPool().execute('UPDATE chapters SET sort_order = ?, parent_id = ? WHERE id = ? AND course_id = ?', [item.sort_order, item.parent_id || null, item.id, courseId]);
     }
   },
 
   async batchPublishChapters(courseId, chapterIds, status) {
     if (!chapterIds.length) return;
     const ph = chapterIds.map(() => '?').join(',');
-    await execute(`UPDATE chapters SET status = ? WHERE id IN (${ph}) AND course_id = ?`, [status, ...chapterIds, courseId]);
+    await getPool().execute(`UPDATE chapters SET status = ? WHERE id IN (${ph}) AND course_id = ?`, [status, ...chapterIds, courseId]);
   },
 
   async getCourseAccessList(courseId) {
@@ -1219,11 +1219,11 @@ const db = {
   },
 
   async addCourseAccess(courseId, userId, grantedBy) {
-    try { await execute('INSERT IGNORE INTO course_access (course_id, user_id, granted_by) VALUES (?, ?, ?)', [courseId, userId, grantedBy]); } catch(e) {}
+    try { await getPool().execute('INSERT IGNORE INTO course_access (course_id, user_id, granted_by) VALUES (?, ?, ?)', [courseId, userId, grantedBy]); } catch(e) {}
   },
 
   async removeCourseAccess(courseId, userId) {
-    await execute('DELETE FROM course_access WHERE course_id = ? AND user_id = ?', [courseId, userId]);
+    await getPool().execute('DELETE FROM course_access WHERE course_id = ? AND user_id = ?', [courseId, userId]);
   },
 
   async checkCourseAccess(courseId, userId) {
