@@ -355,14 +355,14 @@ async function doUpload(file) {
     const res = await uploadImage(file, (progress) => {
       uploadProgress.value = Math.round(progress * 100)
     })
-    if (res.data?.success) {
-      const url = res.data.url
+    if (res?.success) {
+      const url = res.url
       emit('update:modelValue', url)
       emit('change', url)
       emit('success', url)
       Message.success('上传成功')
     } else {
-      throw new Error(res.data?.message || '上传失败')
+      throw new Error(res?.message || '上传失败')
     }
   } catch (err) {
     Message.error(err.message || '上传失败')
