@@ -30,7 +30,7 @@ router.get('/', asyncHandler(async (req, res) => {
     course: coursesMap[p.course_id] ? {
       id: coursesMap[p.course_id].id,
       title: coursesMap[p.course_id].title,
-      cover_url: coursesMap[p.course_id].cover_url,
+      cover_url: coursesMap[p.course_id].cover_image,
       slug: coursesMap[p.course_id].slug,
       chapter_count: coursesMap[p.course_id].chapter_count || 0
     } : null

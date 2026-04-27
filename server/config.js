@@ -47,7 +47,7 @@ const config = {
 
   APP_PORT: parseInt(getEnv('PORT', '3000')),
 
-  UPLOAD_DIR: path.join(__dirname, '../uploads'),
+  UPLOAD_DIR: path.join(__dirname, 'uploads'),
   LOG_DIR: path.join(__dirname, '../logs'),
 
   GITHUB_REPO: getEnv('GITHUB_REPO', 'thishes/trainer-ai-tool'),
