@@ -156,7 +156,7 @@
         </div>
         <div>
           <label style="display:block;margin-bottom:6px;font-weight:500;font-size:14px;">封面图</label>
-          <ImageUploader v-model:value="courseForm.cover_image" :aspect-ratio="16/9" hint-size="1200×630" />
+          <ImageUploader v-model:value="courseForm.cover_image" :aspect-ratio="16/9" hint-size="1200×630" :key="'cover-' + formKey" />
         </div>
       </div>
     </a-modal>
