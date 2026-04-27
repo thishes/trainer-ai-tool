@@ -98,7 +98,7 @@
       :course-id="editingCourseId"
       :course="currentEditingCourse"
       @back="backToList"
-      @updated="loadCourses"
+      @updated="(c) => { currentEditingCourse = c; loadCourses(); }"
     />
 
     <!-- 课程列表模式 - 美化后的卡片网格 -->

@@ -260,6 +260,13 @@ watch(() => props.course, (val) => {
   if (val) populateCourseForm(val)
 }, { immediate: true })
 
+watch(showCourseInfoModal, (open) => {
+  if (open) {
+    populateCourseForm(props.course)
+    formKey.value++
+  }
+})
+
 // 【修复4】已发布章节数量统计
 const publishedChapterCount = computed(() => countPublishedChapters(chapters.value))
 
