@@ -39,15 +39,15 @@
         </div>
       </div>
 
-      <!-- 【T2.2】学习进度追踪条 -->
-      <div class="progress-bar-wrapper" v-if="course?.id">
-        <ProgressTracker
-          ref="progressTrackerRef"
-          :course-id="course.id"
-          :auto-load="true"
-          @continue="handleContinueLearning"
-        />
-      </div>
+      <!-- 【T2.2】学习进度追踪条（仅在有进度数据或加载中时显示） -->
+      <ProgressTracker
+        v-if="course?.id"
+        ref="progressTrackerRef"
+        :course-id="course.id"
+        :auto-load="true"
+        :show-when-empty="false"
+        @continue="handleContinueLearning"
+      />
 
       <div class="course-layout">
         <!-- 【T1.5】移动端遮罩层（点击关闭目录） -->
@@ -230,6 +230,13 @@ function resolveCoverUrl(url) {
 const heroStyle = computed(() => {
   if (!course.value) return {}
   const coverUrl = course.value.cover_url || course.value.cover_image
+  console.log('[CourseView] heroStyle 计算:', {
+    courseId: course.value.id,
+    cover_url: course.value.cover_url,
+    cover_image: course.value.cover_image,
+    coverUrl: coverUrl,
+    resolvedUrl: coverUrl ? resolveCoverUrl(coverUrl) : '(无封面)'
+  })
   if (coverUrl) {
     return { background: `url(${resolveCoverUrl(coverUrl)}) center/cover no-repeat` }
   }
@@ -337,22 +344,22 @@ function formatTime(t) {
 .hero-meta span { display: flex; align-items: center; gap: 4px; }
 
 /* 布局 */
-.course-layout { display: flex; max-width: 1200px; width: 100%; margin: 0 auto; gap: 0; flex: 1; }
+.course-layout { display: flex; max-width: 1200px; width: 100%; margin: 0 auto; gap: 0; flex: 1; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
 
 /* 目录 */
-.course-toc { width: 240px; min-width: 200px; background: #fff; border-right: 1px solid var(--border-color-light, #e5e6eb); height: calc(100vh - 340px); position: sticky; top: 0; overflow-y: auto; flex-shrink: 0; }
-.toc-depth-1 { padding-left: 36px; }
-.toc-depth-2 { padding-left: 54px; }
-.toc-depth-3 { padding-left: 72px; }
+.course-toc { width: 220px; min-width: 200px; background: #fafbfc; height: calc(100vh - 340px); position: sticky; top: 0; overflow-y: auto; flex-shrink: 0; padding: 20px 0 20px 20px; }
+.toc-depth-1 { padding-left: 16px; }
+.toc-depth-2 { padding-left: 32px; }
+.toc-depth-3 { padding-left: 48px; }
 
-.toc-header { padding: 14px 18px; font-weight: 600; font-size: 15px; border-bottom: 1px solid var(--border-color-light, #e5e6eb); }
-.toc-list { padding: 8px 0; }
-.toc-item { display: flex; align-items: center; padding: 9px 18px; cursor: pointer; transition: all 0.15s; color: var(--text-1, #1d2129); font-size: 13.5px; text-decoration: none; border-left: 3px solid transparent; }
-.toc-item:hover { background: rgba(var(--primary-6), 0.04); }
-.toc-item.active { background: rgba(var(--primary-6), 0.08); border-left-color: var(--primary-6); color: var(--primary-6); font-weight: 500; }
-.toc-num { color: var(--text-3, #86909c); margin-right: 8px; font-size: 12px; min-width: 18px; }
+.toc-header { padding: 10px 16px; font-weight: 500; font-size: 13px; color: var(--text-3, #86909c); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.toc-list { padding: 4px 0; }
+.toc-item { display: flex; align-items: center; padding: 8px 16px; cursor: pointer; transition: all 0.2s ease; color: var(--text-2, #4e5969); font-size: 13px; text-decoration: none; border-radius: 8px; margin: 2px 8px; }
+.toc-item:hover { background: rgba(0, 0, 0, 0.04); color: var(--text-1, #1d2129); }
+.toc-item.active { background: rgba(var(--primary-6), 0.08); color: var(--primary-6); font-weight: 500; }
+.toc-num { color: var(--text-4, #c9cdd4); margin-right: 6px; font-size: 11px; min-width: 16px; }
 .toc-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toc-empty { text-align: center; padding: 30px 16px; color: var(--text-3, #86909c); font-size: 13px; }
+.toc-empty { text-align: center; padding: 24px 16px; color: var(--text-4, #c9cdd4); font-size: 12px; }
 
 /* 内容区 */
 .course-content { flex: 1; background: #fff; padding: 28px 40px; min-width: 0; overflow-y: auto; }
@@ -371,6 +378,9 @@ function formatTime(t) {
 /* 加载/错误 */
 .loading-page { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 400px; }
 .error-page { display: flex; align-items: center; justify-content: center; flex: 1; padding: 60px 20px; }
+
+/* 移动端目录按钮 - PC端默认隐藏 */
+.mobile-toc-toggle { display: none; }
 
 /* 响应式 - 【T1.5】移动端抽屉式目录 */
 @media (max-width: 767.98px) {
