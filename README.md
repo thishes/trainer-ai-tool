@@ -95,6 +95,29 @@ cd client && npm run dev
 
 ## 版本历史
 
+### V1.0.9 (2026-04-28)
+- **封面图上传功能修复**
+  - 修复 FormData 上传 Content-Type 问题（axios boundary 参数）
+  - 修复 ImageUploader 响应处理（res.data?.success → res?.success）
+  - 修复上传路径不匹配（server/uploads vs uploads）
+  - 修复保存后封面图未更新问题
+- **课程目录优化**
+  - 修复目录层级结构（depth-aware flattenTree）
+  - 优化课程页面样式，目录区域更柔和
+  - PC 端隐藏移动端目录按钮
+- **其他修复**
+  - 移除调试覆盖层代码
+
+### V1.0.8 (2026-04-26)
+- 课程服务模块 Phase 1 MVP
+- 分页响应格式统一
+- 7 项 Array vs Map bug 修复
+- 安全加固与性能优化
+
+### V1.0.7 (2026-04-20)
+- 多个关键问题修复
+- 生产环境配置优化
+
 ### V2 (2026-03-21)
 - 新增题目管理页面
 - 从题库选择题目功能
